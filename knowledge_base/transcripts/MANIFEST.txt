@@ -1,0 +1,6 @@
+Combined ICT transcripts from:
+- /Users/Sj/Downloads/ict-transcripts
+- /Users/Sj/help_claw_extract_ict/all_transcripts
+
+Unique transcripts: 740
+Generated: 2026-02-19T14:39:11.085412

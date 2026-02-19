@@ -1,0 +1,11 @@
+.env
+charts/
+data/trades.db
+__pycache__/
+*.pyc
+.streamlit/secrets.toml
+.venv/
+venv/
+knowledge_base/chromadb/
+*.db-journal
+.DS_Store
