@@ -17,13 +17,24 @@ existing_count = get_trade_count(user_id=user_id)
 st.info(f"You currently have **{existing_count}** trades in the database.")
 
 uploaded = st.file_uploader(
-    "Upload your trade history CSV",
-    type=["csv", "txt", "tsv"],
-    help="Supports MetaTrader 4 statements, MetaTrader 5 exports, Tradovate order exports, and generic CSV files.",
+    "Upload your trade history",
+    type=["csv", "txt", "tsv", "xlsx"],
+    help="Supports MetaTrader 4, MetaTrader 5, Tradovate, Excel (.xlsx), and generic CSV. "
+         "**Apple Numbers:** export as CSV (File → Export To → CSV) or Excel (.xlsx).",
 )
 
 if uploaded:
-    text = uploaded.read().decode("utf-8", errors="replace")
+    # Handle Excel files (.xlsx)
+    if uploaded.name.endswith(".xlsx"):
+        try:
+            import pandas as pd
+            df = pd.read_excel(uploaded, engine="openpyxl")
+            text = df.to_csv(index=False)
+        except Exception as e:
+            st.error(f"Error reading Excel file: {e}")
+            st.stop()
+    else:
+        text = uploaded.read().decode("utf-8", errors="replace")
 
     st.divider()
 

@@ -120,8 +120,13 @@ def parse_mt5_csv(text: str) -> list[Trade]:
     """
     Parse MetaTrader 5 CSV export.
 
-    MT5 exports typically have columns:
+    Supports two common MT5 export formats:
+
+    Format A (Deal history):
     Time, Deal, Symbol, Type, Direction, Volume, Price, Order, Commission, Fee, Swap, Profit, Balance, Comment
+
+    Format B (Trade history — common from MT5 mobile/desktop):
+    Ticket, Open, Type, Volume, Symbol, Price, SL, TP, Close, Price, Swap, Commissions, Profit, Pips, Trade duration
     """
     trades = []
     reader = csv.reader(io.StringIO(text), delimiter="\t")
@@ -134,11 +139,16 @@ def parse_mt5_csv(text: str) -> list[Trade]:
     if not rows:
         return []
 
-    # Find header row
+    # Find header row — support both format A and B
     header_idx = None
     for i, row in enumerate(rows):
         row_lower = [c.strip().lower() for c in row]
+        # Format A: deal-based
         if "symbol" in row_lower and ("deal" in row_lower or "order" in row_lower):
+            header_idx = i
+            break
+        # Format B: ticket-based with open/close times
+        if "ticket" in row_lower and "symbol" in row_lower and "type" in row_lower:
             header_idx = i
             break
 
@@ -146,6 +156,141 @@ def parse_mt5_csv(text: str) -> list[Trade]:
         return []
 
     headers = [c.strip().lower() for c in rows[header_idx]]
+
+    # Detect which format we have
+    has_ticket = "ticket" in headers
+    has_open_close = "open" in headers and "close" in headers
+
+    if has_ticket and has_open_close:
+        # Format B: Ticket, Open, Type, Volume, Symbol, Price, SL, TP, Close, Price, ...
+        return _parse_mt5_trade_history(rows, header_idx, headers)
+    else:
+        # Format A: Deal-based format
+        return _parse_mt5_deal_history(rows, header_idx, headers)
+
+
+def _parse_mt5_trade_history(rows, header_idx, headers) -> list[Trade]:
+    """
+    Parse MT5 trade history format:
+    Ticket, Open, Type, Volume, Symbol, Price, SL, TP, Close, Price, Swap, Commissions, Profit, Pips, Trade duration
+
+    This format has TWO 'Price' columns — entry price and exit price.
+    """
+    trades = []
+
+    col = {}
+    price_cols = []  # Track both Price columns
+    for i, h in enumerate(headers):
+        if h == "ticket":
+            col["ticket"] = i
+        elif h == "open":
+            col["open"] = i
+        elif h == "type":
+            col["type"] = i
+        elif h == "volume":
+            col["volume"] = i
+        elif h == "symbol":
+            col["symbol"] = i
+        elif h == "price":
+            price_cols.append(i)
+        elif h == "sl" or h == "s/l":
+            col["sl"] = i
+        elif h == "tp" or h == "t/p":
+            col["tp"] = i
+        elif h == "close":
+            col["close"] = i
+        elif h == "swap":
+            col["swap"] = i
+        elif h in ("commissions", "commission"):
+            col["commission"] = i
+        elif h == "profit":
+            col["profit"] = i
+        elif h == "pips":
+            col["pips"] = i
+        elif h == "trade duration":
+            col["duration"] = i
+
+    for row in rows[header_idx + 1:]:
+        if not row or all(c.strip() == "" for c in row):
+            continue
+        # Stop if we hit a summary row
+        first_cell = row[0].strip().lower() if row else ""
+        if first_cell in ("", "total", "summary", "balance"):
+            # Only skip if it looks like a summary — empty ticket with data elsewhere
+            if "ticket" in col and (not row[col["ticket"]].strip() or not row[col["ticket"]].strip().isdigit()):
+                continue
+
+        try:
+            trade_type = row[col.get("type", 0)].strip().lower() if "type" in col else ""
+
+            if "buy" in trade_type:
+                direction = "long"
+            elif "sell" in trade_type:
+                direction = "short"
+            else:
+                continue
+
+            symbol = row[col.get("symbol", 0)].strip() if "symbol" in col else ""
+            if not symbol:
+                continue
+
+            # Entry price = first Price column, Exit price = second Price column
+            entry_price = float(row[price_cols[0]]) if len(price_cols) >= 1 else 0.0
+            exit_price = float(row[price_cols[1]]) if len(price_cols) >= 2 else entry_price
+
+            profit = 0.0
+            if "profit" in col:
+                profit_str = row[col["profit"]].strip().replace(" ", "")
+                if profit_str:
+                    profit = float(profit_str)
+
+            # Use the Pips column if available
+            pips = 0.0
+            if "pips" in col:
+                pips_str = row[col["pips"]].strip().replace(" ", "")
+                if pips_str:
+                    try:
+                        pips = float(pips_str)
+                    except ValueError:
+                        pips = _calculate_pips(symbol, direction, entry_price, exit_price)
+            else:
+                pips = _calculate_pips(symbol, direction, entry_price, exit_price)
+
+            # Parse close time for trade date (prefer close, fallback to open)
+            trade_date = ""
+            if "close" in col:
+                close_str = row[col["close"]].strip()
+                if close_str:
+                    trade_date = _parse_date(close_str)
+            if not trade_date and "open" in col:
+                open_str = row[col["open"]].strip()
+                if open_str:
+                    trade_date = _parse_date(open_str)
+
+            ticket = row[col.get("ticket", 0)].strip() if "ticket" in col else ""
+
+            trades.append(Trade(
+                pair=_normalize_pair(symbol),
+                direction=direction,
+                entry_price=entry_price,
+                exit_price=exit_price,
+                pnl_pips=pips,
+                pnl_dollar=profit,
+                trade_date=trade_date,
+                reasoning=f"Imported from MT5 (ticket #{ticket})" if ticket else "Imported from MT5",
+            ))
+        except (ValueError, IndexError):
+            continue
+
+    return trades
+
+
+def _parse_mt5_deal_history(rows, header_idx, headers) -> list[Trade]:
+    """
+    Parse MT5 deal history format:
+    Time, Deal, Symbol, Type, Direction, Volume, Price, Order, Commission, Fee, Swap, Profit, Balance, Comment
+    """
+    trades = []
 
     col = {}
     for i, h in enumerate(headers):
@@ -472,13 +617,19 @@ def detect_and_parse(text: str) -> tuple[str, list[Trade]]:
     """
     text_lower = text[:2000].lower()
 
-    # MT4 detection
+    # MT4 detection (uses "open time" / "close time" specifically)
     if "ticket" in text_lower and ("open time" in text_lower or "close time" in text_lower):
         return "MT4", parse_mt4_csv(text)
 
-    # MT5 detection
+    # MT5 detection — format A (deal history)
     if "deal" in text_lower and "symbol" in text_lower and ("direction" in text_lower or "commission" in text_lower):
         return "MT5", parse_mt5_csv(text)
+
+    # MT5 detection — format B (trade history: Ticket, Open, Type, Symbol, Price, Close, Price, Profit, Pips)
+    if "ticket" in text_lower and "symbol" in text_lower and "type" in text_lower and ("profit" in text_lower or "pips" in text_lower):
+        trades = parse_mt5_csv(text)
+        if trades:
+            return "MT5", trades
 
     # Tradovate detection
     if any(marker in text_lower for marker in ("b/s", "b / s")) and ("product" in text_lower or "contract" in text_lower):
