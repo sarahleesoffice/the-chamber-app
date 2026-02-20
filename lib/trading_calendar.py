@@ -99,9 +99,9 @@ def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
     cards = '<div style="display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin:12px 0 16px 0;">'
     cards += _stat_card(
         "Monthly P&L",
-        f"${m_dollar:+,.2f}" if m_dollar else f"{m_total:+.1f} pips",
+        f"-${abs(m_dollar):,.2f}" if m_dollar and m_dollar < 0 else f"${m_dollar:,.2f}" if m_dollar else f"{m_total:+.1f} pips",
         m_color,
-        f"{m_total:+.1f} pips" if m_dollar else "",
+        f"{m_total:.1f} pips" if m_dollar else "",
     )
     cards += _stat_card("Total Trades", str(len(month_trades)), "#f5f5f5")
     cards += _stat_card("Trading Days", str(len(trading_days)), "#e8651a")
@@ -245,10 +245,12 @@ def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
                 if val_color and count > 0:
                     # Dollar P&L (primary display)
                     if dollar:
-                        cell += f'<div style="color:{val_color}; font-weight:700; font-size:1.1rem;">${dollar:+,.0f}</div>'
+                        dollar_display = f"-${abs(dollar):,.0f}" if dollar < 0 else f"${dollar:,.0f}"
+                        cell += f'<div style="color:{val_color}; font-weight:700; font-size:1.1rem;">{dollar_display}</div>'
                     else:
                         # Fallback to pips if no dollar data
-                        cell += f'<div style="color:{val_color}; font-weight:700; font-size:1.1rem;">{pnl:+.0f}p</div>'
+                        pips_display = f"-{abs(pnl):.0f}p" if pnl < 0 else f"{pnl:.0f}p"
+                        cell += f'<div style="color:{val_color}; font-weight:700; font-size:1.1rem;">{pips_display}</div>'
                     # Trade count
                     cell += f'<div style="color:#666; font-size:0.65rem; margin-top:2px;">{count} trade{"s" if count != 1 else ""}</div>'
 
@@ -384,9 +386,9 @@ def _render_day_detail(date_str: str, trades: list, key_prefix: str) -> None:
     stats_html = '<div style="display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin:8px 0 16px 0;">'
     stats_html += _stat_card(
         "Day P&L",
-        f"${day_total_dollar:+,.2f}" if day_total_dollar else f"{day_total_pips:+.1f}p",
+        f"-${abs(day_total_dollar):,.2f}" if day_total_dollar and day_total_dollar < 0 else f"${day_total_dollar:,.2f}" if day_total_dollar else f"{day_total_pips:.1f}p",
         day_pnl_color,
-        f"{day_total_pips:+.1f} pips" if day_total_dollar else "",
+        f"{day_total_pips:.1f} pips" if day_total_dollar else "",
     )
     stats_html += _stat_card("Trades", str(len(trades)), "#f5f5f5", f"{len(day_wins)}W / {len(day_losses)}L")
     stats_html += _stat_card(
@@ -409,7 +411,7 @@ def _render_day_detail(date_str: str, trades: list, key_prefix: str) -> None:
         pnl_color = "#22c55e" if t.pnl_pips > 0 else "#ef4444" if t.pnl_pips < 0 else "#888"
         result_tag = "WIN" if t.pnl_pips > 0 else "LOSS" if t.pnl_pips < 0 else "BE"
         result_bg = "rgba(34,197,94,0.15)" if t.pnl_pips > 0 else "rgba(239,68,68,0.15)" if t.pnl_pips < 0 else "rgba(160,160,160,0.1)"
-        dollar_str = f"${t.pnl_dollar:+,.2f}" if t.pnl_dollar else ""
+        dollar_str = f"-${abs(t.pnl_dollar):,.2f}" if t.pnl_dollar and t.pnl_dollar < 0 else f"${t.pnl_dollar:,.2f}" if t.pnl_dollar else ""
         reasoning_str = t.reasoning[:80] + "..." if t.reasoning and len(t.reasoning) > 80 else (t.reasoning or "")
 
         trade_html = (
@@ -425,7 +427,7 @@ def _render_day_detail(date_str: str, trades: list, key_prefix: str) -> None:
             f'</div>'
             f'<div style="text-align:right;">'
             f'<span style="color:{pnl_color}; font-weight:700; font-size:1.1rem;">'
-            f'{dollar_str if dollar_str else f"{t.pnl_pips:+.1f}p"}</span>'
+            f'{dollar_str if dollar_str else (f"-{abs(t.pnl_pips):.1f}p" if t.pnl_pips < 0 else f"{t.pnl_pips:.1f}p")}</span>'
             f'</div>'
             f'</div>'
             # Details row
