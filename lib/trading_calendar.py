@@ -95,9 +95,9 @@ def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
     cards = '<div style="display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin:12px 0 16px 0;">'
     cards += _stat_card(
         "Monthly P&L",
-        f"{m_total:+.1f}",
+        f"${m_dollar:+,.2f}" if m_dollar else f"{m_total:+.1f} pips",
         m_color,
-        f"${m_dollar:+,.2f}" if m_dollar else "pips",
+        f"{m_total:+.1f} pips" if m_dollar else "",
     )
     cards += _stat_card("Total Trades", str(len(month_trades)), "#f5f5f5")
     cards += _stat_card("Trading Days", str(len(trading_days)), "#e8651a")
@@ -223,13 +223,14 @@ def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
                 cell += f'<div style="font-size:0.8rem; color:{day_color}; font-weight:{"600" if is_today else "400"}; margin-bottom:4px;">{day_num}</div>'
 
                 if val_color and count > 0:
-                    # P&L value
-                    cell += f'<div style="color:{val_color}; font-weight:700; font-size:1.1rem;">{pnl:+.0f}</div>'
-                    # Dollar value
+                    # Dollar P&L (primary display)
                     if dollar:
-                        cell += f'<div style="color:{val_color}; font-size:0.6rem; opacity:0.8;">${dollar:+,.0f}</div>'
+                        cell += f'<div style="color:{val_color}; font-weight:700; font-size:1.1rem;">${dollar:+,.0f}</div>'
+                    else:
+                        # Fallback to pips if no dollar data
+                        cell += f'<div style="color:{val_color}; font-weight:700; font-size:1.1rem;">{pnl:+.0f}p</div>'
                     # Trade count
-                    cell += f'<div style="color:#666; font-size:0.6rem; margin-top:2px;">{count} trade{"s" if count != 1 else ""}</div>'
+                    cell += f'<div style="color:#666; font-size:0.65rem; margin-top:2px;">{count} trade{"s" if count != 1 else ""}</div>'
 
                 # Bottom indicators
                 indicators = []
