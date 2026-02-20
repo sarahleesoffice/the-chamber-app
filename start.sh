@@ -3,6 +3,9 @@
 
 echo "=== The Chamber — Starting up ==="
 
+# Use PORT env var from Render, default to 8501
+PORT="${PORT:-8501}"
+
 # Check if knowledge base is already indexed
 CHUNK_COUNT=$(python3 -c "
 from lib.knowledge.vector_store import get_collection_stats
@@ -41,9 +44,9 @@ else
     echo "Knowledge base already indexed: $CHUNK_COUNT chunks"
 fi
 
-echo "Starting Streamlit..."
+echo "Starting Streamlit on port $PORT..."
 exec streamlit run app.py \
-    --server.port=8501 \
+    --server.port="$PORT" \
     --server.address=0.0.0.0 \
     --server.headless=true \
     --browser.gatherUsageStats=false
