@@ -2,7 +2,7 @@ import streamlit as st
 
 from lib.auth import get_current_user_id
 from lib.csv_import import detect_and_parse, parse_generic_csv
-from lib.database import insert_trade, get_trade_count
+from lib.database import insert_trade, get_trade_count, delete_all_trades
 
 user_id = get_current_user_id()
 
@@ -15,6 +15,23 @@ st.caption("Import trade history from MT4, MT5, Tradovate, or any CSV file.")
 
 existing_count = get_trade_count(user_id=user_id)
 st.info(f"You currently have **{existing_count}** trades in the database.")
+
+# Delete all trades option
+if existing_count > 0:
+    with st.expander("🗑️ Delete All Trades"):
+        st.warning(f"This will permanently delete all **{existing_count}** trades. This cannot be undone.")
+        confirm = st.text_input(
+            f'Type **DELETE** to confirm:',
+            key="delete_confirm",
+            placeholder="DELETE",
+        )
+        if st.button("Delete All Trades", type="primary", key="delete_all_btn"):
+            if confirm == "DELETE":
+                deleted = delete_all_trades(user_id=user_id)
+                st.success(f"Deleted **{deleted}** trades.")
+                st.rerun()
+            else:
+                st.error("Type DELETE to confirm.")
 
 uploaded = st.file_uploader(
     "Upload your trade history",

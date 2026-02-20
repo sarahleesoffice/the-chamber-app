@@ -304,6 +304,17 @@ def delete_trade(trade_id: int, user_id: int = 1) -> None:
     conn.close()
 
 
+def delete_all_trades(user_id: int = 1) -> int:
+    """Delete all trades for a user. Returns the number of trades deleted."""
+    conn = get_connection()
+    cursor = conn.execute("SELECT COUNT(*) FROM trades WHERE user_id = ?", (user_id,))
+    count = cursor.fetchone()[0]
+    with conn:
+        conn.execute("DELETE FROM trades WHERE user_id = ?", (user_id,))
+    conn.close()
+    return count
+
+
 def get_trades_for_date(trade_date: str, user_id: int = 1) -> list[Trade]:
     """Get all trades for a specific date."""
     conn = get_connection()
