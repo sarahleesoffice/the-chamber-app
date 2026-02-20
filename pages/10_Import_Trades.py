@@ -1,7 +1,10 @@
 import streamlit as st
 
+from lib.auth import get_current_user_id
 from lib.csv_import import detect_and_parse, parse_generic_csv
 from lib.database import insert_trade, get_trade_count
+
+user_id = get_current_user_id()
 
 st.header("Import Trades")
 st.caption("Import trade history from MT4, MT5, Tradovate, or any CSV file.")
@@ -10,7 +13,7 @@ st.caption("Import trade history from MT4, MT5, Tradovate, or any CSV file.")
 # UPLOAD
 # ============================================================
 
-existing_count = get_trade_count()
+existing_count = get_trade_count(user_id=user_id)
 st.info(f"You currently have **{existing_count}** trades in the database.")
 
 uploaded = st.file_uploader(
@@ -140,7 +143,7 @@ if "import_preview" in st.session_state and st.session_state["import_preview"]:
             imported = 0
             progress = st.progress(0)
             for i, trade in enumerate(trades):
-                insert_trade(trade)
+                insert_trade(trade, user_id=user_id)
                 imported += 1
                 progress.progress((i + 1) / len(trades))
 

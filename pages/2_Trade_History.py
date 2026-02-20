@@ -3,11 +3,14 @@ import os
 
 from lib.database import get_all_trades, get_distinct_pairs, get_trade_count, delete_trade
 from lib.chart_storage import get_chart_absolute_path
+from lib.auth import get_current_user_id
 
 st.header("Trade History")
 
+user_id = get_current_user_id()
+
 # Summary metrics
-trades = get_all_trades(limit=1000)
+trades = get_all_trades(limit=1000, user_id=user_id)
 
 if not trades:
     st.info("No trades recorded yet. Go to **Enter Trade** to log your first trade.")
@@ -36,7 +39,7 @@ st.divider()
 filter_col1, filter_col2, filter_col3 = st.columns(3)
 
 with filter_col1:
-    pair_filter = st.multiselect("Filter by Pair", get_distinct_pairs())
+    pair_filter = st.multiselect("Filter by Pair", get_distinct_pairs(user_id=user_id))
 
 with filter_col2:
     direction_filter = st.selectbox("Direction", ["All", "Long", "Short"])
@@ -99,7 +102,7 @@ for trade in page_trades:
                 st.info("No chart uploaded for this trade.")
 
         if st.button(f"Delete Trade #{trade.id}", key=f"del_{trade.id}", type="secondary"):
-            delete_trade(trade.id)
+            delete_trade(trade.id, user_id=user_id)
             st.rerun()
 
 # Pagination controls

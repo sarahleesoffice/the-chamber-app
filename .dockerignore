@@ -1,0 +1,12 @@
+.env
+.git
+.gitignore
+__pycache__
+*.pyc
+.venv
+venv
+.DS_Store
+*.db-journal
+data/trades.db
+charts/
+.streamlit/secrets.toml

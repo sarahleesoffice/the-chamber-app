@@ -3,6 +3,15 @@ from typing import Optional
 
 
 @dataclass
+class User:
+    id: Optional[int] = None
+    email: str = ""
+    username: str = ""
+    password_hash: str = ""
+    created_at: str = ""
+
+
+@dataclass
 class Trade:
     id: Optional[int] = None
     pair: str = ""
@@ -15,6 +24,7 @@ class Trade:
     reasoning: str = ""
     chart_path: Optional[str] = None
     created_at: str = ""
+    user_id: Optional[int] = None
 
 
 @dataclass
@@ -25,6 +35,7 @@ class Analysis:
     model: str = ""
     analysis_text: str = ""
     created_at: str = ""
+    user_id: Optional[int] = None
 
 
 @dataclass
@@ -51,6 +62,7 @@ class DailyJournal:
     tomorrows_improvements: str = ""
     created_at: str = ""
     updated_at: str = ""
+    user_id: Optional[int] = None
 
 
 @dataclass
@@ -62,6 +74,7 @@ class PlaybookSetup:
     description: str = ""            # Freeform description
     active: bool = True
     created_at: str = ""
+    user_id: Optional[int] = None
 
 
 @dataclass
@@ -74,6 +87,7 @@ class TradeGrade:
     compliance_pct: float = 0.0
     notes: str = ""
     created_at: str = ""
+    user_id: Optional[int] = None
 
 
 @dataclass
@@ -89,3 +103,4 @@ class WatchlistItem:
     active: bool = True
     created_at: str = ""
     updated_at: str = ""
+    user_id: Optional[int] = None

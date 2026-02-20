@@ -11,8 +11,11 @@ from lib.psychology_framework import (
     MARKET_CONDITIONS,
     assess_readiness,
 )
+from lib.auth import get_current_user_id
 
 st.header("Daily Journal")
+
+user_id = get_current_user_id()
 
 # --- Date Navigation ---
 nav_col1, nav_col2, nav_col3, nav_col4 = st.columns([1, 1, 2, 1])
@@ -52,10 +55,10 @@ display_date = current_date.strftime("%A, %B %d, %Y")
 st.caption(display_date)
 
 # --- Load existing entry ---
-existing = get_journal(date_str)
+existing = get_journal(date_str, user_id=user_id)
 
 # --- Daily P&L Summary ---
-day_trades = get_trades_for_date(date_str)
+day_trades = get_trades_for_date(date_str, user_id=user_id)
 if day_trades:
     total_pips = sum(t.pnl_pips for t in day_trades)
     wins = sum(1 for t in day_trades if t.pnl_pips > 0)
@@ -256,5 +259,5 @@ if st.button("Save Journal Entry", type="primary", use_container_width=True):
         lessons_learned=lessons,
         tomorrows_improvements=improvements,
     )
-    upsert_journal(journal)
+    upsert_journal(journal, user_id=user_id)
     st.success("Journal entry saved!")

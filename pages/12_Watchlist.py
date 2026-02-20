@@ -1,5 +1,6 @@
 import streamlit as st
 
+from lib.auth import get_current_user_id
 from lib.database import (
     get_all_watchlist,
     insert_watchlist_item,
@@ -8,6 +9,8 @@ from lib.database import (
 )
 from lib.models import WatchlistItem
 from lib.psychology_framework import ICT_SETUPS
+
+user_id = get_current_user_id()
 
 st.header("Watchlist")
 st.caption("Track pairs, levels, and setups you're watching for.")
@@ -52,7 +55,7 @@ with st.expander("**+ Add to Watchlist**", expanded=False):
                 setup_type=new_setup if new_setup != "(any)" else "",
                 alert_price=new_alert if new_alert != 0.0 else None,
             )
-            insert_watchlist_item(item)
+            insert_watchlist_item(item, user_id=user_id)
             st.success(f"Added {new_pair.upper()} to watchlist!")
             st.rerun()
         else:
@@ -64,8 +67,8 @@ with st.expander("**+ Add to Watchlist**", expanded=False):
 
 st.divider()
 
-items = get_all_watchlist(active_only=True)
-archived = get_all_watchlist(active_only=False)
+items = get_all_watchlist(active_only=True, user_id=user_id)
+archived = get_all_watchlist(active_only=False, user_id=user_id)
 archived_count = len(archived) - len(items)
 
 if not items:
@@ -124,18 +127,18 @@ else:
             with bc1:
                 if st.button("Archive", key=f"arch_{item.id}"):
                     item.active = False
-                    update_watchlist_item(item)
+                    update_watchlist_item(item, user_id=user_id)
                     st.rerun()
             with bc2:
                 if st.button("Remove", key=f"del_{item.id}", type="secondary"):
-                    delete_watchlist_item(item.id)
+                    delete_watchlist_item(item.id, user_id=user_id)
                     st.rerun()
 
 # Archived items
 if archived_count > 0:
     st.divider()
     with st.expander(f"Archived ({archived_count})"):
-        for item in get_all_watchlist(active_only=False):
+        for item in get_all_watchlist(active_only=False, user_id=user_id):
             if item.active:
                 continue
             ic1, ic2, ic3 = st.columns([3, 1, 1])
@@ -144,9 +147,9 @@ if archived_count > 0:
             with ic2:
                 if st.button("Restore", key=f"restore_{item.id}"):
                     item.active = True
-                    update_watchlist_item(item)
+                    update_watchlist_item(item, user_id=user_id)
                     st.rerun()
             with ic3:
                 if st.button("Delete", key=f"pdel_{item.id}"):
-                    delete_watchlist_item(item.id)
+                    delete_watchlist_item(item.id, user_id=user_id)
                     st.rerun()

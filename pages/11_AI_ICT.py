@@ -2,9 +2,28 @@ import streamlit as st
 
 from lib.knowledge.vector_store import query_similar, get_collection_stats
 from lib.ai_providers import get_provider
+from lib.auth import get_current_user_id, has_api_key
 
 st.header("AI ICT Mentor")
 st.caption("Ask anything about ICT methodology — powered by 675+ of ICT's YouTube lectures.")
+
+# Check for API key
+user_id = get_current_user_id()
+provider_name = st.session_state.get("ai_provider", "Claude")
+key_provider = "anthropic" if provider_name == "Claude" else "gemini"
+
+if not has_api_key(user_id, key_provider):
+    st.warning(f"You need a **{provider_name}** API key to use AI chat.")
+    st.markdown(
+        "**How to get started:**\n"
+        "1. Go to **Settings** in the sidebar\n"
+        "2. Get a free API key from "
+        + ("[console.anthropic.com](https://console.anthropic.com/settings/keys)" if provider_name == "Claude"
+           else "[aistudio.google.com](https://aistudio.google.com/apikey)")
+        + "\n3. Paste it in Settings and hit Save\n"
+        "4. Come back here and start chatting!"
+    )
+    st.stop()
 
 # Check knowledge base
 kb_stats = get_collection_stats()

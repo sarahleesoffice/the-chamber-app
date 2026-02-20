@@ -5,8 +5,11 @@ from lib.models import Trade
 from lib.database import insert_trade
 from lib.trade_math import calculate_pnl_pips, get_common_pairs, format_pair
 from lib.chart_storage import save_chart
+from lib.auth import get_current_user_id
 
 st.header("Enter Trade")
+
+user_id = get_current_user_id()
 
 col_left, col_right = st.columns(2, gap="large")
 
@@ -86,7 +89,7 @@ if st.button("Save Trade", type="primary", use_container_width=True):
             reasoning=reasoning,
         )
 
-        trade_id = insert_trade(trade)
+        trade_id = insert_trade(trade, user_id=user_id)
 
         # Save chart after we have the trade ID
         if chart_file:
@@ -96,7 +99,7 @@ if st.button("Save Trade", type="primary", use_container_width=True):
             from lib.database import get_connection
             conn = get_connection()
             with conn:
-                conn.execute("UPDATE trades SET chart_path = ? WHERE id = ?", (chart_path, trade_id))
+                conn.execute("UPDATE trades SET chart_path = ? WHERE id = ? AND user_id = ?", (chart_path, trade_id, user_id))
             conn.close()
 
         st.success(f"Trade saved! {pair} {direction.upper()} | {pnl_pips:+.1f} pips")

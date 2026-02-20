@@ -1,11 +1,92 @@
 import streamlit as st
 from dotenv import load_dotenv
 from lib.database import init_db
+from lib.auth import (
+    init_users_table, init_api_keys_table, register_user, authenticate_user,
+    is_logged_in, login_user, logout_user, get_current_username,
+)
 
 load_dotenv()
 
 st.set_page_config(page_title="The Chamber", page_icon="\u269A", layout="wide")
 init_db()
+init_users_table()
+init_api_keys_table()
+
+# ── Auth gate — must log in before seeing any pages ──────────
+if not is_logged_in():
+    # Minimal CSS for the login page
+    st.markdown("""
+    <style>
+        .stApp { background-color: #0a0a0a; }
+        .stTextInput > div > div > input {
+            background-color: #141414; border-color: #2a2a2a; color: #f5f5f5;
+        }
+        .stTextInput > div > div > input:focus {
+            border-color: #e8651a; box-shadow: 0 0 0 1px #e8651a;
+        }
+        .stButton > button[kind="primary"] {
+            background-color: #e8651a; color: #0a0a0a; border: none; font-weight: 600;
+        }
+        .stButton > button[kind="primary"]:hover {
+            background-color: #ff7e33; box-shadow: 0 0 12px rgba(232,101,26,0.35);
+        }
+        .stTabs [aria-selected="true"] {
+            color: #e8651a !important; border-bottom-color: #e8651a !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown(
+        '<div style="text-align:center; padding:40px 0 10px 0;">'
+        '<div style="font-size:2.4rem; font-weight:700; color:#e8651a; letter-spacing:4px; '
+        'text-shadow:0 0 30px rgba(232,101,26,0.4);">🔥 THE CHAMBER 🔥</div>'
+        '<div style="color:#9e4a15; font-size:0.85rem; letter-spacing:2px; margin-top:4px;">'
+        'WHERE TRADING EVOLVES</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    login_tab, register_tab = st.tabs(["Login", "Register"])
+
+    with login_tab:
+        with st.form("login_form"):
+            email = st.text_input("Email")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Enter The Chamber", type="primary", use_container_width=True)
+            if submitted:
+                if not email or not password:
+                    st.error("Please fill in all fields.")
+                else:
+                    user = authenticate_user(email, password)
+                    if user:
+                        login_user(user)
+                        st.rerun()
+                    else:
+                        st.error("Invalid email or password.")
+
+    with register_tab:
+        with st.form("register_form"):
+            reg_email = st.text_input("Email", key="reg_email")
+            reg_username = st.text_input("Username", key="reg_username")
+            reg_password = st.text_input("Password", type="password", key="reg_pw")
+            reg_confirm = st.text_input("Confirm Password", type="password", key="reg_confirm")
+            reg_submitted = st.form_submit_button("Create Account", type="primary", use_container_width=True)
+            if reg_submitted:
+                if not reg_email or not reg_username or not reg_password:
+                    st.error("Please fill in all fields.")
+                elif reg_password != reg_confirm:
+                    st.error("Passwords don't match.")
+                elif len(reg_password) < 6:
+                    st.error("Password must be at least 6 characters.")
+                else:
+                    uid = register_user(reg_email, reg_username, reg_password)
+                    if uid:
+                        login_user({"id": uid, "email": reg_email, "username": reg_username})
+                        st.rerun()
+                    else:
+                        st.error("Email already registered.")
+
+    st.stop()  # Block everything below until logged in
 
 # --- The Chamber Custom CSS ---
 # Fire orange ember glow — like wax transforming inside the Puffco chamber
@@ -361,6 +442,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 with st.sidebar:
+    # ── User info + Logout ──
+    st.markdown(
+        f'<div style="color:#888; font-size:0.8rem; padding:0 0 4px 0;">Logged in as '
+        f'<span style="color:#e8651a; font-weight:600;">{get_current_username()}</span></div>',
+        unsafe_allow_html=True,
+    )
+    if st.button("Logout", key="logout_btn"):
+        logout_user()
+        st.rerun()
+    st.divider()
+
     provider = st.radio("AI Provider", ["Claude", "Gemini"], key="ai_provider")
 
     if provider == "Claude":
@@ -418,6 +510,9 @@ pg = st.navigation({
         st.Page("pages/16_Economic_Calendar.py", title="Economic Calendar", icon=":material/event:"),
         st.Page("pages/15_Live_News.py", title="Live News", icon=":material/breaking_news:"),
         st.Page("pages/12_Watchlist.py", title="Watchlist", icon=":material/visibility:"),
+    ],
+    "ACCOUNT": [
+        st.Page("pages/17_Settings.py", title="Settings", icon=":material/settings:"),
     ],
 })
 pg.run()

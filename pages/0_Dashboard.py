@@ -9,16 +9,19 @@ from lib.database import (
 )
 from lib.knowledge.vector_store import get_collection_stats
 from lib.trading_calendar import render_trading_calendar
+from lib.auth import get_current_user_id
 
 st.header("Dashboard")
 
-all_trades = get_all_trades(limit=5000)
+user_id = get_current_user_id()
+
+all_trades = get_all_trades(limit=5000, user_id=user_id)
 
 # ============================================================
 # TRADING CALENDAR (top of page)
 # ============================================================
 
-render_trading_calendar(key_prefix="dash_tcal")
+render_trading_calendar(key_prefix="dash_tcal", user_id=user_id)
 
 st.divider()
 
@@ -229,7 +232,7 @@ with streak_col:
     st.markdown("**Streaks**")
 
     # Journal streak
-    journal_dates = set(get_journal_dates())
+    journal_dates = set(get_journal_dates(user_id=user_id))
     journal_streak = 0
     check_date = today
     while check_date.strftime("%Y-%m-%d") in journal_dates:
@@ -247,7 +250,7 @@ with streak_col:
             break
 
     # Rules followed streak
-    journals = get_journals_in_range((today - timedelta(days=90)).strftime("%Y-%m-%d"), today_str)
+    journals = get_journals_in_range((today - timedelta(days=90)).strftime("%Y-%m-%d"), today_str, user_id=user_id)
     rules_streak = 0
     for j in sorted(journals, key=lambda x: x.journal_date, reverse=True):
         if not j.mistakes:
@@ -263,7 +266,7 @@ with streak_col:
                              "#22c55e" if rules_streak >= 3 else "#888")
 
     # Today's readiness
-    today_journal = get_journal(today_str)
+    today_journal = get_journal(today_str, user_id=user_id)
     if today_journal:
         r_color = "#22c55e" if today_journal.readiness_score >= 7 else "#e8651a" if today_journal.readiness_score >= 4 else "#ef4444"
         streak_html += stat_card("Today's Readiness", f"{today_journal.readiness_score}/10", r_color,
