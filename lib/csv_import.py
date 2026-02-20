@@ -244,7 +244,19 @@ def _parse_mt5_trade_history(rows, header_idx, headers) -> list[Trade]:
                 if profit_str:
                     profit = float(profit_str)
 
-            # Use the Pips column if available
+            # Read volume/lot size (number of contracts)
+            volume = 1.0
+            if "volume" in col:
+                vol_str = row[col["volume"]].strip().replace(" ", "")
+                if vol_str:
+                    try:
+                        volume = float(vol_str)
+                    except ValueError:
+                        volume = 1.0
+            if volume <= 0:
+                volume = 1.0
+
+            # Use the Pips column if available, then multiply by volume
             pips = 0.0
             if "pips" in col:
                 pips_str = row[col["pips"]].strip().replace(" ", "")
@@ -255,6 +267,9 @@ def _parse_mt5_trade_history(rows, header_idx, headers) -> list[Trade]:
                         pips = _calculate_pips(symbol, direction, entry_price, exit_price)
             else:
                 pips = _calculate_pips(symbol, direction, entry_price, exit_price)
+
+            # Multiply pips by volume (e.g. 10 pips × 10 contracts = 100 pips)
+            pips = pips * volume
 
             # Parse close time for trade date (prefer close, fallback to open)
             trade_date = ""
