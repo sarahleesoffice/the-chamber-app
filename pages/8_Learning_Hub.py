@@ -7,9 +7,11 @@ st.header("Learning Hub")
 st.caption("Structured ICT curriculum pulled from 675+ of ICT's YouTube lectures")
 
 kb_stats = get_collection_stats()
-if kb_stats["total_chunks"] == 0:
-    st.warning("Knowledge base is empty. Run the indexer first.")
-    st.stop()
+has_knowledge_base = kb_stats["total_chunks"] > 0
+
+if not has_knowledge_base:
+    st.info("💡 Knowledge base not loaded — showing the ICT curriculum structure. "
+            "For lesson content from ICT's actual lectures, run the indexer locally.")
 
 # ============================================================
 # ICT CURRICULUM
@@ -147,22 +149,25 @@ for section in CURRICULUM:
             st.markdown(f"*{topic['description']}*")
             st.divider()
 
-            # Pull relevant teachings
-            results = query_similar(topic["query"], n_results=3)
+            if has_knowledge_base:
+                # Pull relevant teachings
+                results = query_similar(topic["query"], n_results=3)
 
-            if results:
-                for i, r in enumerate(results, 1):
-                    tags = ", ".join(r["concept_tags"]) if r["concept_tags"] else ""
-                    st.markdown(f"**Lesson {i}: {r['video_title']}**")
-                    if tags:
-                        st.caption(f"Concepts: {tags}")
-                    st.markdown(r["text"][:800])
-                    if len(r["text"]) > 800:
-                        st.caption("*(truncated)*")
-                    if r["video_url"]:
-                        st.markdown(f"[Watch on YouTube]({r['video_url']})")
-                    st.divider()
+                if results:
+                    for i, r in enumerate(results, 1):
+                        tags = ", ".join(r["concept_tags"]) if r["concept_tags"] else ""
+                        st.markdown(f"**Lesson {i}: {r['video_title']}**")
+                        if tags:
+                            st.caption(f"Concepts: {tags}")
+                        st.markdown(r["text"][:800])
+                        if len(r["text"]) > 800:
+                            st.caption("*(truncated)*")
+                        if r["video_url"]:
+                            st.markdown(f"[Watch on YouTube]({r['video_url']})")
+                        st.divider()
+                else:
+                    st.caption("No lessons found for this topic.")
             else:
-                st.caption("No lessons found for this topic.")
+                st.caption("Lesson content available when knowledge base is loaded.")
 
     st.write("")  # Spacing between sections

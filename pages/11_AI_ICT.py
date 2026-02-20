@@ -25,11 +25,13 @@ if not has_api_key(user_id, key_provider):
     )
     st.stop()
 
-# Check knowledge base
+# Check knowledge base (optional — chat works without it, just no RAG context)
 kb_stats = get_collection_stats()
-if kb_stats["total_chunks"] == 0:
-    st.warning("Knowledge base is empty. Run the indexer first to enable AI ICT chat.")
-    st.stop()
+has_knowledge_base = kb_stats["total_chunks"] > 0
+
+if not has_knowledge_base:
+    st.info("💡 Knowledge base not loaded — the AI will answer from its general ICT knowledge. "
+            "For source-backed answers from ICT's actual lectures, run the indexer locally.")
 
 # ============================================================
 # SYSTEM PROMPT — ICT Teaching AI
@@ -127,8 +129,13 @@ for msg in st.session_state.ict_chat_messages:
 
 def process_question(question: str):
     """Retrieve RAG context and get AI response."""
-    # Retrieve relevant ICT teachings
-    results = query_similar(question, n_results=8)
+    # Retrieve relevant ICT teachings (if knowledge base is available)
+    results = []
+    if has_knowledge_base:
+        try:
+            results = query_similar(question, n_results=8)
+        except Exception:
+            results = []
 
     # Build context from retrieved chunks
     rag_sections = []
