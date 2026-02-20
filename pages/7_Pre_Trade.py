@@ -1,8 +1,11 @@
 import streamlit as st
 from datetime import date
 
+from lib.auth import get_current_user_id
 from lib.database import get_journal
 from lib.psychology_framework import assess_readiness
+
+user_id = get_current_user_id()
 
 st.header("Pre-Trade Checklist")
 st.caption("Complete this before every trading session. No trade without a green light.")
@@ -14,7 +17,7 @@ today_str = date.today().strftime("%Y-%m-%d")
 # ============================================================
 st.subheader("1. Mental Readiness")
 
-journal = get_journal(today_str)
+journal = get_journal(today_str, user_id=user_id)
 if journal:
     scores = {
         "sleep": journal.sleep,

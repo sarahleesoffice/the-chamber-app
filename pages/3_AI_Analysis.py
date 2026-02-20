@@ -7,10 +7,30 @@ from lib.ai_providers import get_provider
 from lib.knowledge.rag import build_rag_context
 from lib.knowledge.vector_store import get_collection_stats
 from lib.models import Analysis
+from lib.auth import get_current_user_id, has_api_key
 
 st.header("AI Analysis")
 
-trades = get_all_trades(limit=200)
+user_id = get_current_user_id()
+
+# Check for API key
+provider_name = st.session_state.get("ai_provider", "Claude")
+key_provider = "anthropic" if provider_name == "Claude" else "gemini"
+
+if not has_api_key(user_id, key_provider):
+    st.warning(f"You need a **{provider_name}** API key to use AI Analysis.")
+    st.markdown(
+        "**How to get started:**\n"
+        "1. Go to **Settings** in the sidebar\n"
+        "2. Get a free API key from "
+        + ("[console.anthropic.com](https://console.anthropic.com/settings/keys)" if provider_name == "Claude"
+           else "[aistudio.google.com](https://aistudio.google.com/apikey)")
+        + "\n3. Paste it in Settings and hit Save\n"
+        "4. Come back here to analyze your trades!"
+    )
+    st.stop()
+
+trades = get_all_trades(limit=200, user_id=user_id)
 if not trades:
     st.info("No trades recorded yet. Go to **Enter Trade** to log your first trade.")
     st.stop()
@@ -30,7 +50,7 @@ with tab_request:
         key="analyze_trade_select",
     )
 
-    trade = get_trade(selected_id)
+    trade = get_trade(selected_id, user_id=user_id)
     if trade:
         # Preview
         preview_col1, preview_col2 = st.columns(2)
@@ -107,7 +127,7 @@ with tab_request:
                 model=provider.get_model_name(),
                 analysis_text=result,
             )
-            insert_analysis(analysis)
+            insert_analysis(analysis, user_id=user_id)
 
             # Display result
             st.success("Analysis complete!")
@@ -125,7 +145,7 @@ with tab_history:
         key="history_trade_select",
     )
 
-    analyses = get_analyses_for_trade(history_selected_id)
+    analyses = get_analyses_for_trade(history_selected_id, user_id=user_id)
 
     if not analyses:
         st.info("No analyses yet for this trade. Use the **Request Analysis** tab to generate one.")

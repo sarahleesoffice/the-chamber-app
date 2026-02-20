@@ -1,5 +1,6 @@
 import streamlit as st
 
+from lib.auth import get_current_user_id
 from lib.database import (
     get_all_trades,
     get_trade,
@@ -10,6 +11,8 @@ from lib.database import (
 )
 from lib.chart_storage import load_chart
 
+user_id = get_current_user_id()
+
 st.header("Trade Replay")
 st.caption("Step through your trades and review everything in one place.")
 
@@ -17,7 +20,7 @@ st.caption("Step through your trades and review everything in one place.")
 # TRADE SELECTOR
 # ============================================================
 
-trades = get_all_trades(limit=500)
+trades = get_all_trades(limit=500, user_id=user_id)
 
 if not trades:
     st.info("No trades to replay. Log some trades first.")
@@ -137,10 +140,10 @@ with col_details:
     st.divider()
 
     # Grade (if exists)
-    grades = get_grades_for_trade(trade.id)
+    grades = get_grades_for_trade(trade.id, user_id=user_id)
     if grades:
         for g in grades:
-            pb = get_playbook(g.playbook_id)
+            pb = get_playbook(g.playbook_id, user_id=user_id)
             pb_name = pb.name if pb else f"Setup #{g.playbook_id}"
             compliance_color = "#22c55e" if g.compliance_pct >= 80 else "#e8651a" if g.compliance_pct >= 50 else "#ef4444"
 
@@ -166,7 +169,7 @@ with col_details:
     st.divider()
 
     # Journal for that day
-    journal = get_journal(trade.trade_date)
+    journal = get_journal(trade.trade_date, user_id=user_id)
     if journal:
         st.markdown(f"**Journal ({trade.trade_date}):**")
         st.markdown(
@@ -186,7 +189,7 @@ with col_details:
 
 st.divider()
 
-analyses = get_analyses_for_trade(trade.id)
+analyses = get_analyses_for_trade(trade.id, user_id=user_id)
 if analyses:
     st.subheader("AI Analysis")
     for analysis in analyses:

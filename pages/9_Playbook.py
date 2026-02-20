@@ -1,5 +1,6 @@
 import streamlit as st
 
+from lib.auth import get_current_user_id
 from lib.database import (
     get_all_playbooks,
     insert_playbook,
@@ -14,6 +15,8 @@ from lib.database import (
 from lib.models import PlaybookSetup, TradeGrade
 from lib.psychology_framework import ICT_SETUPS
 
+user_id = get_current_user_id()
+
 st.header("Playbook")
 st.caption("Define your ICT setups with specific rules, then grade every trade against them.")
 
@@ -25,7 +28,7 @@ tab_setups, tab_grade, tab_stats = st.tabs(["My Setups", "Grade a Trade", "Compl
 with tab_setups:
     st.subheader("Define Your Setups")
 
-    playbooks = get_all_playbooks(active_only=False)
+    playbooks = get_all_playbooks(user_id=user_id, active_only=False)
 
     # Create new setup
     with st.expander("**+ Create New Setup**", expanded=not playbooks):
@@ -57,7 +60,7 @@ with tab_setups:
                     rules=rules_csv,
                     description=new_desc,
                 )
-                insert_playbook(setup)
+                insert_playbook(setup, user_id=user_id)
                 st.success(f"Setup '{new_name}' saved!")
                 st.rerun()
             else:
@@ -76,7 +79,7 @@ with tab_setups:
                     st.markdown(f"{i}. {rule}")
                 st.divider()
                 if st.button("Delete Setup", key=f"del_pb_{pb.id}", type="secondary"):
-                    delete_playbook(pb.id)
+                    delete_playbook(pb.id, user_id=user_id)
                     st.rerun()
 
 # ============================================================
@@ -85,11 +88,11 @@ with tab_setups:
 with tab_grade:
     st.subheader("Grade Trade Compliance")
 
-    playbooks = get_all_playbooks()
+    playbooks = get_all_playbooks(user_id=user_id)
     if not playbooks:
         st.info("Create a setup in the **My Setups** tab first.")
     else:
-        trades = get_all_trades(limit=200)
+        trades = get_all_trades(limit=200, user_id=user_id)
         if not trades:
             st.info("No trades to grade. Log some trades first.")
         else:
@@ -114,7 +117,7 @@ with tab_grade:
                 key="grade_pb",
             )
 
-            pb = get_playbook(selected_pb_id)
+            pb = get_playbook(selected_pb_id, user_id=user_id)
             if pb:
                 rules_list = [r.strip() for r in pb.rules.split(",") if r.strip()]
 
@@ -122,7 +125,7 @@ with tab_grade:
                 st.markdown(f"**Grading against: {pb.name}**")
 
                 # Check existing grade
-                existing_grades = get_grades_for_trade(selected_trade_id)
+                existing_grades = get_grades_for_trade(selected_trade_id, user_id=user_id)
                 existing = None
                 for g in existing_grades:
                     if g.playbook_id == selected_pb_id:
@@ -178,7 +181,7 @@ with tab_grade:
                         compliance_pct=compliance,
                         notes=grade_notes,
                     )
-                    upsert_trade_grade(grade)
+                    upsert_trade_grade(grade, user_id=user_id)
                     st.success(f"Grade saved! {compliance:.0f}% compliance")
 
 # ============================================================
@@ -187,8 +190,8 @@ with tab_grade:
 with tab_stats:
     st.subheader("Compliance Overview")
 
-    all_grades = get_all_grades()
-    playbooks = get_all_playbooks(active_only=False)
+    all_grades = get_all_grades(user_id=user_id)
+    playbooks = get_all_playbooks(user_id=user_id, active_only=False)
     pb_map = {pb.id: pb for pb in playbooks}
 
     if not all_grades:
@@ -221,7 +224,7 @@ with tab_stats:
             wins = 0
             losses = 0
             for g in grades:
-                t = get_trade(g.trade_id)
+                t = get_trade(g.trade_id, user_id=user_id)
                 if t and t.pnl_pips > 0:
                     wins += 1
                 elif t and t.pnl_pips < 0:

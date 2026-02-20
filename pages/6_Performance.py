@@ -8,10 +8,13 @@ from lib.database import (
     get_journals_in_range,
 )
 from lib.trading_calendar import render_trading_calendar
+from lib.auth import get_current_user_id
 
 st.header("Performance & Analytics")
 
-all_trades = get_all_trades(limit=5000)
+user_id = get_current_user_id()
+
+all_trades = get_all_trades(limit=5000, user_id=user_id)
 
 # --- Time Range Selector ---
 range_options = ["This Month", "Last Month", "This Week", "Last 30 Days", "Last 90 Days", "Year to Date", "All Time"]
@@ -45,7 +48,7 @@ else:  # All Time
 start_str = start.strftime("%Y-%m-%d")
 end_str = end.strftime("%Y-%m-%d")
 
-trades = get_trades_in_range(start_str, end_str)
+trades = get_trades_in_range(start_str, end_str, user_id=user_id)
 
 # ============================================================
 # COMPUTE STATS (safe for empty trades)
@@ -210,7 +213,7 @@ tab_calendar, tab_equity, tab_breakdown, tab_streaks, tab_mental = st.tabs([
 # CALENDAR TAB
 # ============================================================
 with tab_calendar:
-    render_trading_calendar(key_prefix="perf_tcal")
+    render_trading_calendar(key_prefix="perf_tcal", user_id=user_id)
 
 # ============================================================
 # EQUITY CURVE TAB
@@ -433,7 +436,7 @@ with tab_streaks:
 with tab_mental:
     st.subheader("Mental State vs Performance")
 
-    journals = get_journals_in_range(start_str, end_str)
+    journals = get_journals_in_range(start_str, end_str, user_id=user_id)
 
     if not journals:
         st.info("No journal entries found for this period. Fill out Daily Journal entries to see mental state correlations.")

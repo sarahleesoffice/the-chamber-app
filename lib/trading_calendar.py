@@ -31,12 +31,13 @@ def _stat_card(label: str, value: str, color: str = "#f5f5f5", sub_text: str = "
     )
 
 
-def render_trading_calendar(key_prefix: str = "tcal") -> None:
+def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
     """Render the full Trading Calendar component.
 
     Args:
         key_prefix: unique prefix for session state keys (use different values
                     if rendered on multiple pages to avoid key collisions).
+        user_id: the logged-in user's ID for data isolation.
     """
     today = date.today()
 
@@ -56,8 +57,8 @@ def render_trading_calendar(key_prefix: str = "tcal") -> None:
     _, last_day = cal_module.monthrange(cal_year, cal_month)
     month_end = f"{cal_year}-{cal_month:02d}-{last_day:02d}"
 
-    month_trades = get_trades_in_range(month_start, month_end)
-    month_journals = get_journals_in_range(month_start, month_end)
+    month_trades = get_trades_in_range(month_start, month_end, user_id=user_id)
+    month_journals = get_journals_in_range(month_start, month_end, user_id=user_id)
 
     journal_dates = {j.journal_date for j in month_journals}
     journal_scores = {j.journal_date: j.readiness_score for j in month_journals}
