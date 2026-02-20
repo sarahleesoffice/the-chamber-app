@@ -491,7 +491,7 @@ def _inject_calendar_css(
     content: "Trades: {count}";
     display: block;
     color: #888;
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     font-weight: 400;
     margin-top: 2px;
     transition: color 0.15s ease !important;
