@@ -501,6 +501,10 @@ pg = st.navigation({
         st.Page("pages/3_AI_Analysis.py", title="AI Analysis", icon=":material/psychology:"),
         st.Page("pages/11_AI_ICT.py", title="AI ICT Chat", icon=":material/chat:"),
     ],
+    "TOOLS": [
+        st.Page("pages/18_Backtest.py", title="Backtest", icon=":material/candlestick_chart:"),
+        st.Page("pages/19_Chart_Analyzer.py", title="Chart Analyzer", icon=":material/image_search:"),
+    ],
     "MARKET STUDY": [
         st.Page("pages/13_Sessions.py", title="Sessions", icon=":material/schedule:"),
         st.Page("pages/8_Learning_Hub.py", title="Learning Hub", icon=":material/school:"),

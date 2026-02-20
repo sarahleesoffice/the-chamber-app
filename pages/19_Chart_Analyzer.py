@@ -3,39 +3,29 @@ import json
 import streamlit as st
 
 from lib.chart_annotator import analyze_chart_with_ai
+from lib.auth import get_current_user_id, has_api_key
 
 st.header("TradingView Chart Analyzer")
+st.caption("Upload a chart screenshot and AI will detect ICT concepts.")
 
-st.markdown(
-    """
-    <style>
-    .stApp { background-color: #0a0a0a; }
-    .ca-card {
-        background: #141414;
-        border: 1px solid #1e1a17;
-        border-radius: 14px;
-        padding: 1rem;
-        margin-bottom: 0.8rem;
-    }
-    .ca-accent { color: #e8651a; font-weight: 700; }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+user_id = get_current_user_id()
+provider_name = st.session_state.get("ai_provider", "Claude")
+key_provider = "anthropic" if provider_name == "Claude" else "gemini"
 
-provider = st.selectbox("AI Provider", ["Claude", "Gemini"], index=0)
-if provider == "Claude":
-    model = st.selectbox(
-        "Model",
-        ["claude-sonnet-4-5-20250514", "claude-opus-4-5-20250101"],
-        index=0,
+if not has_api_key(user_id, key_provider):
+    st.warning(f"You need a **{provider_name}** API key to use Chart Analyzer.")
+    st.markdown(
+        "**How to get started:**\n"
+        "1. Go to **Settings** in the sidebar\n"
+        "2. Get a free API key from "
+        + ("[console.anthropic.com](https://console.anthropic.com/settings/keys)" if provider_name == "Claude"
+           else "[aistudio.google.com](https://aistudio.google.com/apikey)")
+        + "\n3. Paste it in Settings and hit Save\n"
+        "4. Come back here to analyze your charts!"
     )
-else:
-    model = st.selectbox(
-        "Model",
-        ["gemini-2.0-flash", "gemini-2.5-pro-preview-05-06"],
-        index=0,
-    )
+    st.stop()
+
+model = st.session_state.get("ai_model", "claude-sonnet-4-5-20250514")
 
 img = st.file_uploader("Upload TradingView screenshot", type=["png", "jpg", "jpeg", "webp"])
 if img:
@@ -52,14 +42,14 @@ if analyze_btn and img:
             result = analyze_chart_with_ai(
                 image_bytes=image_bytes,
                 mime_type=mime,
-                provider_name=provider,
+                provider_name=provider_name,
                 model=model,
             )
         except Exception as e:
             st.error(f"Chart analysis failed: {e}")
             st.stop()
 
-    st.subheader("Annotated Results")
+    st.subheader("Results")
     c1, c2, c3 = st.columns(3)
     c1.metric("Bias", str(result.get("market_bias", "unknown")).upper())
     c2.metric("Timeframe Guess", str(result.get("timeframe_guess", "unknown")))

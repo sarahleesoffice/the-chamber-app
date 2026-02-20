@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import re
 from typing import Any
 
 from anthropic import Anthropic
 from google import genai
 from google.genai import types
+
+from lib.auth import get_current_user_id, get_api_key
 
 ANNOTATION_PROMPT = """
 You are an ICT chart parser. Analyze this TradingView screenshot and detect ICT concepts.
@@ -71,11 +72,12 @@ def analyze_chart_with_ai(
     model: str,
 ) -> dict[str, Any]:
     provider_name = provider_name.strip().lower()
+    user_id = get_current_user_id()
 
     if provider_name == "claude":
-        api_key = os.getenv("ANTHROPIC_API_KEY")
+        api_key = get_api_key(user_id, "anthropic") if user_id else None
         if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not set")
+            raise ValueError("No Claude API key found. Go to **Settings** to add your Anthropic API key.")
         client = Anthropic(api_key=api_key)
         b64 = base64.b64encode(image_bytes).decode("utf-8")
 
@@ -104,9 +106,9 @@ def analyze_chart_with_ai(
         return _extract_json(text)
 
     if provider_name == "gemini":
-        api_key = os.getenv("GEMINI_API_KEY")
+        api_key = get_api_key(user_id, "gemini") if user_id else None
         if not api_key:
-            raise ValueError("GEMINI_API_KEY not set")
+            raise ValueError("No Gemini API key found. Go to **Settings** to add your Google AI API key.")
         client = genai.Client(api_key=api_key)
 
         resp = client.models.generate_content(
