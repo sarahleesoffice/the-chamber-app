@@ -167,18 +167,23 @@ def _show_day_dialog(date_str: str, trades: list, key_prefix: str):
 
 
 def _build_cell_label(day_num: int, count: int, dollar: float, pnl: float) -> str:
-    """Build the text label shown on a clickable calendar cell button."""
+    """Build the text label shown on a clickable calendar cell button.
+
+    The day number is rendered separately via CSS ::before, so the button
+    text only contains the dollar/pip amount and trade count.
+    """
     if count == 0:
+        # Non-trading day: just the day number (styled via CSS)
         return str(day_num)
 
-    # Line 1: day number — Line 2: dollar or pips — Line 3: trade count
+    # Dollar or pips + trade count (day number handled by CSS ::before)
     if dollar:
         dollar_display = f"-${abs(dollar):,.0f}" if dollar < 0 else f"${dollar:,.0f}"
     else:
         dollar_display = f"-{abs(pnl):.0f}p" if pnl < 0 else f"{pnl:.0f}p"
 
     trade_word = "trade" if count == 1 else "trades"
-    return f"{day_num}\n{dollar_display}\n{count} {trade_word}"
+    return f"{dollar_display}\n{count} {trade_word}"
 
 
 def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
@@ -421,32 +426,30 @@ def _inject_calendar_css(
                 bg = "rgba(34,197,94,0.12)"
                 border_c = "rgba(34,197,94,0.27)"
                 text_color = "#22c55e"
-                hover_bg = "rgba(34,197,94,0.22)"
             elif pnl and pnl < 0:
                 bg = "rgba(239,68,68,0.12)"
                 border_c = "rgba(239,68,68,0.27)"
                 text_color = "#ef4444"
-                hover_bg = "rgba(239,68,68,0.22)"
             else:
                 bg = "rgba(160,160,160,0.08)"
                 border_c = "rgba(160,160,160,0.2)"
                 text_color = "#888"
-                hover_bg = "rgba(160,160,160,0.15)"
         else:
             bg = "#0e0e0e"
             border_c = "#1e1a17"
             text_color = "#555"
-            hover_bg = "#141414"
 
         if is_today:
             border_rule = "border: 2px solid #7c5ce7 !important;"
+            day_num_color = "#f5f5f5"
         else:
             border_rule = f"border: 1px solid {border_c} !important;"
+            day_num_color = "#888" if count > 0 else "#555"
 
         # CSS class from st.container(key=...)
         container_cls = f"st-key-{key_prefix}_d_{day_num}"
 
-        # Style the button inside this container
+        # Style the button + day number via ::before
         css += f"""
 .{container_cls} button {{
     background: {bg} !important;
@@ -455,21 +458,48 @@ def _inject_calendar_css(
     color: {text_color} !important;
     min-height: 90px !important;
     height: 90px !important;
-    padding: 6px 4px !important;
+    padding: {"24px 4px 6px 4px" if count > 0 else "6px 4px"} !important;
     font-weight: 700 !important;
-    font-size: 0.85rem !important;
+    font-size: {"0.95rem" if count > 0 else "0.8rem"} !important;
     white-space: pre-line !important;
     line-height: 1.3 !important;
     cursor: {"pointer" if count > 0 else "default"} !important;
-    transition: background 0.15s ease !important;
-}}
-.{container_cls} button:hover {{
-    background: {hover_bg} !important;
-    {border_rule}
+    transition: all 0.15s ease !important;
+    position: relative !important;
 }}
 """
-        # Disabled buttons (non-trading days) need opacity override
-        if count == 0:
+        # Day number via ::before — grey, smaller, positioned at top
+        if count > 0:
+            css += f"""
+.{container_cls} button::before {{
+    content: "{day_num}";
+    display: block;
+    position: absolute;
+    top: 6px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: {day_num_color};
+    font-size: 0.7rem;
+    font-weight: 400;
+    transition: color 0.15s ease !important;
+}}
+"""
+
+        # Hover: orange background + orange text + orange day number
+        if count > 0:
+            css += f"""
+.{container_cls} button:hover {{
+    background: rgba(232,101,26,0.15) !important;
+    border: 1px solid rgba(232,101,26,0.4) !important;
+    color: #e8651a !important;
+}}
+.{container_cls} button:hover::before {{
+    color: #e8651a !important;
+}}
+"""
+        else:
+            # Disabled buttons — no hover change
             css += f"""
 .{container_cls} button:disabled {{
     background: {bg} !important;
@@ -480,7 +510,7 @@ def _inject_calendar_css(
 }}
 """
 
-    # Also hide the keyed container's own padding/border
+    # Hide the keyed container's own padding/border
     css += f"""
 div[class*="st-key-{key_prefix}_d_"] {{
     padding: 0 !important;
