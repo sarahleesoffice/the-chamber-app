@@ -4,7 +4,7 @@ Renders a full-month P&L calendar matching The Chamber design:
   - "Trading Calendar" header with subtitle
   - Stat cards row (Monthly P&L, Total Trades, Trading Days, Winning Days, Losing Days, Win Rate)
   - Prev / Month Year / Today / Next navigation
-  - Sun–Sat full month grid — click a day to open a popup with stats + trades + AI advice
+  - Sun–Sat full month grid — each day IS a styled button; clicking opens a dialog
   - Legend: Profit, Loss, Mental Score, Journal Entry, Today
 """
 import calendar as cal_module
@@ -166,14 +166,23 @@ def _show_day_dialog(date_str: str, trades: list, key_prefix: str):
             st.switch_page("pages/11_AI_ICT.py")
 
 
-def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
-    """Render the full Trading Calendar component.
+def _build_cell_label(day_num: int, count: int, dollar: float, pnl: float) -> str:
+    """Build the text label shown on a clickable calendar cell button."""
+    if count == 0:
+        return str(day_num)
 
-    Args:
-        key_prefix: unique prefix for session state keys (use different values
-                    if rendered on multiple pages to avoid key collisions).
-        user_id: the logged-in user's ID for data isolation.
-    """
+    # Line 1: day number — Line 2: dollar or pips — Line 3: trade count
+    if dollar:
+        dollar_display = f"-${abs(dollar):,.0f}" if dollar < 0 else f"${dollar:,.0f}"
+    else:
+        dollar_display = f"-{abs(pnl):.0f}p" if pnl < 0 else f"{pnl:.0f}p"
+
+    trade_word = "trade" if count == 1 else "trades"
+    return f"{day_num}\n{dollar_display}\n{count} {trade_word}"
+
+
+def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
+    """Render the full Trading Calendar component."""
     today = date.today()
 
     # ── Session state for month navigation ──────────────────────
@@ -238,16 +247,8 @@ def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
     )
     cards += _stat_card("Total Trades", str(len(month_trades)), "#f5f5f5")
     cards += _stat_card("Trading Days", str(len(trading_days)), "#e8651a")
-    cards += _stat_card(
-        "Winning Days",
-        str(len(winning_days)),
-        "#22c55e",
-    )
-    cards += _stat_card(
-        "Losing Days",
-        str(len(losing_days)),
-        "#ef4444",
-    )
+    cards += _stat_card("Winning Days", str(len(winning_days)), "#22c55e")
+    cards += _stat_card("Losing Days", str(len(losing_days)), "#ef4444")
     cards += _stat_card(
         "Win Rate",
         f"{m_wr:.0f}%",
@@ -301,132 +302,61 @@ def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
     header_html += '</div>'
     st.markdown(header_html, unsafe_allow_html=True)
 
-    # ── Calendar grid (Sunday start) ────────────────────────────
+    # ── Inject CSS to style buttons inside keyed containers ──────
+    # Each day cell is wrapped in st.container(key="tcal_d_{day}").
+    # Streamlit renders these as <div class="st-key-tcal_d_{day}">.
+    # We target the button inside each keyed container.
+    _inject_calendar_css(
+        key_prefix, cal_year, cal_month, today,
+        daily_pnl, daily_count, daily_dollar,
+        journal_dates, journal_scores,
+    )
+
+    # ── Calendar grid (Sunday start) — each cell is a button ────
     cal_obj = cal_module.Calendar(firstweekday=6)  # Sunday start
     weeks = cal_obj.monthdayscalendar(cal_year, cal_month)
 
-    for week in weeks:
-        # HTML visual cells
-        week_html = '<div style="display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:4px;">'
-        for day_num in week:
-            if day_num == 0:
-                week_html += '<div style="min-height:90px;"></div>'
-            else:
-                date_key = f"{cal_year}-{cal_month:02d}-{day_num:02d}"
-                pnl = daily_pnl.get(date_key, None)
-                count = daily_count.get(date_key, 0)
-                dollar = daily_dollar.get(date_key, 0)
-
-                is_today = (
-                    cal_year == today.year
-                    and cal_month == today.month
-                    and day_num == today.day
-                )
-                has_journal = date_key in journal_dates
-                mental = journal_scores.get(date_key)
-
-                # Determine cell colors
-                if pnl is not None and count > 0:
-                    if pnl > 0:
-                        bg = "rgba(34,197,94,0.12)"
-                        border_c = "#22c55e44"
-                        val_color = "#22c55e"
-                    elif pnl < 0:
-                        bg = "rgba(239,68,68,0.12)"
-                        border_c = "#ef444444"
-                        val_color = "#ef4444"
-                    else:
-                        bg = "rgba(160,160,160,0.08)"
-                        border_c = "#a0a0a033"
-                        val_color = "#888"
-                else:
-                    bg = "#0e0e0e"
-                    border_c = "#1e1a17"
-                    val_color = None
-
-                # Today gets purple/blue border
-                if is_today:
-                    border_style = "border:2px solid #7c5ce7;"
-                else:
-                    border_style = f"border:1px solid {border_c};"
-
-                # Build cell content
-                cell = (
-                    f'<div style="background:{bg}; {border_style} border-radius:8px; '
-                    f'padding:8px 6px; min-height:90px; text-align:center; position:relative;">'
-                )
-
-                # Day number
-                day_color = "#f5f5f5" if is_today else "#888" if val_color else "#555"
-                cell += f'<div style="font-size:0.8rem; color:{day_color}; font-weight:{"600" if is_today else "400"}; margin-bottom:4px;">{day_num}</div>'
-
-                if val_color and count > 0:
-                    # Dollar P&L (primary display)
-                    if dollar:
-                        dollar_display = f"-${abs(dollar):,.0f}" if dollar < 0 else f"${dollar:,.0f}"
-                        cell += f'<div style="color:{val_color}; font-weight:700; font-size:1.1rem;">{dollar_display}</div>'
-                    else:
-                        # Fallback to pips if no dollar data
-                        pips_display = f"-{abs(pnl):.0f}p" if pnl < 0 else f"{pnl:.0f}p"
-                        cell += f'<div style="color:{val_color}; font-weight:700; font-size:1.1rem;">{pips_display}</div>'
-                    # Trade count
-                    cell += f'<div style="color:#666; font-size:0.65rem; margin-top:2px;">{count} trade{"s" if count != 1 else ""}</div>'
-
-                # Bottom indicators
-                indicators = []
-                if mental is not None:
-                    # Mental score dot (color based on score)
-                    m_col = "#22c55e" if mental >= 7 else "#e8651a" if mental >= 4 else "#ef4444"
-                    indicators.append(
-                        f'<span title="Mental: {mental}/10" style="display:inline-block; '
-                        f'width:7px; height:7px; border-radius:50%; background:{m_col};"></span>'
-                    )
-                if has_journal:
-                    indicators.append(
-                        '<span title="Journal entry" style="display:inline-block; '
-                        'color:#e8651a; font-size:0.6rem;">&#9998;</span>'
-                    )
-
-                if indicators:
-                    cell += (
-                        '<div style="position:absolute; bottom:4px; left:0; right:0; '
-                        'text-align:center; display:flex; justify-content:center; gap:4px;">'
-                        + "".join(indicators)
-                        + '</div>'
-                    )
-
-                cell += '</div>'
-                week_html += cell
-
-        week_html += '</div>'
-        st.markdown(week_html, unsafe_allow_html=True)
-
-        # Invisible button row — only for days with trades, opens dialog
-        btn_cols = st.columns(7)
-        has_any_btn = False
+    for w_idx, week in enumerate(weeks):
+        cols = st.columns(7, gap="small")
         for col_idx, day_num in enumerate(week):
-            if day_num == 0:
-                continue
-            date_key = f"{cal_year}-{cal_month:02d}-{day_num:02d}"
-            count = daily_count.get(date_key, 0)
-            if count > 0:
-                has_any_btn = True
-                with btn_cols[col_idx]:
-                    if st.button(
-                        f"{day_num}",
-                        key=f"{key_prefix}_day_{day_num}",
-                        use_container_width=True,
-                        type="tertiary",
-                    ):
-                        _show_day_dialog(
-                            date_key,
-                            daily_trades[date_key],
-                            key_prefix,
-                        )
+            with cols[col_idx]:
+                if day_num == 0:
+                    # Empty cell for padding days
+                    st.markdown(
+                        '<div style="min-height:90px;"></div>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    date_key = f"{cal_year}-{cal_month:02d}-{day_num:02d}"
+                    count = daily_count.get(date_key, 0)
+                    pnl = daily_pnl.get(date_key, 0)
+                    dollar = daily_dollar.get(date_key, 0)
 
-        # Add small spacing reduction if no buttons this week
-        if not has_any_btn:
-            st.markdown('<div style="margin-top:-12px;"></div>', unsafe_allow_html=True)
+                    btn_label = _build_cell_label(day_num, count, dollar, pnl)
+                    container_key = f"{key_prefix}_d_{day_num}"
+
+                    # Wrap in a keyed container so CSS can target it
+                    with st.container(key=container_key):
+                        if count > 0:
+                            # Clickable — opens dialog
+                            if st.button(
+                                btn_label,
+                                key=f"{key_prefix}_btn_{day_num}",
+                                use_container_width=True,
+                            ):
+                                _show_day_dialog(
+                                    date_key,
+                                    daily_trades[date_key],
+                                    key_prefix,
+                                )
+                        else:
+                            # Non-trading day — disabled appearance
+                            st.button(
+                                btn_label,
+                                key=f"{key_prefix}_btn_{day_num}",
+                                use_container_width=True,
+                                disabled=True,
+                            )
 
     # ── Legend ───────────────────────────────────────────────────
     legend_html = (
@@ -457,3 +387,106 @@ def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
         '</div>'
     )
     st.markdown(legend_html, unsafe_allow_html=True)
+
+
+def _inject_calendar_css(
+    key_prefix: str,
+    cal_year: int,
+    cal_month: int,
+    today: date,
+    daily_pnl: dict,
+    daily_count: dict,
+    daily_dollar: dict,
+    journal_dates: set,
+    journal_scores: dict,
+) -> None:
+    """Inject CSS to style each calendar cell button via its keyed container.
+
+    Streamlit renders st.container(key="foo") as <div class="st-key-foo">.
+    We target the button inside each container to set per-day colors.
+    """
+    _, last_day = cal_module.monthrange(cal_year, cal_month)
+
+    css = "<style>\n"
+
+    for day_num in range(1, last_day + 1):
+        date_key = f"{cal_year}-{cal_month:02d}-{day_num:02d}"
+        pnl = daily_pnl.get(date_key, None)
+        count = daily_count.get(date_key, 0)
+        is_today = (cal_year == today.year and cal_month == today.month and day_num == today.day)
+
+        # Determine colors based on P&L
+        if count > 0:
+            if pnl and pnl > 0:
+                bg = "rgba(34,197,94,0.12)"
+                border_c = "rgba(34,197,94,0.27)"
+                text_color = "#22c55e"
+                hover_bg = "rgba(34,197,94,0.22)"
+            elif pnl and pnl < 0:
+                bg = "rgba(239,68,68,0.12)"
+                border_c = "rgba(239,68,68,0.27)"
+                text_color = "#ef4444"
+                hover_bg = "rgba(239,68,68,0.22)"
+            else:
+                bg = "rgba(160,160,160,0.08)"
+                border_c = "rgba(160,160,160,0.2)"
+                text_color = "#888"
+                hover_bg = "rgba(160,160,160,0.15)"
+        else:
+            bg = "#0e0e0e"
+            border_c = "#1e1a17"
+            text_color = "#555"
+            hover_bg = "#141414"
+
+        if is_today:
+            border_rule = "border: 2px solid #7c5ce7 !important;"
+        else:
+            border_rule = f"border: 1px solid {border_c} !important;"
+
+        # CSS class from st.container(key=...)
+        container_cls = f"st-key-{key_prefix}_d_{day_num}"
+
+        # Style the button inside this container
+        css += f"""
+.{container_cls} button {{
+    background: {bg} !important;
+    {border_rule}
+    border-radius: 8px !important;
+    color: {text_color} !important;
+    min-height: 90px !important;
+    height: 90px !important;
+    padding: 6px 4px !important;
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    white-space: pre-line !important;
+    line-height: 1.3 !important;
+    cursor: {"pointer" if count > 0 else "default"} !important;
+    transition: background 0.15s ease !important;
+}}
+.{container_cls} button:hover {{
+    background: {hover_bg} !important;
+    {border_rule}
+}}
+"""
+        # Disabled buttons (non-trading days) need opacity override
+        if count == 0:
+            css += f"""
+.{container_cls} button:disabled {{
+    background: {bg} !important;
+    {border_rule}
+    color: {text_color} !important;
+    opacity: 1 !important;
+    cursor: default !important;
+}}
+"""
+
+    # Also hide the keyed container's own padding/border
+    css += f"""
+div[class*="st-key-{key_prefix}_d_"] {{
+    padding: 0 !important;
+    margin: 0 !important;
+}}
+"""
+
+    css += "</style>"
+    st.markdown(css, unsafe_allow_html=True)
