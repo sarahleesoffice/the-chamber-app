@@ -169,21 +169,20 @@ def _show_day_dialog(date_str: str, trades: list, key_prefix: str):
 def _build_cell_label(day_num: int, count: int, dollar: float, pnl: float) -> str:
     """Build the text label shown on a clickable calendar cell button.
 
-    The day number is rendered separately via CSS ::before, so the button
-    text only contains the dollar/pip amount and trade count.
+    The day number is rendered via CSS ::before and "Trades: X" via CSS
+    ::after, so the button text only contains the dollar/pip amount.
     """
     if count == 0:
         # Non-trading day: just the day number (styled via CSS)
         return str(day_num)
 
-    # Dollar or pips + trade count (day number handled by CSS ::before)
+    # Dollar or pips only (day number via ::before, trade count via ::after)
     if dollar:
         dollar_display = f"-${abs(dollar):,.0f}" if dollar < 0 else f"${dollar:,.0f}"
     else:
         dollar_display = f"-{abs(pnl):.0f}p" if pnl < 0 else f"{pnl:.0f}p"
 
-    trade_word = "trade" if count == 1 else "trades"
-    return f"{dollar_display}\n{count} {trade_word}"
+    return dollar_display
 
 
 def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
@@ -466,6 +465,10 @@ def _inject_calendar_css(
     cursor: {"pointer" if count > 0 else "default"} !important;
     transition: all 0.15s ease !important;
     position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
 }}
 """
         # Day number via ::before — grey, smaller, positioned at top
@@ -484,6 +487,15 @@ def _inject_calendar_css(
     font-weight: 400;
     transition: color 0.15s ease !important;
 }}
+.{container_cls} button::after {{
+    content: "Trades: {count}";
+    display: block;
+    color: #888;
+    font-size: 0.65rem;
+    font-weight: 400;
+    margin-top: 2px;
+    transition: color 0.15s ease !important;
+}}
 """
 
         # Hover: orange background + orange text + orange day number
@@ -495,6 +507,9 @@ def _inject_calendar_css(
     color: #e8651a !important;
 }}
 .{container_cls} button:hover::before {{
+    color: #e8651a !important;
+}}
+.{container_cls} button:hover::after {{
     color: #e8651a !important;
 }}
 """

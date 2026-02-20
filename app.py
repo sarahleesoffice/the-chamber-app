@@ -2,8 +2,11 @@ import streamlit as st
 from dotenv import load_dotenv
 from lib.database import init_db
 from lib.auth import (
-    init_users_table, init_api_keys_table, register_user, authenticate_user,
+    init_users_table, init_api_keys_table, init_sessions_table,
+    register_user, authenticate_user,
     is_logged_in, login_user, logout_user, get_current_username,
+    create_session_token, delete_session_token,
+    set_session_cookie, clear_session_cookie, try_cookie_login,
 )
 
 load_dotenv()
@@ -12,6 +15,10 @@ st.set_page_config(page_title="The Chamber", page_icon="\u269A", layout="wide")
 init_db()
 init_users_table()
 init_api_keys_table()
+init_sessions_table()
+
+# ── Try restoring session from cookie ────────────────────────
+try_cookie_login()
 
 # ── Auth gate — must log in before seeing any pages ──────────
 if not is_logged_in():
@@ -60,6 +67,8 @@ if not is_logged_in():
                     user = authenticate_user(email, password)
                     if user:
                         login_user(user)
+                        token = create_session_token(user["id"])
+                        set_session_cookie(token)
                         st.rerun()
                     else:
                         st.error("Invalid email or password.")
@@ -81,7 +90,10 @@ if not is_logged_in():
                 else:
                     uid = register_user(reg_email, reg_username, reg_password)
                     if uid:
-                        login_user({"id": uid, "email": reg_email, "username": reg_username})
+                        user = {"id": uid, "email": reg_email, "username": reg_username}
+                        login_user(user)
+                        token = create_session_token(uid)
+                        set_session_cookie(token)
                         st.rerun()
                     else:
                         st.error("Email already registered.")
@@ -449,6 +461,9 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     if st.button("Logout", key="logout_btn"):
+        from lib.auth import get_current_user_id as _get_uid
+        delete_session_token(_get_uid())
+        clear_session_cookie()
         logout_user()
         st.rerun()
     st.divider()

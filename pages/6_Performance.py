@@ -59,29 +59,38 @@ winners = [t for t in trades if t.pnl_pips > 0] if trades else []
 losers = [t for t in trades if t.pnl_pips < 0] if trades else []
 breakeven = [t for t in trades if t.pnl_pips == 0] if trades else []
 win_rate = len(winners) / len(trades) * 100 if trades else 0
-avg_win = sum(t.pnl_pips for t in winners) / len(winners) if winners else 0
-avg_loss = sum(t.pnl_pips for t in losers) / len(losers) if losers else 0
-profit_factor = abs(sum(t.pnl_pips for t in winners) / sum(t.pnl_pips for t in losers)) if losers and sum(t.pnl_pips for t in losers) != 0 else float("inf")
-rr_ratio = abs(avg_win / avg_loss) if avg_loss != 0 else 0
-best_trade = max(trades, key=lambda t: t.pnl_pips) if trades else None
-worst_trade = min(trades, key=lambda t: t.pnl_pips) if trades else None
+avg_win_dollar = sum(t.pnl_dollar for t in winners if t.pnl_dollar) / len(winners) if winners else 0
+avg_loss_dollar = sum(t.pnl_dollar for t in losers if t.pnl_dollar) / len(losers) if losers else 0
+losers_pnl = sum(t.pnl_pips for t in losers)
+winners_pnl = sum(t.pnl_pips for t in winners)
+profit_factor = abs(winners_pnl / losers_pnl) if losers_pnl != 0 else float("inf")
+rr_ratio = abs(avg_win_dollar / avg_loss_dollar) if avg_loss_dollar != 0 else 0
+best_trade = max(trades, key=lambda t: t.pnl_dollar if t.pnl_dollar else 0) if trades else None
+worst_trade = min(trades, key=lambda t: t.pnl_dollar if t.pnl_dollar else 0) if trades else None
 
 # Trading days
 trading_days = set(t.trade_date for t in trades) if trades else set()
 winning_days = set()
 losing_days = set()
 for d in trading_days:
-    day_pnl = sum(t.pnl_pips for t in trades if t.trade_date == d)
+    day_pnl = sum(t.pnl_dollar for t in trades if t.trade_date == d and t.pnl_dollar)
     if day_pnl > 0:
         winning_days.add(d)
     elif day_pnl < 0:
         losing_days.add(d)
 
+
+def fmt_dollar(val: float) -> str:
+    """Format dollar: positive = '$1,234.56' (no +), negative = '-$1,234.56'."""
+    if val < 0:
+        return f"-${abs(val):,.2f}"
+    return f"${val:,.2f}"
+
 # ============================================================
 # STATS OVERVIEW CARDS (styled)
 # ============================================================
 
-pnl_color = "#22c55e" if total_pips > 0 else "#ef4444" if total_pips < 0 else "#a0a0a0"
+pnl_color = "#22c55e" if total_dollar > 0 else "#ef4444" if total_dollar < 0 else "#a0a0a0"
 wr_color = "#22c55e" if win_rate >= 55 else "#e8651a" if win_rate >= 45 else "#ef4444"
 pf_val = f"{profit_factor:.2f}" if profit_factor != float("inf") else "—"
 rr_val = f"{rr_ratio:.2f}" if rr_ratio > 0 else "—"
@@ -100,8 +109,7 @@ def stat_card(label, value, color="#f5f5f5", sub_text=""):
 
 # Row 1: Key metrics
 stats_row1 = '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:8px;">'
-stats_row1 += stat_card("Net P&L", f"{total_pips:+.1f} pips" if trades else "—", pnl_color,
-                        f"${total_dollar:+,.2f}" if total_dollar else "")
+stats_row1 += stat_card("Net P&L", fmt_dollar(total_dollar) if trades else "—", pnl_color)
 stats_row1 += stat_card("Win Rate", f"{win_rate:.1f}%" if trades else "—", wr_color,
                         (f"{len(winners)}W / {len(losers)}L" + (f" / {len(breakeven)}BE" if breakeven else "")) if trades else "No trades yet")
 stats_row1 += stat_card("Profit Factor", pf_val,
@@ -115,11 +123,11 @@ st.markdown(stats_row1, unsafe_allow_html=True)
 stats_row2 = '<div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:8px;">'
 stats_row2 += stat_card("Trades", str(len(trades)), "#f5f5f5",
                         f"{len(trading_days)} days" if trades else "")
-stats_row2 += stat_card("Avg Win", f"{avg_win:+.1f}" if winners else "—", "#22c55e")
-stats_row2 += stat_card("Avg Loss", f"{avg_loss:+.1f}" if losers else "—", "#ef4444")
-stats_row2 += stat_card("Best Trade", f"{best_trade.pnl_pips:+.1f}" if best_trade else "—", "#22c55e",
+stats_row2 += stat_card("Avg Win", fmt_dollar(avg_win_dollar) if winners else "—", "#22c55e")
+stats_row2 += stat_card("Avg Loss", fmt_dollar(avg_loss_dollar) if losers else "—", "#ef4444")
+stats_row2 += stat_card("Best Trade", fmt_dollar(best_trade.pnl_dollar) if best_trade and best_trade.pnl_dollar else "—", "#22c55e",
                         best_trade.pair if best_trade else "")
-stats_row2 += stat_card("Worst Trade", f"{worst_trade.pnl_pips:+.1f}" if worst_trade else "—", "#ef4444",
+stats_row2 += stat_card("Worst Trade", fmt_dollar(worst_trade.pnl_dollar) if worst_trade and worst_trade.pnl_dollar else "—", "#ef4444",
                         worst_trade.pair if worst_trade else "")
 stats_row2 += '</div>'
 st.markdown(stats_row2, unsafe_allow_html=True)
@@ -188,13 +196,13 @@ with stats_col:
 
     # Avg trades per day
     avg_trades_per_day = len(trades) / len(trading_days) if trading_days else 0
-    avg_pips_per_day = total_pips / len(trading_days) if trading_days else 0
+    avg_dollar_per_day = total_dollar / len(trading_days) if trading_days else 0
     day_wr = len(winning_days) / len(trading_days) * 100 if trading_days else 0
 
     day_data2 = '<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">'
     day_data2 += stat_card("Avg Trades/Day", f"{avg_trades_per_day:.1f}", "#e8651a")
-    day_data2 += stat_card("Avg Pips/Day", f"{avg_pips_per_day:+.1f}" if trades else "—",
-                           "#22c55e" if avg_pips_per_day > 0 else "#ef4444")
+    day_data2 += stat_card("Avg $/Day", fmt_dollar(avg_dollar_per_day) if trades else "—",
+                           "#22c55e" if avg_dollar_per_day > 0 else "#ef4444")
     day_data2 += stat_card("Day Win Rate", f"{day_wr:.0f}%" if trades else "—",
                            "#22c55e" if day_wr >= 55 else "#e8651a" if day_wr >= 45 else "#ef4444")
     day_data2 += '</div>'
@@ -223,35 +231,32 @@ with tab_equity:
 
     if trades:
         sorted_trades = sorted(trades, key=lambda t: (t.trade_date, t.id))
-        cumulative = []
-        running = 0.0
+        cumulative = {}
+        running_eq = 0.0
         for t in sorted_trades:
-            running += t.pnl_pips
-            cumulative.append({"date": t.trade_date, "cumulative_pips": running})
+            running_eq += t.pnl_dollar if t.pnl_dollar else 0
+            cumulative[t.trade_date] = running_eq
 
         if cumulative:
-            st.line_chart(
-                data={c["date"]: c["cumulative_pips"] for c in cumulative},
-                color="#e8651a",
-            )
+            st.line_chart(cumulative, color="#e8651a")
 
-        # Drawdown
+        # Drawdown (dollar-based)
         peak = 0.0
         max_dd = 0.0
-        running = 0.0
+        running_eq2 = 0.0
         for t in sorted_trades:
-            running += t.pnl_pips
-            if running > peak:
-                peak = running
-            dd = peak - running
+            running_eq2 += t.pnl_dollar if t.pnl_dollar else 0
+            if running_eq2 > peak:
+                peak = running_eq2
+            dd = peak - running_eq2
             if dd > max_dd:
                 max_dd = dd
 
         dd_html = '<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">'
-        dd_html += stat_card("Peak P&L", f"{peak:+.1f} pips", "#22c55e")
-        dd_html += stat_card("Max Drawdown", f"{max_dd:.1f} pips", "#ef4444")
-        dd_html += stat_card("Current P&L", f"{running:+.1f} pips",
-                             "#22c55e" if running > 0 else "#ef4444")
+        dd_html += stat_card("Peak P&L", fmt_dollar(peak), "#22c55e")
+        dd_html += stat_card("Max Drawdown", fmt_dollar(max_dd), "#ef4444")
+        dd_html += stat_card("Current P&L", fmt_dollar(running_eq2),
+                             "#22c55e" if running_eq2 > 0 else "#ef4444")
         dd_html += '</div>'
         st.markdown(dd_html, unsafe_allow_html=True)
     else:
@@ -278,21 +283,21 @@ with tab_breakdown:
         )
 
         def show_breakdown(groups: dict[str, list]):
-            for name, group_trades in sorted(groups.items(), key=lambda x: sum(t.pnl_pips for t in x[1]), reverse=True):
-                g_pnl = sum(t.pnl_pips for t in group_trades)
+            for name, group_trades in sorted(groups.items(), key=lambda x: sum(t.pnl_dollar for t in x[1] if t.pnl_dollar), reverse=True):
+                g_dollar = sum(t.pnl_dollar for t in group_trades if t.pnl_dollar)
                 g_wins = sum(1 for t in group_trades if t.pnl_pips > 0)
                 g_wr = g_wins / len(group_trades) * 100 if group_trades else 0
-                g_avg = g_pnl / len(group_trades) if group_trades else 0
+                g_avg = g_dollar / len(group_trades) if group_trades else 0
 
-                color = "#22c55e" if g_pnl > 0 else "#ef4444" if g_pnl < 0 else "#888"
+                color = "#22c55e" if g_dollar > 0 else "#ef4444" if g_dollar < 0 else "#888"
 
-                with st.expander(f"**{name}** — {g_pnl:+.1f} pips ({len(group_trades)} trades)"):
+                with st.expander(f"**{name}** — {fmt_dollar(g_dollar)} ({len(group_trades)} trades)"):
                     row_html = '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px;">'
-                    row_html += stat_card("P&L", f"{g_pnl:+.1f}", color)
+                    row_html += stat_card("P&L", fmt_dollar(g_dollar), color)
                     row_html += stat_card("Trades", str(len(group_trades)), "#f5f5f5")
                     row_html += stat_card("Win Rate", f"{g_wr:.0f}%",
                                           "#22c55e" if g_wr >= 55 else "#e8651a" if g_wr >= 45 else "#ef4444")
-                    row_html += stat_card("Avg P&L", f"{g_avg:+.1f}",
+                    row_html += stat_card("Avg P&L", fmt_dollar(g_avg),
                                           "#22c55e" if g_avg > 0 else "#ef4444")
                     row_html += '</div>'
                     st.markdown(row_html, unsafe_allow_html=True)
@@ -397,7 +402,7 @@ with tab_streaks:
         max_day_loss = 0
 
         for d in sorted_dates:
-            day_pnl_val = sum(t.pnl_pips for t in trades if t.trade_date == d)
+            day_pnl_val = sum(t.pnl_dollar for t in trades if t.trade_date == d and t.pnl_dollar)
             if day_pnl_val > 0:
                 if day_type == "win":
                     day_streak += 1
@@ -450,12 +455,12 @@ with tab_mental:
         for d in trading_days:
             if d in journal_map:
                 j = journal_map[d]
-                day_pnl_val = sum(t.pnl_pips for t in trades if t.trade_date == d)
+                day_dollar_val = sum(t.pnl_dollar for t in trades if t.trade_date == d and t.pnl_dollar)
                 day_count = sum(1 for t in trades if t.trade_date == d)
                 day_wins = sum(1 for t in trades if t.trade_date == d and t.pnl_pips > 0)
                 correlations.append({
                     "date": d,
-                    "pnl": day_pnl_val,
+                    "pnl": day_dollar_val,
                     "trades": day_count,
                     "win_rate": day_wins / day_count * 100 if day_count else 0,
                     "readiness": j.readiness_score,
@@ -486,7 +491,7 @@ with tab_mental:
                     f'<div style="color:#22c55e; font-weight:700; margin-bottom:8px;">High Readiness Days (7+)</div>'
                 )
                 comp_html += f'<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">'
-                comp_html += stat_card("Avg P&L", f"{hr_avg:+.1f}", "#22c55e")
+                comp_html += stat_card("Avg P&L", fmt_dollar(hr_avg), "#22c55e")
                 comp_html += stat_card("Avg WR", f"{hr_wr:.0f}%", "#22c55e")
                 comp_html += stat_card("Days", str(len(high_ready)), "#f5f5f5")
                 comp_html += '</div></div>'
@@ -496,7 +501,7 @@ with tab_mental:
                     f'<div style="color:#ef4444; font-weight:700; margin-bottom:8px;">Low Readiness Days (4-)</div>'
                 )
                 comp_html += f'<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">'
-                comp_html += stat_card("Avg P&L", f"{lr_avg:+.1f}", "#ef4444")
+                comp_html += stat_card("Avg P&L", fmt_dollar(lr_avg), "#ef4444")
                 comp_html += stat_card("Avg WR", f"{lr_wr:.0f}%", "#ef4444")
                 comp_html += stat_card("Days", str(len(low_ready)), "#f5f5f5")
                 comp_html += '</div></div>'
@@ -516,9 +521,9 @@ with tab_mental:
                     diff = h_pnl - l_pnl
                     color = "#22c55e" if diff > 0 else "#ef4444"
                     st.markdown(
-                        f"**{cat.title()}**: High ({len(high)}d) avg {h_pnl:+.1f} pips vs "
-                        f"Low ({len(low)}d) avg {l_pnl:+.1f} pips — "
-                        f'<span style="color:{color}">difference: {diff:+.1f} pips/day</span>',
+                        f"**{cat.title()}**: High ({len(high)}d) avg {fmt_dollar(h_pnl)} vs "
+                        f"Low ({len(low)}d) avg {fmt_dollar(l_pnl)} — "
+                        f'<span style="color:{color}">difference: {fmt_dollar(diff)}/day</span>',
                         unsafe_allow_html=True,
                     )
         else:

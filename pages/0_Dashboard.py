@@ -11,7 +11,12 @@ from lib.knowledge.vector_store import get_collection_stats
 from lib.trading_calendar import render_trading_calendar
 from lib.auth import get_current_user_id
 
-st.header("Dashboard")
+st.markdown(
+    '<div style="font-size:1.8rem; font-weight:700; color:#e8651a; letter-spacing:3px; '
+    'text-shadow:0 0 20px rgba(232,101,26,0.4), 0 0 40px rgba(232,101,26,0.15); '
+    'margin-bottom:8px;">DASHBOARD</div>',
+    unsafe_allow_html=True,
+)
 
 user_id = get_current_user_id()
 
@@ -53,25 +58,25 @@ total_dollar = sum(t.pnl_dollar for t in all_trades if t.pnl_dollar) if all_trad
 winners = [t for t in all_trades if t.pnl_pips > 0] if all_trades else []
 losers = [t for t in all_trades if t.pnl_pips < 0] if all_trades else []
 win_rate = len(winners) / len(all_trades) * 100 if all_trades else 0
-avg_win = sum(t.pnl_pips for t in winners) / len(winners) if winners else 0
-avg_loss = sum(t.pnl_pips for t in losers) / len(losers) if losers else 0
+avg_win_dollar = sum(t.pnl_dollar for t in winners if t.pnl_dollar) / len(winners) if winners else 0
+avg_loss_dollar = sum(t.pnl_dollar for t in losers if t.pnl_dollar) / len(losers) if losers else 0
 losers_pnl = sum(t.pnl_pips for t in losers)
 winners_pnl = sum(t.pnl_pips for t in winners)
 profit_factor = abs(winners_pnl / losers_pnl) if losers_pnl != 0 else float("inf")
-rr_ratio = abs(avg_win / avg_loss) if avg_loss != 0 else 0
+rr_ratio = abs(avg_win_dollar / avg_loss_dollar) if avg_loss_dollar != 0 else 0
 
-# Max drawdown
+# Max drawdown (dollar-based)
 sorted_trades = sorted(all_trades, key=lambda t: (t.trade_date, t.id)) if all_trades else []
-peak = 0.0
-max_dd = 0.0
-running = 0.0
+peak_dollar = 0.0
+max_dd_dollar = 0.0
+running_dollar = 0.0
 for t in sorted_trades:
-    running += t.pnl_pips
-    if running > peak:
-        peak = running
-    dd = peak - running
-    if dd > max_dd:
-        max_dd = dd
+    running_dollar += t.pnl_dollar if t.pnl_dollar else 0
+    if running_dollar > peak_dollar:
+        peak_dollar = running_dollar
+    dd = peak_dollar - running_dollar
+    if dd > max_dd_dollar:
+        max_dd_dollar = dd
 
 # Trading days
 trading_days = set(t.trade_date for t in all_trades) if all_trades else set()
@@ -84,44 +89,51 @@ for d in trading_days:
     elif day_pnl < 0:
         losing_days.add(d)
 
+
+def fmt_dollar(val: float) -> str:
+    """Format dollar: positive = '$1,234.56' (no +), negative = '-$1,234.56'."""
+    if val < 0:
+        return f"-${abs(val):,.2f}"
+    return f"${val:,.2f}"
+
 # ============================================================
 # STATS OVERVIEW
 # ============================================================
 
 st.markdown(
     '<div style="margin-bottom:4px;">'
-    '<div style="color:#f5f5f5; font-size:1.4rem; font-weight:700;">Stats Overview</div>'
+    '<div style="font-size:1.3rem; font-weight:700; color:#e8651a; letter-spacing:2px; '
+    'text-shadow:0 0 20px rgba(232,101,26,0.4), 0 0 40px rgba(232,101,26,0.15);">STATS OVERVIEW</div>'
     '<div style="color:#888; font-size:0.85rem;">Your all-time trading performance at a glance</div>'
     '</div>',
     unsafe_allow_html=True,
 )
 
-pnl_color = "#22c55e" if total_pips > 0 else "#ef4444" if total_pips < 0 else "#a0a0a0"
+pnl_color = "#22c55e" if total_dollar > 0 else "#ef4444" if total_dollar < 0 else "#a0a0a0"
 wr_color = "#22c55e" if win_rate >= 55 else "#e8651a" if win_rate >= 45 else "#ef4444"
 pf_val = f"{profit_factor:.2f}" if profit_factor != float("inf") else "—"
 rr_val = f"{rr_ratio:.2f}" if rr_ratio > 0 else "—"
 
 row1 = '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:12px 0 8px 0;">'
-row1 += stat_card("Net P&L", f"{total_pips:+.1f} pips" if all_trades else "—", pnl_color,
-                   f"${total_dollar:+,.2f}" if total_dollar else "")
+row1 += stat_card("Net P&L", fmt_dollar(total_dollar) if all_trades else "—", pnl_color)
 row1 += stat_card("Win Rate", f"{win_rate:.1f}%" if all_trades else "—", wr_color,
                    f"{len(winners)}W / {len(losers)}L" if all_trades else "No trades yet")
 row1 += stat_card("Profit Factor", pf_val,
                    "#22c55e" if profit_factor > 1.5 else "#e8651a" if profit_factor > 1 else "#ef4444")
-row1 += stat_card("Max Drawdown", f"{max_dd:.1f}" if all_trades else "—", "#ef4444",
-                   "pips from peak" if all_trades else "")
+row1 += stat_card("Max Drawdown", fmt_dollar(max_dd_dollar) if all_trades else "—", "#ef4444",
+                   "from peak" if all_trades else "")
 row1 += '</div>'
 st.markdown(row1, unsafe_allow_html=True)
 
 row2 = '<div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:8px;">'
 row2 += stat_card("Trades", str(len(all_trades)), "#f5f5f5",
                    f"{len(trading_days)} days" if all_trades else "")
-row2 += stat_card("Avg Win", f"{avg_win:+.1f}" if winners else "—", "#22c55e")
-row2 += stat_card("Avg Loss", f"{avg_loss:+.1f}" if losers else "—", "#ef4444")
+row2 += stat_card("Avg Win", fmt_dollar(avg_win_dollar) if winners else "—", "#22c55e")
+row2 += stat_card("Avg Loss", fmt_dollar(avg_loss_dollar) if losers else "—", "#ef4444")
 row2 += stat_card("R:R Ratio", rr_val,
                    "#22c55e" if rr_ratio >= 2 else "#e8651a" if rr_ratio >= 1 else "#ef4444")
-row2 += stat_card("Current P&L", f"{running:+.1f}" if all_trades else "—",
-                   "#22c55e" if running > 0 else "#ef4444", "pips" if all_trades else "")
+row2 += stat_card("Current P&L", fmt_dollar(running_dollar) if all_trades else "—",
+                   "#22c55e" if running_dollar > 0 else "#ef4444")
 row2 += '</div>'
 st.markdown(row2, unsafe_allow_html=True)
 
@@ -174,7 +186,7 @@ with eq_col:
         cumulative = {}
         running_eq = 0.0
         for t in sorted_trades:
-            running_eq += t.pnl_pips
+            running_eq += t.pnl_dollar if t.pnl_dollar else 0
             cumulative[t.trade_date] = running_eq
         if cumulative:
             st.line_chart(cumulative, color="#e8651a")
@@ -196,13 +208,18 @@ st.divider()
 recent_col, streak_col = st.columns([3, 2])
 
 with recent_col:
-    st.markdown("**Recent Trades**")
+    st.markdown(
+        '<div style="font-size:1.1rem; font-weight:700; color:#e8651a; letter-spacing:2px; '
+        'text-shadow:0 0 20px rgba(232,101,26,0.4), 0 0 40px rgba(232,101,26,0.15); '
+        'margin-bottom:8px;">RECENT TRADES</div>',
+        unsafe_allow_html=True,
+    )
 
     if all_trades:
         for t in all_trades[:10]:
             pnl_color_t = "#22c55e" if t.pnl_pips > 0 else "#ef4444" if t.pnl_pips < 0 else "#888"
             result = "W" if t.pnl_pips > 0 else "L" if t.pnl_pips < 0 else "BE"
-            dollar_str = f" (${t.pnl_dollar:+,.0f})" if t.pnl_dollar else ""
+            dollar_display = fmt_dollar(t.pnl_dollar) if t.pnl_dollar else ""
 
             st.markdown(
                 f'<div style="padding:6px 8px; border-bottom:1px solid #1a1a1a; display:flex; '
@@ -213,8 +230,8 @@ with recent_col:
                 f'<span style="color:#888; font-size:0.8rem;">{t.direction.upper()}</span>'
                 f'</div>'
                 f'<div style="text-align:right;">'
-                f'<span style="color:{pnl_color_t}; font-weight:700;">{t.pnl_pips:+.1f}</span>'
-                f'<span style="color:{pnl_color_t}; font-size:0.75rem;"> {result}{dollar_str}</span>'
+                f'<span style="color:{pnl_color_t}; font-weight:700;">{dollar_display}</span>'
+                f'<span style="color:{pnl_color_t}; font-size:0.75rem;"> {result}</span>'
                 f'</div>'
                 f'</div>',
                 unsafe_allow_html=True,
@@ -229,7 +246,12 @@ with recent_col:
         )
 
 with streak_col:
-    st.markdown("**Streaks**")
+    st.markdown(
+        '<div style="font-size:1.1rem; font-weight:700; color:#e8651a; letter-spacing:2px; '
+        'text-shadow:0 0 20px rgba(232,101,26,0.4), 0 0 40px rgba(232,101,26,0.15); '
+        'margin-bottom:8px;">STREAKS</div>',
+        unsafe_allow_html=True,
+    )
 
     # Journal streak
     journal_dates = set(get_journal_dates(user_id=user_id))
@@ -282,7 +304,12 @@ st.divider()
 # ============================================================
 # ACHIEVEMENTS
 # ============================================================
-st.markdown("**Achievements**")
+st.markdown(
+    '<div style="font-size:1.1rem; font-weight:700; color:#e8651a; letter-spacing:2px; '
+    'text-shadow:0 0 20px rgba(232,101,26,0.4), 0 0 40px rgba(232,101,26,0.15); '
+    'margin-bottom:8px;">ACHIEVEMENTS</div>',
+    unsafe_allow_html=True,
+)
 
 badges = []
 
@@ -344,7 +371,12 @@ st.divider()
 # ============================================================
 # DAILY ICT TIP
 # ============================================================
-st.markdown("**ICT Concept of the Day**")
+st.markdown(
+    '<div style="font-size:1.1rem; font-weight:700; color:#e8651a; letter-spacing:2px; '
+    'text-shadow:0 0 20px rgba(232,101,26,0.4), 0 0 40px rgba(232,101,26,0.15); '
+    'margin-bottom:8px;">ICT CONCEPT OF THE DAY</div>',
+    unsafe_allow_html=True,
+)
 
 if kb_stats["total_chunks"] > 0:
     from lib.knowledge.vector_store import query_similar

@@ -3,7 +3,9 @@ Authentication module for The Chamber.
 Handles user registration, login, and session management.
 """
 import bcrypt
+import uuid
 import streamlit as st
+import streamlit.components.v1 as components
 
 from lib.database import get_connection
 
@@ -149,3 +151,95 @@ def delete_api_key(user_id: int, provider: str) -> None:
 def has_api_key(user_id: int, provider: str) -> bool:
     """Check if a user has an API key for a provider."""
     return get_api_key(user_id, provider) is not None
+
+
+# ── Session Token Persistence (cookie-based) ──────────────────
+
+def init_sessions_table() -> None:
+    """Create session_tokens table if it doesn't exist."""
+    conn = get_connection()
+    with conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS session_tokens (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """)
+    conn.close()
+
+
+def create_session_token(user_id: int) -> str:
+    """Create a new session token for a user and store in DB."""
+    token = uuid.uuid4().hex
+    conn = get_connection()
+    with conn:
+        # Clean up old tokens for this user (keep only latest)
+        conn.execute("DELETE FROM session_tokens WHERE user_id = ?", (user_id,))
+        conn.execute(
+            "INSERT INTO session_tokens (token, user_id) VALUES (?, ?)",
+            (token, user_id),
+        )
+    conn.close()
+    return token
+
+
+def get_user_by_token(token: str) -> dict | None:
+    """Look up a user by session token. Returns user dict or None."""
+    conn = get_connection()
+    row = conn.execute(
+        """SELECT u.id, u.email, u.username
+           FROM session_tokens s JOIN users u ON s.user_id = u.id
+           WHERE s.token = ?""",
+        (token,),
+    ).fetchone()
+    conn.close()
+    if row:
+        return {"id": row["id"], "email": row["email"], "username": row["username"]}
+    return None
+
+
+def delete_session_token(user_id: int) -> None:
+    """Delete all session tokens for a user (on logout)."""
+    conn = get_connection()
+    with conn:
+        conn.execute("DELETE FROM session_tokens WHERE user_id = ?", (user_id,))
+    conn.close()
+
+
+def set_session_cookie(token: str) -> None:
+    """Inject JS to set a session cookie in the browser."""
+    components.html(
+        f"""<script>
+        document.cookie = "chamber_session={token}; path=/; max-age=2592000; SameSite=Lax";
+        </script>""",
+        height=0,
+    )
+
+
+def clear_session_cookie() -> None:
+    """Inject JS to clear the session cookie."""
+    components.html(
+        """<script>
+        document.cookie = "chamber_session=; path=/; max-age=0; SameSite=Lax";
+        </script>""",
+        height=0,
+    )
+
+
+def try_cookie_login() -> bool:
+    """Try to restore session from cookie. Returns True if successful."""
+    if is_logged_in():
+        return True
+    try:
+        cookies = st.context.cookies
+        token = cookies.get("chamber_session")
+        if token:
+            user = get_user_by_token(token)
+            if user:
+                login_user(user)
+                return True
+    except Exception:
+        pass
+    return False
