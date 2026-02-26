@@ -66,7 +66,8 @@ if not is_logged_in():
         section[data-testid="stSidebar"] { background-color: #0f0f0f; border-right: 1px solid #1a1210; }
         section[data-testid="stSidebar"] > div:first-child { padding-top:0; }
         [data-testid="stSidebarHeader"][class] { margin-bottom:0 !important; padding-bottom:0 !important; flex-wrap:wrap !important; }
-        section[data-testid="stSidebar"] div[data-testid="stSidebarHeader"]::after { content:"THE CHAMBER"; flex-basis:100% !important; width:100% !important; text-align:left; font-size:0.85rem; font-weight:700; color:#e8651a; letter-spacing:3px; text-shadow:0 0 20px rgba(232,101,26,0.3); padding:2px 0 4px 8px; border-bottom:1px solid #1e1a17; }
+        section[data-testid="stSidebar"] div[data-testid="stSidebarHeader"]::after { content:"THE CHAMBER"; flex-basis:100% !important; width:100% !important; text-align:left; font-size:1.25rem; font-weight:700; color:#e8651a; letter-spacing:4px; text-shadow:0 0 20px rgba(232,101,26,0.4); padding:4px 0 0 8px; }
+        section[data-testid="stSidebar"] [data-testid="stSidebarNav"]::before { content:"WHERE TRADING EVOLVES"; display:block; font-size:0.55rem; font-weight:600; color:#9e4a15; letter-spacing:2px; padding:1px 0 5px 8px; border-bottom:1px solid #1e1a17; margin-bottom:2px; }
         section[data-testid="stSidebar"] [data-testid="stSidebarNav"] { padding-top:0 !important; margin-top:0 !important; }
         section[data-testid="stSidebar"] span[data-testid="stSidebarNavSeparatorLabel"] { color:#e8651a !important; font-size:0.7rem !important; letter-spacing:2px !important; font-weight:700 !important; }
         .stTextInput > div > div > input {
@@ -289,20 +290,32 @@ st.markdown("""
         padding-top: 0 !important;
         margin-top: 0 !important;
     }
-    /* Chamber logo text under header collapse buttons */
+    /* Chamber branding — title */
     section[data-testid="stSidebar"] div[data-testid="stSidebarHeader"]::after {
         content: "THE CHAMBER";
         flex-basis: 100% !important;
         width: 100% !important;
         text-align: left;
-        font-size: 0.85rem;
+        font-size: 1.25rem;
         font-weight: 700;
         color: #e8651a;
-        letter-spacing: 3px;
+        letter-spacing: 4px;
         text-transform: uppercase;
-        text-shadow: 0 0 20px rgba(232, 101, 26, 0.3);
-        padding: 2px 0 4px 8px;
+        text-shadow: 0 0 20px rgba(232, 101, 26, 0.4);
+        padding: 4px 0 0 8px;
+    }
+    /* Chamber branding — subtitle */
+    section[data-testid="stSidebar"] [data-testid="stSidebarNav"]::before {
+        content: "WHERE TRADING EVOLVES";
+        display: block;
+        font-size: 0.55rem;
+        font-weight: 600;
+        color: #9e4a15;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        padding: 1px 0 5px 8px;
         border-bottom: 1px solid #1e1a17;
+        margin-bottom: 2px;
     }
     /* Remove old logo from content area */
     section[data-testid="stSidebar"] > div:first-child::before {
@@ -348,18 +361,32 @@ st.markdown("""
         color: #e8651a !important;
         fill: #e8651a !important;
     }
-    /* Sidebar nav items — active background */
+    /* Sidebar nav items — active background + glow */
     section[data-testid="stSidebar"] a[aria-current="page"],
     section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-current="page"] {
-        background-color: rgba(232, 101, 26, 0.1) !important;
+        background-color: rgba(232, 101, 26, 0.12) !important;
         border-left: 3px solid #e8651a !important;
+        box-shadow: inset 0 0 12px rgba(232, 101, 26, 0.15), 0 0 8px rgba(232, 101, 26, 0.1) !important;
     }
-    /* Sidebar nav hover */
+    /* Sidebar nav hover — orange glow */
+    section[data-testid="stSidebar"] a:hover,
+    section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover {
+        background-color: rgba(232, 101, 26, 0.08) !important;
+        box-shadow: 0 0 12px rgba(232, 101, 26, 0.2) !important;
+        transition: all 0.2s ease !important;
+    }
     section[data-testid="stSidebar"] a:hover span,
     section[data-testid="stSidebar"] a:hover p,
     section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover span,
     section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover p {
-        color: #e8651a !important;
+        color: #ff7e33 !important;
+        text-shadow: 0 0 8px rgba(232, 101, 26, 0.4) !important;
+    }
+    section[data-testid="stSidebar"] a:hover svg,
+    section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover svg {
+        color: #ff7e33 !important;
+        fill: #ff7e33 !important;
+        filter: drop-shadow(0 0 4px rgba(232, 101, 26, 0.5)) !important;
     }
 
     /* File uploader */
