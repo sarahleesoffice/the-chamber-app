@@ -65,8 +65,8 @@ if not is_logged_in():
         .stApp { background-color: #0a0a0a; }
         section[data-testid="stSidebar"] { background-color: #0f0f0f; border-right: 1px solid #1a1210; }
         section[data-testid="stSidebar"] > div:first-child { padding-top:0; }
-        [data-testid="stSidebarHeader"][class] { margin-bottom:0 !important; padding-bottom:0 !important; }
-        section[data-testid="stSidebar"] div[data-testid="stSidebarHeader"]::after { content:"THE CHAMBER"; display:block; text-align:center; font-size:0.85rem; font-weight:700; color:#e8651a; letter-spacing:3px; text-shadow:0 0 20px rgba(232,101,26,0.3); padding:2px 16px 4px; border-bottom:1px solid #1e1a17; }
+        [data-testid="stSidebarHeader"][class] { margin-bottom:0 !important; padding-bottom:0 !important; flex-wrap:wrap !important; }
+        section[data-testid="stSidebar"] div[data-testid="stSidebarHeader"]::after { content:"THE CHAMBER"; flex-basis:100% !important; width:100% !important; text-align:left; font-size:0.85rem; font-weight:700; color:#e8651a; letter-spacing:3px; text-shadow:0 0 20px rgba(232,101,26,0.3); padding:2px 0 4px 8px; border-bottom:1px solid #1e1a17; }
         section[data-testid="stSidebar"] [data-testid="stSidebarNav"] { padding-top:0 !important; margin-top:0 !important; }
         section[data-testid="stSidebar"] span[data-testid="stSidebarNavSeparatorLabel"] { color:#e8651a !important; font-size:0.7rem !important; letter-spacing:2px !important; font-weight:700 !important; }
         .stTextInput > div > div > input {
@@ -283,6 +283,7 @@ st.markdown("""
         padding-bottom: 0 !important;
         min-height: 0 !important;
         gap: 0 !important;
+        flex-wrap: wrap !important;
     }
     section[data-testid="stSidebar"] [data-testid="stSidebarNav"] {
         padding-top: 0 !important;
@@ -291,15 +292,16 @@ st.markdown("""
     /* Chamber logo text under header collapse buttons */
     section[data-testid="stSidebar"] div[data-testid="stSidebarHeader"]::after {
         content: "THE CHAMBER";
-        display: block;
-        text-align: center;
+        flex-basis: 100% !important;
+        width: 100% !important;
+        text-align: left;
         font-size: 0.85rem;
         font-weight: 700;
         color: #e8651a;
         letter-spacing: 3px;
         text-transform: uppercase;
         text-shadow: 0 0 20px rgba(232, 101, 26, 0.3);
-        padding: 2px 16px 4px 16px;
+        padding: 2px 0 4px 8px;
         border-bottom: 1px solid #1e1a17;
     }
     /* Remove old logo from content area */
