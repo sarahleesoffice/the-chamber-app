@@ -65,8 +65,8 @@ if not is_logged_in():
         .stApp { background-color: #0a0a0a; }
         section[data-testid="stSidebar"] { background-color: #0f0f0f; border-right: 1px solid #1a1210; }
         section[data-testid="stSidebar"] > div:first-child { padding-top:0; }
-        section[data-testid="stSidebar"] > div:first-child::before { content:""; display:block; width:30px; height:30px; margin:2px auto 0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23e8651a' stroke-width='2.5' opacity='0.6'/%3E%3Ccircle cx='50' cy='50' r='36' fill='none' stroke='%23e8651a' stroke-width='1.5' opacity='0.3'/%3E%3Cpath d='M50 18 C40 35,30 42,30 55 C30 66,39 75,50 75 C61 75,70 66,70 55 C70 42,60 35,50 18Z' fill='none' stroke='%23e8651a' stroke-width='2.5'/%3E%3Cpath d='M50 32 C44 42,38 47,38 55 C38 62,43 67,50 67 C57 67,62 62,62 55 C62 47,56 42,50 32Z' fill='%23e8651a' opacity='0.2'/%3E%3Ccircle cx='50' cy='54' r='5' fill='%23e8651a' opacity='0.7'/%3E%3C/svg%3E"); background-size:contain; background-repeat:no-repeat; }
-        section[data-testid="stSidebar"] > div:first-child::after { content:"THE CHAMBER"; display:block; text-align:center; font-size:0.95rem; font-weight:700; color:#e8651a; letter-spacing:3px; text-shadow:0 0 20px rgba(232,101,26,0.3); padding:0 16px 2px; border-bottom:1px solid #1e1a17; margin-bottom:0; }
+        [data-testid="stSidebarHeader"][class] { margin-bottom:0 !important; padding-bottom:0 !important; }
+        section[data-testid="stSidebar"] div[data-testid="stSidebarHeader"]::after { content:"THE CHAMBER"; display:block; text-align:center; font-size:0.85rem; font-weight:700; color:#e8651a; letter-spacing:3px; text-shadow:0 0 20px rgba(232,101,26,0.3); padding:2px 16px 4px; border-bottom:1px solid #1e1a17; }
         section[data-testid="stSidebar"] [data-testid="stSidebarNav"] { padding-top:0 !important; margin-top:0 !important; }
         section[data-testid="stSidebar"] span[data-testid="stSidebarNavSeparatorLabel"] { color:#e8651a !important; font-size:0.7rem !important; letter-spacing:2px !important; font-weight:700 !important; }
         .stTextInput > div > div > input {
@@ -275,34 +275,39 @@ st.markdown("""
     section[data-testid="stSidebar"] > div:first-child {
         padding-top: 0;
     }
+    /* Kill the gap between sidebar header and nav */
+    section[data-testid="stSidebar"] div[data-testid="stSidebarHeader"],
+    section[data-testid="stSidebar"] [data-testid="stSidebarContent"] > div[data-testid="stSidebarHeader"],
+    [data-testid="stSidebarHeader"][class] {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+        min-height: 0 !important;
+        gap: 0 !important;
+    }
     section[data-testid="stSidebar"] [data-testid="stSidebarNav"] {
         padding-top: 0 !important;
         margin-top: 0 !important;
     }
-    /* Chamber logo — SVG flame + text via ::before/::after */
-    section[data-testid="stSidebar"] > div:first-child::before {
-        content: "";
-        display: block;
-        width: 30px;
-        height: 30px;
-        margin: 2px auto 0 auto;
-        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23e8651a' stroke-width='2.5' opacity='0.6'/%3E%3Ccircle cx='50' cy='50' r='36' fill='none' stroke='%23e8651a' stroke-width='1.5' opacity='0.3'/%3E%3Cpath d='M50 18 C40 35,30 42,30 55 C30 66,39 75,50 75 C61 75,70 66,70 55 C70 42,60 35,50 18Z' fill='none' stroke='%23e8651a' stroke-width='2.5'/%3E%3Cpath d='M50 32 C44 42,38 47,38 55 C38 62,43 67,50 67 C57 67,62 62,62 55 C62 47,56 42,50 32Z' fill='%23e8651a' opacity='0.2'/%3E%3Ccircle cx='50' cy='54' r='5' fill='%23e8651a' opacity='0.7'/%3E%3C/svg%3E");
-        background-size: contain;
-        background-repeat: no-repeat;
-    }
-    section[data-testid="stSidebar"] > div:first-child::after {
+    /* Chamber logo text under header collapse buttons */
+    section[data-testid="stSidebar"] div[data-testid="stSidebarHeader"]::after {
         content: "THE CHAMBER";
         display: block;
         text-align: center;
-        font-size: 0.95rem;
+        font-size: 0.85rem;
         font-weight: 700;
         color: #e8651a;
         letter-spacing: 3px;
         text-transform: uppercase;
         text-shadow: 0 0 20px rgba(232, 101, 26, 0.3);
-        padding: 0 16px 2px 16px;
+        padding: 2px 16px 4px 16px;
         border-bottom: 1px solid #1e1a17;
-        margin-bottom: 0;
+    }
+    /* Remove old logo from content area */
+    section[data-testid="stSidebar"] > div:first-child::before {
+        display: none !important;
+    }
+    section[data-testid="stSidebar"] > div:first-child::after {
+        display: none !important;
     }
     /* Sidebar section headers — TRADE, REFLECT, etc. */
     section[data-testid="stSidebar"] h2,
