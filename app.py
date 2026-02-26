@@ -67,7 +67,7 @@ if not is_logged_in():
         section[data-testid="stSidebar"] > div:first-child { padding-top:0; }
         [data-testid="stSidebarHeader"][class] { margin-bottom:0 !important; padding-bottom:0 !important; flex-wrap:wrap !important; }
         section[data-testid="stSidebar"] div[data-testid="stSidebarHeader"]::after { content:"THE CHAMBER"; flex-basis:100% !important; width:100% !important; text-align:left; font-size:1.25rem; font-weight:700; color:#e8651a; letter-spacing:4px; text-shadow:0 0 20px rgba(232,101,26,0.4); padding:4px 0 0 8px; }
-        section[data-testid="stSidebar"] [data-testid="stSidebarNav"]::before { content:"WHERE TRADING EVOLVES"; display:block; font-size:0.55rem; font-weight:600; color:#9e4a15; letter-spacing:2px; padding:1px 0 5px 8px; border-bottom:1px solid #1e1a17; margin-bottom:2px; }
+        section[data-testid="stSidebar"] [data-testid="stSidebarNav"]::before { content:""; display:block; border-bottom:1px solid #1e1a17; margin-bottom:2px; }
         section[data-testid="stSidebar"] [data-testid="stSidebarNav"] { padding-top:0 !important; margin-top:0 !important; }
         section[data-testid="stSidebar"] span[data-testid="stSidebarNavSeparatorLabel"] { color:#e8651a !important; font-size:0.7rem !important; letter-spacing:2px !important; font-weight:700 !important; }
         .stTextInput > div > div > input {
@@ -304,16 +304,10 @@ st.markdown("""
         text-shadow: 0 0 20px rgba(232, 101, 26, 0.4);
         padding: 4px 0 0 8px;
     }
-    /* Chamber branding — subtitle */
+    /* Thin divider under title */
     section[data-testid="stSidebar"] [data-testid="stSidebarNav"]::before {
-        content: "WHERE TRADING EVOLVES";
+        content: "";
         display: block;
-        font-size: 0.55rem;
-        font-weight: 600;
-        color: #9e4a15;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        padding: 1px 0 5px 8px;
         border-bottom: 1px solid #1e1a17;
         margin-bottom: 2px;
     }
@@ -368,25 +362,30 @@ st.markdown("""
         border-left: 3px solid #e8651a !important;
         box-shadow: inset 0 0 12px rgba(232, 101, 26, 0.15), 0 0 8px rgba(232, 101, 26, 0.1) !important;
     }
-    /* Sidebar nav hover — orange glow */
-    section[data-testid="stSidebar"] a:hover,
-    section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover {
-        background-color: rgba(232, 101, 26, 0.08) !important;
-        box-shadow: 0 0 12px rgba(232, 101, 26, 0.2) !important;
+    /* Base transition on all nav links */
+    section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"] a,
+    section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a {
         transition: all 0.2s ease !important;
     }
-    section[data-testid="stSidebar"] a:hover span,
-    section[data-testid="stSidebar"] a:hover p,
-    section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover span,
-    section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover p {
-        color: #ff7e33 !important;
-        text-shadow: 0 0 8px rgba(232, 101, 26, 0.4) !important;
+    /* Sidebar nav hover — orange glow */
+    section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover,
+    section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover a,
+    section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a:hover {
+        background-color: rgba(232, 101, 26, 0.1) !important;
+        box-shadow: 0 0 14px rgba(232, 101, 26, 0.25), inset 0 0 8px rgba(232, 101, 26, 0.1) !important;
     }
-    section[data-testid="stSidebar"] a:hover svg,
-    section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover svg {
+    section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover span,
+    section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover p,
+    section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a:hover span,
+    section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a:hover p {
+        color: #ff7e33 !important;
+        text-shadow: 0 0 10px rgba(232, 101, 26, 0.5) !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover svg,
+    section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a:hover svg {
         color: #ff7e33 !important;
         fill: #ff7e33 !important;
-        filter: drop-shadow(0 0 4px rgba(232, 101, 26, 0.5)) !important;
+        filter: drop-shadow(0 0 6px rgba(232, 101, 26, 0.6)) !important;
     }
 
     /* File uploader */
@@ -625,6 +624,14 @@ with st.sidebar:
         '</svg>'
         'Join Discord'
         '</a>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="text-align:center; padding:12px 0 4px 0; margin-top:8px; '
+        'border-top:1px solid #1e1a17;">'
+        '<div style="font-size:0.6rem; color:#9e4a15; letter-spacing:2px; '
+        'font-weight:600; text-transform:uppercase;">WHERE TRADING EVOLVES</div>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
