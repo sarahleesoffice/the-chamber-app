@@ -2,7 +2,7 @@ import streamlit as st
 from datetime import date
 
 from lib.models import Trade
-from lib.database import insert_trade
+from lib.database import insert_trade, update_trade_chart_path
 from lib.trade_math import calculate_pnl_pips, get_common_pairs, format_pair
 from lib.chart_storage import save_chart
 from lib.auth import get_current_user_id
@@ -94,13 +94,8 @@ if st.button("Save Trade", type="primary", use_container_width=True):
         # Save chart after we have the trade ID
         if chart_file:
             chart_file.seek(0)
-            chart_path = save_chart(chart_file, trade_id)
-            # Update the trade with the chart path
-            from lib.database import get_connection
-            conn = get_connection()
-            with conn:
-                conn.execute("UPDATE trades SET chart_path = ? WHERE id = ? AND user_id = ?", (chart_path, trade_id, user_id))
-            conn.close()
+            chart_path = save_chart(chart_file, trade_id, user_id=user_id)
+            update_trade_chart_path(trade_id, chart_path, user_id=user_id)
 
         st.success(f"Trade saved! {pair} {direction.upper()} | {pnl_pips:+.1f} pips")
         st.balloons()

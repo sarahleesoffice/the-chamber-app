@@ -7,3 +7,5 @@ services:
     envVars:
       - key: PORT
         value: "8501"
+      - key: DATABASE_URL
+        fromGroup: chamber-secrets

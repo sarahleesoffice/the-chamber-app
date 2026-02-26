@@ -1,14 +1,33 @@
 import os
 import sqlite3
+import base64
+from contextlib import contextmanager
 from typing import Optional
+
+try:
+    import psycopg2
+    import psycopg2.extras
+    HAS_POSTGRES = True
+except ImportError:
+    HAS_POSTGRES = False
 
 from lib.models import Trade, Analysis, DailyJournal, PlaybookSetup, TradeGrade, WatchlistItem
 
+# ── Configuration ─────────────────────────────────────────────
+DATABASE_URL = os.environ.get("DATABASE_URL")
+USE_POSTGRES = bool(DATABASE_URL and HAS_POSTGRES)
+
+# SQLite paths (local dev only)
 DB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
 DB_PATH = os.path.join(DB_DIR, "trades.db")
 
 
-def get_connection() -> sqlite3.Connection:
+# ── Connection & query helpers ────────────────────────────────
+
+def get_connection():
+    """Get a database connection (PostgreSQL or SQLite)."""
+    if USE_POSTGRES:
+        return psycopg2.connect(DATABASE_URL)
     os.makedirs(DB_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -16,127 +35,315 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
-def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
-    """Check if a column exists in a table."""
+@contextmanager
+def _db():
+    """Database connection with auto commit/rollback."""
+    conn = get_connection()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _q(sql: str) -> str:
+    """Translate SQLite SQL to PostgreSQL if needed."""
+    if not USE_POSTGRES:
+        return sql
+    return sql.replace("?", "%s").replace("datetime('now')", "NOW()::TEXT")
+
+
+def _exec(conn, sql: str, params=None):
+    """Execute SQL with the appropriate cursor."""
+    sql = _q(sql)
+    if USE_POSTGRES:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(sql, params or ())
+        return cur
+    return conn.execute(sql, params or ())
+
+
+def _insert(conn, sql: str, params=None) -> int:
+    """Execute INSERT and return the new row id."""
+    if USE_POSTGRES:
+        sql = _q(sql).rstrip().rstrip(";") + " RETURNING id"
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(sql, params or ())
+        return cur.fetchone()["id"]
+    cur = conn.execute(sql, params or ())
+    return cur.lastrowid
+
+
+# ── Schema ────────────────────────────────────────────────────
+
+def _column_exists(conn, table: str, column: str) -> bool:
+    if USE_POSTGRES:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name = %s AND column_name = %s",
+            (table, column),
+        )
+        return cur.fetchone() is not None
     cursor = conn.execute(f"PRAGMA table_info({table})")
-    columns = [row["name"] for row in cursor.fetchall()]
-    return column in columns
+    return column in [row["name"] for row in cursor.fetchall()]
+
+
+_PG_SCHEMA = [
+    """CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        username TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        security_question TEXT DEFAULT '',
+        security_answer_hash TEXT DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT NOW()::TEXT
+    )""",
+    """CREATE TABLE IF NOT EXISTS trades (
+        id SERIAL PRIMARY KEY,
+        pair TEXT NOT NULL,
+        direction TEXT NOT NULL CHECK(direction IN ('long', 'short')),
+        entry_price DOUBLE PRECISION NOT NULL,
+        exit_price DOUBLE PRECISION NOT NULL,
+        pnl_pips DOUBLE PRECISION NOT NULL,
+        pnl_dollar DOUBLE PRECISION,
+        trade_date TEXT NOT NULL,
+        reasoning TEXT DEFAULT '',
+        chart_path TEXT,
+        user_id INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT NOW()::TEXT
+    )""",
+    """CREATE TABLE IF NOT EXISTS analyses (
+        id SERIAL PRIMARY KEY,
+        trade_id INTEGER NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL,
+        model TEXT NOT NULL,
+        analysis_text TEXT NOT NULL,
+        user_id INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT NOW()::TEXT
+    )""",
+    """CREATE TABLE IF NOT EXISTS daily_journal (
+        id SERIAL PRIMARY KEY,
+        journal_date TEXT NOT NULL,
+        sleep INTEGER NOT NULL DEFAULT 5,
+        energy INTEGER NOT NULL DEFAULT 5,
+        focus INTEGER NOT NULL DEFAULT 5,
+        mood INTEGER NOT NULL DEFAULT 5,
+        stress INTEGER NOT NULL DEFAULT 5,
+        confidence INTEGER NOT NULL DEFAULT 5,
+        readiness_score INTEGER NOT NULL DEFAULT 5,
+        readiness_label TEXT DEFAULT '',
+        emotional_states TEXT DEFAULT '',
+        ict_setups_used TEXT DEFAULT '',
+        market_condition TEXT DEFAULT '',
+        mistakes TEXT DEFAULT '',
+        reflection TEXT DEFAULT '',
+        lessons_learned TEXT DEFAULT '',
+        tomorrows_improvements TEXT DEFAULT '',
+        user_id INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT NOW()::TEXT,
+        updated_at TEXT NOT NULL DEFAULT NOW()::TEXT
+    )""",
+    """CREATE TABLE IF NOT EXISTS playbook_setups (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        setup_type TEXT NOT NULL,
+        rules TEXT NOT NULL DEFAULT '',
+        description TEXT DEFAULT '',
+        active INTEGER NOT NULL DEFAULT 1,
+        user_id INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT NOW()::TEXT
+    )""",
+    """CREATE TABLE IF NOT EXISTS trade_grades (
+        id SERIAL PRIMARY KEY,
+        trade_id INTEGER NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
+        playbook_id INTEGER NOT NULL REFERENCES playbook_setups(id) ON DELETE CASCADE,
+        rules_followed TEXT DEFAULT '',
+        rules_broken TEXT DEFAULT '',
+        compliance_pct DOUBLE PRECISION NOT NULL DEFAULT 0,
+        notes TEXT DEFAULT '',
+        user_id INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT NOW()::TEXT
+    )""",
+    """CREATE TABLE IF NOT EXISTS watchlist (
+        id SERIAL PRIMARY KEY,
+        pair TEXT NOT NULL,
+        bias TEXT NOT NULL DEFAULT 'neutral',
+        timeframe TEXT DEFAULT '',
+        key_levels TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        setup_type TEXT DEFAULT '',
+        alert_price DOUBLE PRECISION,
+        active INTEGER NOT NULL DEFAULT 1,
+        user_id INTEGER DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT NOW()::TEXT,
+        updated_at TEXT NOT NULL DEFAULT NOW()::TEXT
+    )""",
+    """CREATE TABLE IF NOT EXISTS user_api_keys (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        provider TEXT NOT NULL,
+        api_key TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT NOW()::TEXT,
+        UNIQUE(user_id, provider)
+    )""",
+    """CREATE TABLE IF NOT EXISTS session_tokens (
+        token TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL DEFAULT NOW()::TEXT
+    )""",
+    """CREATE TABLE IF NOT EXISTS chart_images (
+        id SERIAL PRIMARY KEY,
+        trade_id INTEGER NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL DEFAULT 1,
+        filename TEXT NOT NULL,
+        mime_type TEXT NOT NULL DEFAULT 'image/png',
+        image_data TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT NOW()::TEXT
+    )""",
+]
 
 
 def init_db() -> None:
-    conn = get_connection()
-    with conn:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT UNIQUE NOT NULL,
-                username TEXT NOT NULL,
-                password_hash TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
+    """Initialize database schema."""
+    with _db() as conn:
+        if USE_POSTGRES:
+            cur = conn.cursor()
+            for ddl in _PG_SCHEMA:
+                cur.execute(ddl)
+            # Migration: add security columns if missing
+            if not _column_exists(conn, "users", "security_question"):
+                cur.execute("ALTER TABLE users ADD COLUMN security_question TEXT DEFAULT ''")
+                cur.execute("ALTER TABLE users ADD COLUMN security_answer_hash TEXT DEFAULT ''")
+        else:
+            conn.executescript("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT UNIQUE NOT NULL,
+                    username TEXT NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    security_question TEXT DEFAULT '',
+                    security_answer_hash TEXT DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS trades (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pair TEXT NOT NULL,
+                    direction TEXT NOT NULL CHECK(direction IN ('long', 'short')),
+                    entry_price REAL NOT NULL,
+                    exit_price REAL NOT NULL,
+                    pnl_pips REAL NOT NULL,
+                    pnl_dollar REAL,
+                    trade_date TEXT NOT NULL,
+                    reasoning TEXT DEFAULT '',
+                    chart_path TEXT,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS analyses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    trade_id INTEGER NOT NULL,
+                    provider TEXT NOT NULL,
+                    model TEXT NOT NULL,
+                    analysis_text TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    FOREIGN KEY (trade_id) REFERENCES trades(id) ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS daily_journal (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    journal_date TEXT NOT NULL,
+                    sleep INTEGER NOT NULL DEFAULT 5,
+                    energy INTEGER NOT NULL DEFAULT 5,
+                    focus INTEGER NOT NULL DEFAULT 5,
+                    mood INTEGER NOT NULL DEFAULT 5,
+                    stress INTEGER NOT NULL DEFAULT 5,
+                    confidence INTEGER NOT NULL DEFAULT 5,
+                    readiness_score INTEGER NOT NULL DEFAULT 5,
+                    readiness_label TEXT DEFAULT '',
+                    emotional_states TEXT DEFAULT '',
+                    ict_setups_used TEXT DEFAULT '',
+                    market_condition TEXT DEFAULT '',
+                    mistakes TEXT DEFAULT '',
+                    reflection TEXT DEFAULT '',
+                    lessons_learned TEXT DEFAULT '',
+                    tomorrows_improvements TEXT DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS playbook_setups (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    setup_type TEXT NOT NULL,
+                    rules TEXT NOT NULL DEFAULT '',
+                    description TEXT DEFAULT '',
+                    active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS trade_grades (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    trade_id INTEGER NOT NULL,
+                    playbook_id INTEGER NOT NULL,
+                    rules_followed TEXT DEFAULT '',
+                    rules_broken TEXT DEFAULT '',
+                    compliance_pct REAL NOT NULL DEFAULT 0,
+                    notes TEXT DEFAULT '',
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    FOREIGN KEY (trade_id) REFERENCES trades(id) ON DELETE CASCADE,
+                    FOREIGN KEY (playbook_id) REFERENCES playbook_setups(id) ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS watchlist (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    pair TEXT NOT NULL,
+                    bias TEXT NOT NULL DEFAULT 'neutral',
+                    timeframe TEXT DEFAULT '',
+                    key_levels TEXT DEFAULT '',
+                    notes TEXT DEFAULT '',
+                    setup_type TEXT DEFAULT '',
+                    alert_price REAL,
+                    active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+                CREATE TABLE IF NOT EXISTS user_api_keys (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    provider TEXT NOT NULL,
+                    api_key TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    UNIQUE(user_id, provider),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS session_tokens (
+                    token TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS chart_images (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    trade_id INTEGER NOT NULL,
+                    user_id INTEGER NOT NULL DEFAULT 1,
+                    filename TEXT NOT NULL,
+                    mime_type TEXT NOT NULL DEFAULT 'image/png',
+                    image_data TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    FOREIGN KEY (trade_id) REFERENCES trades(id) ON DELETE CASCADE
+                );
+            """)
+            # SQLite migration: add user_id to existing tables
+            for table in ["trades", "analyses", "daily_journal", "playbook_setups", "trade_grades", "watchlist"]:
+                if not _column_exists(conn, table, "user_id"):
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER DEFAULT 1")
+            # Add security columns to users if missing
+            if not _column_exists(conn, "users", "security_question"):
+                conn.execute("ALTER TABLE users ADD COLUMN security_question TEXT DEFAULT ''")
+                conn.execute("ALTER TABLE users ADD COLUMN security_answer_hash TEXT DEFAULT ''")
 
-            CREATE TABLE IF NOT EXISTS trades (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                pair TEXT NOT NULL,
-                direction TEXT NOT NULL CHECK(direction IN ('long', 'short')),
-                entry_price REAL NOT NULL,
-                exit_price REAL NOT NULL,
-                pnl_pips REAL NOT NULL,
-                pnl_dollar REAL,
-                trade_date TEXT NOT NULL,
-                reasoning TEXT DEFAULT '',
-                chart_path TEXT,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
 
-            CREATE TABLE IF NOT EXISTS analyses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                trade_id INTEGER NOT NULL,
-                provider TEXT NOT NULL,
-                model TEXT NOT NULL,
-                analysis_text TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                FOREIGN KEY (trade_id) REFERENCES trades(id) ON DELETE CASCADE
-            );
+# ── Row converters ────────────────────────────────────────────
 
-            CREATE TABLE IF NOT EXISTS daily_journal (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                journal_date TEXT NOT NULL,
-                sleep INTEGER NOT NULL DEFAULT 5,
-                energy INTEGER NOT NULL DEFAULT 5,
-                focus INTEGER NOT NULL DEFAULT 5,
-                mood INTEGER NOT NULL DEFAULT 5,
-                stress INTEGER NOT NULL DEFAULT 5,
-                confidence INTEGER NOT NULL DEFAULT 5,
-                readiness_score INTEGER NOT NULL DEFAULT 5,
-                readiness_label TEXT DEFAULT '',
-                emotional_states TEXT DEFAULT '',
-                ict_setups_used TEXT DEFAULT '',
-                market_condition TEXT DEFAULT '',
-                mistakes TEXT DEFAULT '',
-                reflection TEXT DEFAULT '',
-                lessons_learned TEXT DEFAULT '',
-                tomorrows_improvements TEXT DEFAULT '',
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE TABLE IF NOT EXISTS playbook_setups (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                setup_type TEXT NOT NULL,
-                rules TEXT NOT NULL DEFAULT '',
-                description TEXT DEFAULT '',
-                active INTEGER NOT NULL DEFAULT 1,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE TABLE IF NOT EXISTS trade_grades (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                trade_id INTEGER NOT NULL,
-                playbook_id INTEGER NOT NULL,
-                rules_followed TEXT DEFAULT '',
-                rules_broken TEXT DEFAULT '',
-                compliance_pct REAL NOT NULL DEFAULT 0,
-                notes TEXT DEFAULT '',
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                FOREIGN KEY (trade_id) REFERENCES trades(id) ON DELETE CASCADE,
-                FOREIGN KEY (playbook_id) REFERENCES playbook_setups(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS watchlist (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                pair TEXT NOT NULL,
-                bias TEXT NOT NULL DEFAULT 'neutral',
-                timeframe TEXT DEFAULT '',
-                key_levels TEXT DEFAULT '',
-                notes TEXT DEFAULT '',
-                setup_type TEXT DEFAULT '',
-                alert_price REAL,
-                active INTEGER NOT NULL DEFAULT 1,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-        """)
-
-        # ── Migration: add user_id to all data tables ──────────────
-        tables_needing_user_id = [
-            "trades", "analyses", "daily_journal",
-            "playbook_setups", "trade_grades", "watchlist",
-        ]
-        for table in tables_needing_user_id:
-            if not _column_exists(conn, table, "user_id"):
-                conn.execute(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER DEFAULT 1")
-
-        # Remove old UNIQUE constraint on journal_date (now unique per user+date)
-        # SQLite can't drop constraints, so we handle it in the upsert logic
-
-    conn.close()
-
-
-# ── Row converters ─────────────────────────────────────────────
-
-def _row_to_trade(row: sqlite3.Row) -> Trade:
+def _row_to_trade(row) -> Trade:
     return Trade(
         id=row["id"],
         pair=row["pair"],
@@ -149,11 +356,11 @@ def _row_to_trade(row: sqlite3.Row) -> Trade:
         reasoning=row["reasoning"],
         chart_path=row["chart_path"],
         created_at=row["created_at"],
-        user_id=row["user_id"] if "user_id" in row.keys() else None,
+        user_id=row.get("user_id") if isinstance(row, dict) else (row["user_id"] if "user_id" in row.keys() else None),
     )
 
 
-def _row_to_analysis(row: sqlite3.Row) -> Analysis:
+def _row_to_analysis(row) -> Analysis:
     return Analysis(
         id=row["id"],
         trade_id=row["trade_id"],
@@ -161,11 +368,11 @@ def _row_to_analysis(row: sqlite3.Row) -> Analysis:
         model=row["model"],
         analysis_text=row["analysis_text"],
         created_at=row["created_at"],
-        user_id=row["user_id"] if "user_id" in row.keys() else None,
+        user_id=row.get("user_id") if isinstance(row, dict) else (row["user_id"] if "user_id" in row.keys() else None),
     )
 
 
-def _row_to_journal(row: sqlite3.Row) -> DailyJournal:
+def _row_to_journal(row) -> DailyJournal:
     return DailyJournal(
         id=row["id"],
         journal_date=row["journal_date"],
@@ -186,11 +393,11 @@ def _row_to_journal(row: sqlite3.Row) -> DailyJournal:
         tomorrows_improvements=row["tomorrows_improvements"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
-        user_id=row["user_id"] if "user_id" in row.keys() else None,
+        user_id=row.get("user_id") if isinstance(row, dict) else (row["user_id"] if "user_id" in row.keys() else None),
     )
 
 
-def _row_to_playbook(row: sqlite3.Row) -> PlaybookSetup:
+def _row_to_playbook(row) -> PlaybookSetup:
     return PlaybookSetup(
         id=row["id"],
         name=row["name"],
@@ -199,11 +406,11 @@ def _row_to_playbook(row: sqlite3.Row) -> PlaybookSetup:
         description=row["description"],
         active=bool(row["active"]),
         created_at=row["created_at"],
-        user_id=row["user_id"] if "user_id" in row.keys() else None,
+        user_id=row.get("user_id") if isinstance(row, dict) else (row["user_id"] if "user_id" in row.keys() else None),
     )
 
 
-def _row_to_grade(row: sqlite3.Row) -> TradeGrade:
+def _row_to_grade(row) -> TradeGrade:
     return TradeGrade(
         id=row["id"],
         trade_id=row["trade_id"],
@@ -213,11 +420,11 @@ def _row_to_grade(row: sqlite3.Row) -> TradeGrade:
         compliance_pct=row["compliance_pct"],
         notes=row["notes"],
         created_at=row["created_at"],
-        user_id=row["user_id"] if "user_id" in row.keys() else None,
+        user_id=row.get("user_id") if isinstance(row, dict) else (row["user_id"] if "user_id" in row.keys() else None),
     )
 
 
-def _row_to_watchlist(row: sqlite3.Row) -> WatchlistItem:
+def _row_to_watchlist(row) -> WatchlistItem:
     return WatchlistItem(
         id=row["id"],
         pair=row["pair"],
@@ -230,152 +437,121 @@ def _row_to_watchlist(row: sqlite3.Row) -> WatchlistItem:
         active=bool(row["active"]),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
-        user_id=row["user_id"] if "user_id" in row.keys() else None,
+        user_id=row.get("user_id") if isinstance(row, dict) else (row["user_id"] if "user_id" in row.keys() else None),
     )
 
 
-# ── Trades ─────────────────────────────────────────────────────
+# ── Trades ────────────────────────────────────────────────────
 
 def insert_trade(trade: Trade, user_id: int = 1) -> int:
-    conn = get_connection()
-    with conn:
-        cursor = conn.execute(
+    with _db() as conn:
+        return _insert(conn,
             """INSERT INTO trades (pair, direction, entry_price, exit_price, pnl_pips, pnl_dollar, trade_date, reasoning, chart_path, user_id)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (trade.pair, trade.direction, trade.entry_price, trade.exit_price,
-             trade.pnl_pips, trade.pnl_dollar, trade.trade_date, trade.reasoning, trade.chart_path, user_id),
-        )
-        trade_id = cursor.lastrowid
-    conn.close()
-    return trade_id
+             trade.pnl_pips, trade.pnl_dollar, trade.trade_date, trade.reasoning, trade.chart_path, user_id))
 
 
 def get_trade(trade_id: int, user_id: int = 1) -> Optional[Trade]:
-    conn = get_connection()
-    row = conn.execute(
-        "SELECT * FROM trades WHERE id = ? AND user_id = ?", (trade_id, user_id)
-    ).fetchone()
-    conn.close()
+    with _db() as conn:
+        row = _exec(conn, "SELECT * FROM trades WHERE id = ? AND user_id = ?", (trade_id, user_id)).fetchone()
     return _row_to_trade(row) if row else None
 
 
 def get_all_trades(user_id: int = 1, limit: int = 50, offset: int = 0) -> list[Trade]:
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM trades WHERE user_id = ? ORDER BY trade_date DESC, id DESC LIMIT ? OFFSET ?",
-        (user_id, limit, offset),
-    ).fetchall()
-    conn.close()
+    with _db() as conn:
+        rows = _exec(conn,
+            "SELECT * FROM trades WHERE user_id = ? ORDER BY trade_date DESC, id DESC LIMIT ? OFFSET ?",
+            (user_id, limit, offset)).fetchall()
     return [_row_to_trade(r) for r in rows]
 
 
 def get_trades_by_pair(pair: str, user_id: int = 1) -> list[Trade]:
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM trades WHERE pair = ? AND user_id = ? ORDER BY trade_date DESC",
-        (pair, user_id),
-    ).fetchall()
-    conn.close()
+    with _db() as conn:
+        rows = _exec(conn,
+            "SELECT * FROM trades WHERE pair = ? AND user_id = ? ORDER BY trade_date DESC",
+            (pair, user_id)).fetchall()
     return [_row_to_trade(r) for r in rows]
 
 
 def get_distinct_pairs(user_id: int = 1) -> list[str]:
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT DISTINCT pair FROM trades WHERE user_id = ? ORDER BY pair", (user_id,)
-    ).fetchall()
-    conn.close()
+    with _db() as conn:
+        rows = _exec(conn,
+            "SELECT DISTINCT pair FROM trades WHERE user_id = ? ORDER BY pair", (user_id,)).fetchall()
     return [r["pair"] for r in rows]
 
 
 def get_trade_count(user_id: int = 1) -> int:
-    conn = get_connection()
-    row = conn.execute(
-        "SELECT COUNT(*) as cnt FROM trades WHERE user_id = ?", (user_id,)
-    ).fetchone()
-    conn.close()
+    with _db() as conn:
+        row = _exec(conn,
+            "SELECT COUNT(*) AS cnt FROM trades WHERE user_id = ?", (user_id,)).fetchone()
     return row["cnt"]
 
 
 def delete_trade(trade_id: int, user_id: int = 1) -> None:
-    conn = get_connection()
-    with conn:
-        conn.execute("DELETE FROM trades WHERE id = ? AND user_id = ?", (trade_id, user_id))
-    conn.close()
+    with _db() as conn:
+        _exec(conn, "DELETE FROM trades WHERE id = ? AND user_id = ?", (trade_id, user_id))
 
 
 def delete_all_trades(user_id: int = 1) -> int:
     """Delete all trades for a user. Returns the number of trades deleted."""
-    conn = get_connection()
-    cursor = conn.execute("SELECT COUNT(*) FROM trades WHERE user_id = ?", (user_id,))
-    count = cursor.fetchone()[0]
-    with conn:
-        conn.execute("DELETE FROM trades WHERE user_id = ?", (user_id,))
-    conn.close()
+    with _db() as conn:
+        row = _exec(conn, "SELECT COUNT(*) AS cnt FROM trades WHERE user_id = ?", (user_id,)).fetchone()
+        count = row["cnt"]
+        _exec(conn, "DELETE FROM trades WHERE user_id = ?", (user_id,))
     return count
 
 
 def get_trades_for_date(trade_date: str, user_id: int = 1) -> list[Trade]:
-    """Get all trades for a specific date."""
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM trades WHERE trade_date = ? AND user_id = ? ORDER BY id",
-        (trade_date, user_id),
-    ).fetchall()
-    conn.close()
+    with _db() as conn:
+        rows = _exec(conn,
+            "SELECT * FROM trades WHERE trade_date = ? AND user_id = ? ORDER BY id",
+            (trade_date, user_id)).fetchall()
     return [_row_to_trade(r) for r in rows]
 
 
 def get_trades_in_range(start_date: str, end_date: str, user_id: int = 1) -> list[Trade]:
-    """Get all trades between two dates (inclusive)."""
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM trades WHERE trade_date >= ? AND trade_date <= ? AND user_id = ? ORDER BY trade_date, id",
-        (start_date, end_date, user_id),
-    ).fetchall()
-    conn.close()
+    with _db() as conn:
+        rows = _exec(conn,
+            "SELECT * FROM trades WHERE trade_date >= ? AND trade_date <= ? AND user_id = ? ORDER BY trade_date, id",
+            (start_date, end_date, user_id)).fetchall()
     return [_row_to_trade(r) for r in rows]
 
 
-# ── Analyses ───────────────────────────────────────────────────
+def update_trade_chart_path(trade_id: int, chart_path: str, user_id: int = 1) -> None:
+    with _db() as conn:
+        _exec(conn, "UPDATE trades SET chart_path = ? WHERE id = ? AND user_id = ?",
+              (chart_path, trade_id, user_id))
+
+
+# ── Analyses ──────────────────────────────────────────────────
 
 def insert_analysis(analysis: Analysis, user_id: int = 1) -> int:
-    conn = get_connection()
-    with conn:
-        cursor = conn.execute(
+    with _db() as conn:
+        return _insert(conn,
             """INSERT INTO analyses (trade_id, provider, model, analysis_text, user_id)
                VALUES (?, ?, ?, ?, ?)""",
-            (analysis.trade_id, analysis.provider, analysis.model, analysis.analysis_text, user_id),
-        )
-        analysis_id = cursor.lastrowid
-    conn.close()
-    return analysis_id
+            (analysis.trade_id, analysis.provider, analysis.model, analysis.analysis_text, user_id))
 
 
 def get_analyses_for_trade(trade_id: int, user_id: int = 1) -> list[Analysis]:
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM analyses WHERE trade_id = ? AND user_id = ? ORDER BY created_at DESC",
-        (trade_id, user_id),
-    ).fetchall()
-    conn.close()
+    with _db() as conn:
+        rows = _exec(conn,
+            "SELECT * FROM analyses WHERE trade_id = ? AND user_id = ? ORDER BY created_at DESC",
+            (trade_id, user_id)).fetchall()
     return [_row_to_analysis(r) for r in rows]
 
 
-# ── Daily Journal ──────────────────────────────────────────────
+# ── Daily Journal ─────────────────────────────────────────────
 
 def upsert_journal(journal: DailyJournal, user_id: int = 1) -> int:
-    """Insert or update a daily journal entry (one per user per date)."""
-    conn = get_connection()
-    with conn:
-        # Check if entry exists for this user+date
-        existing = conn.execute(
+    with _db() as conn:
+        existing = _exec(conn,
             "SELECT id FROM daily_journal WHERE journal_date = ? AND user_id = ?",
-            (journal.journal_date, user_id),
-        ).fetchone()
+            (journal.journal_date, user_id)).fetchone()
 
         if existing:
-            conn.execute(
+            _exec(conn,
                 """UPDATE daily_journal SET
                     sleep=?, energy=?, focus=?, mood=?, stress=?, confidence=?,
                     readiness_score=?, readiness_label=?, emotional_states=?, ict_setups_used=?,
@@ -389,11 +565,10 @@ def upsert_journal(journal: DailyJournal, user_id: int = 1) -> int:
                  journal.market_condition, journal.mistakes,
                  journal.reflection, journal.lessons_learned,
                  journal.tomorrows_improvements,
-                 journal.journal_date, user_id),
-            )
-            journal_id = existing["id"]
+                 journal.journal_date, user_id))
+            return existing["id"]
         else:
-            cursor = conn.execute(
+            return _insert(conn,
                 """INSERT INTO daily_journal
                    (journal_date, sleep, energy, focus, mood, stress, confidence,
                     readiness_score, readiness_label, emotional_states, ict_setups_used,
@@ -406,180 +581,159 @@ def upsert_journal(journal: DailyJournal, user_id: int = 1) -> int:
                  journal.emotional_states, journal.ict_setups_used,
                  journal.market_condition, journal.mistakes,
                  journal.reflection, journal.lessons_learned,
-                 journal.tomorrows_improvements, user_id),
-            )
-            journal_id = cursor.lastrowid
-    conn.close()
-    return journal_id
+                 journal.tomorrows_improvements, user_id))
 
 
 def get_journal(journal_date: str, user_id: int = 1) -> Optional[DailyJournal]:
-    """Get journal entry for a specific date (YYYY-MM-DD)."""
-    conn = get_connection()
-    row = conn.execute(
-        "SELECT * FROM daily_journal WHERE journal_date = ? AND user_id = ?",
-        (journal_date, user_id),
-    ).fetchone()
-    conn.close()
+    with _db() as conn:
+        row = _exec(conn,
+            "SELECT * FROM daily_journal WHERE journal_date = ? AND user_id = ?",
+            (journal_date, user_id)).fetchone()
     return _row_to_journal(row) if row else None
 
 
 def get_journal_dates(user_id: int = 1) -> list[str]:
-    """Get all dates that have journal entries."""
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT journal_date FROM daily_journal WHERE user_id = ? ORDER BY journal_date DESC",
-        (user_id,),
-    ).fetchall()
-    conn.close()
+    with _db() as conn:
+        rows = _exec(conn,
+            "SELECT journal_date FROM daily_journal WHERE user_id = ? ORDER BY journal_date DESC",
+            (user_id,)).fetchall()
     return [r["journal_date"] for r in rows]
 
 
 def get_journals_in_range(start_date: str, end_date: str, user_id: int = 1) -> list[DailyJournal]:
-    """Get all journal entries between two dates (inclusive)."""
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM daily_journal WHERE journal_date >= ? AND journal_date <= ? AND user_id = ? ORDER BY journal_date",
-        (start_date, end_date, user_id),
-    ).fetchall()
-    conn.close()
+    with _db() as conn:
+        rows = _exec(conn,
+            "SELECT * FROM daily_journal WHERE journal_date >= ? AND journal_date <= ? AND user_id = ? ORDER BY journal_date",
+            (start_date, end_date, user_id)).fetchall()
     return [_row_to_journal(r) for r in rows]
 
 
-# ── Playbook ───────────────────────────────────────────────────
+# ── Playbook ──────────────────────────────────────────────────
 
 def insert_playbook(setup: PlaybookSetup, user_id: int = 1) -> int:
-    conn = get_connection()
-    with conn:
-        cursor = conn.execute(
+    with _db() as conn:
+        return _insert(conn,
             "INSERT INTO playbook_setups (name, setup_type, rules, description, user_id) VALUES (?, ?, ?, ?, ?)",
-            (setup.name, setup.setup_type, setup.rules, setup.description, user_id),
-        )
-        setup_id = cursor.lastrowid
-    conn.close()
-    return setup_id
+            (setup.name, setup.setup_type, setup.rules, setup.description, user_id))
 
 
 def get_all_playbooks(user_id: int = 1, active_only: bool = True) -> list[PlaybookSetup]:
-    conn = get_connection()
-    if active_only:
-        rows = conn.execute(
-            "SELECT * FROM playbook_setups WHERE active = 1 AND user_id = ? ORDER BY name",
-            (user_id,),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT * FROM playbook_setups WHERE user_id = ? ORDER BY name",
-            (user_id,),
-        ).fetchall()
-    conn.close()
+    with _db() as conn:
+        if active_only:
+            rows = _exec(conn,
+                "SELECT * FROM playbook_setups WHERE active = 1 AND user_id = ? ORDER BY name",
+                (user_id,)).fetchall()
+        else:
+            rows = _exec(conn,
+                "SELECT * FROM playbook_setups WHERE user_id = ? ORDER BY name",
+                (user_id,)).fetchall()
     return [_row_to_playbook(r) for r in rows]
 
 
 def get_playbook(playbook_id: int, user_id: int = 1) -> Optional[PlaybookSetup]:
-    conn = get_connection()
-    row = conn.execute(
-        "SELECT * FROM playbook_setups WHERE id = ? AND user_id = ?",
-        (playbook_id, user_id),
-    ).fetchone()
-    conn.close()
+    with _db() as conn:
+        row = _exec(conn,
+            "SELECT * FROM playbook_setups WHERE id = ? AND user_id = ?",
+            (playbook_id, user_id)).fetchone()
     return _row_to_playbook(row) if row else None
 
 
 def delete_playbook(playbook_id: int, user_id: int = 1) -> None:
-    conn = get_connection()
-    with conn:
-        conn.execute(
-            "DELETE FROM playbook_setups WHERE id = ? AND user_id = ?",
-            (playbook_id, user_id),
-        )
-    conn.close()
+    with _db() as conn:
+        _exec(conn, "DELETE FROM playbook_setups WHERE id = ? AND user_id = ?", (playbook_id, user_id))
 
 
 def upsert_trade_grade(grade: TradeGrade, user_id: int = 1) -> int:
-    conn = get_connection()
-    with conn:
-        cursor = conn.execute(
+    with _db() as conn:
+        return _insert(conn,
             """INSERT INTO trade_grades (trade_id, playbook_id, rules_followed, rules_broken, compliance_pct, notes, user_id)
                VALUES (?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(id) DO UPDATE SET
                 rules_followed=excluded.rules_followed, rules_broken=excluded.rules_broken,
                 compliance_pct=excluded.compliance_pct, notes=excluded.notes""",
             (grade.trade_id, grade.playbook_id, grade.rules_followed, grade.rules_broken,
-             grade.compliance_pct, grade.notes, user_id),
-        )
-        grade_id = cursor.lastrowid
-    conn.close()
-    return grade_id
+             grade.compliance_pct, grade.notes, user_id))
 
 
 def get_grades_for_trade(trade_id: int, user_id: int = 1) -> list[TradeGrade]:
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM trade_grades WHERE trade_id = ? AND user_id = ? ORDER BY created_at DESC",
-        (trade_id, user_id),
-    ).fetchall()
-    conn.close()
+    with _db() as conn:
+        rows = _exec(conn,
+            "SELECT * FROM trade_grades WHERE trade_id = ? AND user_id = ? ORDER BY created_at DESC",
+            (trade_id, user_id)).fetchall()
     return [_row_to_grade(r) for r in rows]
 
 
 def get_all_grades(user_id: int = 1) -> list[TradeGrade]:
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM trade_grades WHERE user_id = ? ORDER BY created_at DESC",
-        (user_id,),
-    ).fetchall()
-    conn.close()
+    with _db() as conn:
+        rows = _exec(conn,
+            "SELECT * FROM trade_grades WHERE user_id = ? ORDER BY created_at DESC",
+            (user_id,)).fetchall()
     return [_row_to_grade(r) for r in rows]
 
 
-# ── Watchlist ──────────────────────────────────────────────────
+# ── Watchlist ─────────────────────────────────────────────────
 
 def insert_watchlist_item(item: WatchlistItem, user_id: int = 1) -> int:
-    conn = get_connection()
-    with conn:
-        cursor = conn.execute(
+    with _db() as conn:
+        return _insert(conn,
             """INSERT INTO watchlist (pair, bias, timeframe, key_levels, notes, setup_type, alert_price, user_id)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (item.pair, item.bias, item.timeframe, item.key_levels,
-             item.notes, item.setup_type, item.alert_price, user_id),
-        )
-        item_id = cursor.lastrowid
-    conn.close()
-    return item_id
+             item.notes, item.setup_type, item.alert_price, user_id))
 
 
 def get_all_watchlist(user_id: int = 1, active_only: bool = True) -> list[WatchlistItem]:
-    conn = get_connection()
-    if active_only:
-        rows = conn.execute(
-            "SELECT * FROM watchlist WHERE active = 1 AND user_id = ? ORDER BY updated_at DESC",
-            (user_id,),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT * FROM watchlist WHERE user_id = ? ORDER BY updated_at DESC",
-            (user_id,),
-        ).fetchall()
-    conn.close()
+    with _db() as conn:
+        if active_only:
+            rows = _exec(conn,
+                "SELECT * FROM watchlist WHERE active = 1 AND user_id = ? ORDER BY updated_at DESC",
+                (user_id,)).fetchall()
+        else:
+            rows = _exec(conn,
+                "SELECT * FROM watchlist WHERE user_id = ? ORDER BY updated_at DESC",
+                (user_id,)).fetchall()
     return [_row_to_watchlist(r) for r in rows]
 
 
 def update_watchlist_item(item: WatchlistItem, user_id: int = 1) -> None:
-    conn = get_connection()
-    with conn:
-        conn.execute(
+    with _db() as conn:
+        _exec(conn,
             """UPDATE watchlist SET pair=?, bias=?, timeframe=?, key_levels=?,
                notes=?, setup_type=?, alert_price=?, active=?, updated_at=datetime('now')
                WHERE id=? AND user_id=?""",
             (item.pair, item.bias, item.timeframe, item.key_levels,
-             item.notes, item.setup_type, item.alert_price, int(item.active), item.id, user_id),
-        )
-    conn.close()
+             item.notes, item.setup_type, item.alert_price, int(item.active), item.id, user_id))
 
 
 def delete_watchlist_item(item_id: int, user_id: int = 1) -> None:
-    conn = get_connection()
-    with conn:
-        conn.execute("DELETE FROM watchlist WHERE id = ? AND user_id = ?", (item_id, user_id))
-    conn.close()
+    with _db() as conn:
+        _exec(conn, "DELETE FROM watchlist WHERE id = ? AND user_id = ?", (item_id, user_id))
+
+
+# ── Chart Images (DB storage for production) ─────────────────
+
+def save_chart_to_db(trade_id: int, filename: str, mime_type: str, image_bytes: bytes, user_id: int = 1) -> int:
+    b64 = base64.b64encode(image_bytes).decode("ascii")
+    with _db() as conn:
+        return _insert(conn,
+            "INSERT INTO chart_images (trade_id, user_id, filename, mime_type, image_data) VALUES (?, ?, ?, ?, ?)",
+            (trade_id, user_id, filename, mime_type, b64))
+
+
+def get_chart_from_db(trade_id: int, user_id: int = 1) -> Optional[dict]:
+    with _db() as conn:
+        row = _exec(conn,
+            "SELECT filename, mime_type, image_data FROM chart_images WHERE trade_id = ? AND user_id = ? ORDER BY id DESC LIMIT 1",
+            (trade_id, user_id)).fetchone()
+    if not row:
+        return None
+    return {
+        "filename": row["filename"],
+        "mime_type": row["mime_type"],
+        "image_data": base64.b64decode(row["image_data"]),
+    }
+
+
+def delete_chart_from_db(trade_id: int, user_id: int = 1) -> None:
+    with _db() as conn:
+        _exec(conn, "DELETE FROM chart_images WHERE trade_id = ? AND user_id = ?", (trade_id, user_id))

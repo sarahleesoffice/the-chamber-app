@@ -7,6 +7,7 @@ from lib.auth import (
     is_logged_in, login_user, logout_user, get_current_username,
     create_session_token, delete_session_token,
     set_session_cookie, clear_session_cookie, try_cookie_login,
+    SECURITY_QUESTIONS, get_security_question, verify_security_answer, reset_password,
 )
 
 load_dotenv()
@@ -19,6 +20,42 @@ init_sessions_table()
 
 # ── Try restoring session from cookie ────────────────────────
 try_cookie_login()
+
+# ── Navigation structure — define BEFORE auth gate so sidebar sections always show ──
+pg = st.navigation({
+    "TRADE": [
+        st.Page("pages/0_Dashboard.py", title="Dashboard", icon=":material/dashboard:", default=True),
+        st.Page("pages/1_Enter_Trade.py", title="Enter Trade", icon=":material/edit_note:"),
+        st.Page("pages/2_Trade_History.py", title="Trade History", icon=":material/history:"),
+        st.Page("pages/7_Pre_Trade.py", title="Pre-Trade Checklist", icon=":material/checklist:"),
+        st.Page("pages/10_Import_Trades.py", title="Import Trades", icon=":material/upload_file:"),
+    ],
+    "REFLECT": [
+        st.Page("pages/5_Daily_Journal.py", title="Daily Journal", icon=":material/menu_book:"),
+        st.Page("pages/6_Performance.py", title="Performance", icon=":material/analytics:"),
+        st.Page("pages/14_Trade_Replay.py", title="Trade Replay", icon=":material/replay:"),
+        st.Page("pages/9_Playbook.py", title="Playbook", icon=":material/rule:"),
+        st.Page("pages/3_AI_Analysis.py", title="AI Analysis", icon=":material/psychology:"),
+        st.Page("pages/11_AI_ICT.py", title="AI ICT Chat", icon=":material/chat:"),
+    ],
+    "TOOLS": [
+        st.Page("pages/18_Backtest.py", title="Backtest", icon=":material/candlestick_chart:"),
+        st.Page("pages/19_Chart_Analyzer.py", title="Chart Analyzer", icon=":material/image_search:"),
+    ],
+    "MARKET STUDY": [
+        st.Page("pages/13_Sessions.py", title="Sessions", icon=":material/schedule:"),
+        st.Page("pages/8_Learning_Hub.py", title="Learning Hub", icon=":material/school:"),
+        st.Page("pages/4_Knowledge_Base.py", title="Knowledge Base", icon=":material/library_books:"),
+    ],
+    "MARKET WATCH": [
+        st.Page("pages/16_Economic_Calendar.py", title="Economic Calendar", icon=":material/event:"),
+        st.Page("pages/15_Live_News.py", title="Live News", icon=":material/breaking_news:"),
+        st.Page("pages/12_Watchlist.py", title="Watchlist", icon=":material/visibility:"),
+    ],
+    "ACCOUNT": [
+        st.Page("pages/17_Settings.py", title="Settings", icon=":material/settings:"),
+    ],
+})
 
 # ── Auth gate — must log in before seeing any pages ──────────
 if not is_logged_in():
@@ -47,13 +84,13 @@ if not is_logged_in():
     st.markdown(
         '<div style="text-align:center; padding:40px 0 10px 0;">'
         '<div style="font-size:2.4rem; font-weight:700; color:#e8651a; letter-spacing:4px; '
-        'text-shadow:0 0 30px rgba(232,101,26,0.4);">🔥 THE CHAMBER 🔥</div>'
+        'text-shadow:0 0 30px rgba(232,101,26,0.4);">THE CHAMBER</div>'
         '<div style="color:#9e4a15; font-size:0.85rem; letter-spacing:2px; margin-top:4px;">'
         'WHERE TRADING EVOLVES</div></div>',
         unsafe_allow_html=True,
     )
 
-    login_tab, register_tab = st.tabs(["Login", "Register"])
+    login_tab, register_tab, reset_tab = st.tabs(["Login", "Register", "Forgot Password"])
 
     with login_tab:
         with st.form("login_form"):
@@ -79,6 +116,9 @@ if not is_logged_in():
             reg_username = st.text_input("Username", key="reg_username")
             reg_password = st.text_input("Password", type="password", key="reg_pw")
             reg_confirm = st.text_input("Confirm Password", type="password", key="reg_confirm")
+            reg_question = st.selectbox("Security Question", SECURITY_QUESTIONS, key="reg_sq")
+            reg_answer = st.text_input("Security Answer", key="reg_answer",
+                                        help="Used to reset your password if you forget it")
             reg_submitted = st.form_submit_button("Create Account", type="primary", use_container_width=True)
             if reg_submitted:
                 if not reg_email or not reg_username or not reg_password:
@@ -87,8 +127,11 @@ if not is_logged_in():
                     st.error("Passwords don't match.")
                 elif len(reg_password) < 6:
                     st.error("Password must be at least 6 characters.")
+                elif not reg_answer.strip():
+                    st.error("Please provide a security answer for password recovery.")
                 else:
-                    uid = register_user(reg_email, reg_username, reg_password)
+                    uid = register_user(reg_email, reg_username, reg_password,
+                                         security_question=reg_question, security_answer=reg_answer)
                     if uid:
                         user = {"id": uid, "email": reg_email, "username": reg_username}
                         login_user(user)
@@ -97,6 +140,35 @@ if not is_logged_in():
                         st.rerun()
                     else:
                         st.error("Email already registered.")
+
+    with reset_tab:
+        st.markdown('<p style="color:#9e4a15; font-size:0.85rem;">Enter your email to retrieve your security question.</p>',
+                    unsafe_allow_html=True)
+        reset_email = st.text_input("Email", key="reset_email")
+
+        if reset_email:
+            question = get_security_question(reset_email)
+            if question:
+                st.info(f"**Security Question:** {question}")
+                with st.form("reset_form"):
+                    reset_answer = st.text_input("Your Answer", key="reset_answer")
+                    new_pw = st.text_input("New Password", type="password", key="new_pw")
+                    new_pw_confirm = st.text_input("Confirm New Password", type="password", key="new_pw_confirm")
+                    reset_submitted = st.form_submit_button("Reset Password", type="primary", use_container_width=True)
+                    if reset_submitted:
+                        if not reset_answer or not new_pw:
+                            st.error("Please fill in all fields.")
+                        elif new_pw != new_pw_confirm:
+                            st.error("Passwords don't match.")
+                        elif len(new_pw) < 6:
+                            st.error("Password must be at least 6 characters.")
+                        elif not verify_security_answer(reset_email, reset_answer):
+                            st.error("Incorrect security answer.")
+                        else:
+                            reset_password(reset_email, new_pw)
+                            st.success("Password reset! You can now log in with your new password.")
+            else:
+                st.warning("No account found with that email, or no security question set.")
 
     st.stop()  # Block everything below until logged in
 
@@ -500,38 +572,4 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-pg = st.navigation({
-    "TRADE": [
-        st.Page("pages/0_Dashboard.py", title="Dashboard", icon=":material/dashboard:", default=True),
-        st.Page("pages/1_Enter_Trade.py", title="Enter Trade", icon=":material/edit_note:"),
-        st.Page("pages/2_Trade_History.py", title="Trade History", icon=":material/history:"),
-        st.Page("pages/7_Pre_Trade.py", title="Pre-Trade Checklist", icon=":material/checklist:"),
-        st.Page("pages/10_Import_Trades.py", title="Import Trades", icon=":material/upload_file:"),
-    ],
-    "REFLECT": [
-        st.Page("pages/5_Daily_Journal.py", title="Daily Journal", icon=":material/menu_book:"),
-        st.Page("pages/6_Performance.py", title="Performance", icon=":material/analytics:"),
-        st.Page("pages/14_Trade_Replay.py", title="Trade Replay", icon=":material/replay:"),
-        st.Page("pages/9_Playbook.py", title="Playbook", icon=":material/rule:"),
-        st.Page("pages/3_AI_Analysis.py", title="AI Analysis", icon=":material/psychology:"),
-        st.Page("pages/11_AI_ICT.py", title="AI ICT Chat", icon=":material/chat:"),
-    ],
-    "TOOLS": [
-        st.Page("pages/18_Backtest.py", title="Backtest", icon=":material/candlestick_chart:"),
-        st.Page("pages/19_Chart_Analyzer.py", title="Chart Analyzer", icon=":material/image_search:"),
-    ],
-    "MARKET STUDY": [
-        st.Page("pages/13_Sessions.py", title="Sessions", icon=":material/schedule:"),
-        st.Page("pages/8_Learning_Hub.py", title="Learning Hub", icon=":material/school:"),
-        st.Page("pages/4_Knowledge_Base.py", title="Knowledge Base", icon=":material/library_books:"),
-    ],
-    "MARKET WATCH": [
-        st.Page("pages/16_Economic_Calendar.py", title="Economic Calendar", icon=":material/event:"),
-        st.Page("pages/15_Live_News.py", title="Live News", icon=":material/breaking_news:"),
-        st.Page("pages/12_Watchlist.py", title="Watchlist", icon=":material/visibility:"),
-    ],
-    "ACCOUNT": [
-        st.Page("pages/17_Settings.py", title="Settings", icon=":material/settings:"),
-    ],
-})
 pg.run()
