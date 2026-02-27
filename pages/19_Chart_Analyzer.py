@@ -5,6 +5,13 @@ import streamlit as st
 from lib.chart_annotator import analyze_chart_with_ai
 from lib.auth import get_current_user_id, has_api_key
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception:
+    pass
+
 st.header("TradingView Chart Analyzer")
 st.caption("Upload a chart screenshot and AI will detect ICT concepts.")
 

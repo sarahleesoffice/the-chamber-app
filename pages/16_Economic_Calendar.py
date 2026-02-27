@@ -3,6 +3,13 @@ from datetime import datetime, timezone, timedelta
 
 from lib.forex_calendar import fetch_calendar
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception:
+    pass
+
 st.header("Economic Calendar")
 st.caption("Live data from Forex Factory. Red = High Impact, Orange = Medium Impact.")
 
@@ -70,7 +77,7 @@ st.markdown(
 RED_FOLDER = (
     '<svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:middle; margin-right:3px;">'
     '<path d="M10 4H4C2.9 4 2 4.9 2 6v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" '
-    'fill="#ef4444"/></svg>'
+    'fill="#9e4a15"/></svg>'
 )
 # Orange folder (medium impact)
 ORG_FOLDER = (
@@ -124,9 +131,9 @@ for day in week_days:
         time_str = e["time"] if e["time"] else ""
         events_html += (
             f'<div style="display:flex; align-items:center; gap:3px; margin:3px 0; '
-            f'padding:3px 4px; background:rgba(239,68,68,0.1); border-radius:3px;">'
+            f'padding:3px 4px; background:rgba(158,74,21,0.1); border-radius:3px;">'
             f'{RED_FOLDER}'
-            f'<span style="color:#ef4444; font-weight:700; font-size:0.65rem;">{e["country"]}</span>'
+            f'<span style="color:#9e4a15; font-weight:700; font-size:0.65rem;">{e["country"]}</span>'
             f'<span style="color:#d0d0d0; font-size:0.6rem; overflow:hidden; text-overflow:ellipsis; '
             f'white-space:nowrap; flex:1;">{e["title"][:25]}</span>'
             f'{"<span style=color:#888;font-size:0.55rem;>" + time_str + "</span>" if time_str else ""}'
@@ -151,7 +158,7 @@ for day in week_days:
     if high_events or med_events:
         parts = []
         if high_events:
-            parts.append(f'<span style="color:#ef4444; font-size:0.6rem;">{len(high_events)} red</span>')
+            parts.append(f'<span style="color:#9e4a15; font-size:0.6rem;">{len(high_events)} red</span>')
         if med_events:
             parts.append(f'<span style="color:#e8651a; font-size:0.6rem;">{len(med_events)} orange</span>')
         count_html = '<div style="margin-bottom:4px;">' + " ".join(parts) + '</div>'
@@ -206,7 +213,7 @@ for day in week_days:
 
     with st.expander(f"**{day_label}**{badge_str}", expanded=is_today):
         for e in relevant:
-            color = "#ef4444" if e["impact"] == "High" else "#e8651a"
+            color = "#9e4a15" if e["impact"] == "High" else "#e8651a"
             folder = RED_FOLDER if e["impact"] == "High" else ORG_FOLDER
             time_str = e["time"] if e["time"] else "All Day"
             forecast = f" | Forecast: {e['forecast']}" if e["forecast"] else ""

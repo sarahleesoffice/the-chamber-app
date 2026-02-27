@@ -15,6 +15,13 @@ from lib.database import (
 from lib.models import PlaybookSetup, TradeGrade
 from lib.psychology_framework import ICT_SETUPS
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception:
+    pass
+
 user_id = get_current_user_id()
 
 st.header("Playbook")
@@ -161,11 +168,11 @@ with tab_grade:
 
                 # Visual compliance
                 if compliance >= 80:
-                    color = "#22c55e"
+                    color = "#ff7e33"
                 elif compliance >= 50:
                     color = "#e8651a"
                 else:
-                    color = "#ef4444"
+                    color = "#9e4a15"
 
                 st.progress(compliance / 100)
                 st.markdown(f'<span style="color:{color}; font-weight:700; font-size:1.2rem;">{compliance:.0f}% Compliance</span>', unsafe_allow_html=True)

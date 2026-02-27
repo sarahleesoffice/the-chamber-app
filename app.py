@@ -64,8 +64,9 @@ if not is_logged_in():
     <style>
         .stApp { background-color: #0a0a0a; }
         section[data-testid="stSidebar"] { background-color: #0f0f0f; border-right: 1px solid #1a1210; }
+        section[data-testid="stSidebar"]::after { content:"WHERE TRADING EVOLVES"; position:fixed; bottom:0; left:0; width:var(--sidebar-width,245px); text-align:center; font-size:0.55rem; color:#9e4a15; letter-spacing:2px; font-weight:600; text-transform:uppercase; padding:6px 0; border-top:1px solid #1e1a17; background:#0f0f0f; z-index:999; }
         section[data-testid="stSidebar"] > div:first-child { padding-top:0; }
-        [data-testid="stSidebarHeader"][class] { margin-bottom:0 !important; padding-bottom:0 !important; flex-wrap:wrap !important; }
+        [data-testid="stSidebarHeader"][class] { margin-bottom:0 !important; padding-bottom:0 !important; flex-wrap:wrap !important; height:auto !important; min-height:0 !important; padding-top:4px !important; }
         section[data-testid="stSidebar"] div[data-testid="stSidebarHeader"]::after { content:"THE CHAMBER"; flex-basis:100% !important; width:100% !important; text-align:left; font-size:1.25rem; font-weight:700; color:#e8651a; letter-spacing:4px; text-shadow:0 0 20px rgba(232,101,26,0.4); padding:4px 0 0 8px; }
         section[data-testid="stSidebar"] [data-testid="stSidebarNav"]::before { content:""; display:block; border-bottom:1px solid #1e1a17; margin-bottom:2px; }
         section[data-testid="stSidebar"] [data-testid="stSidebarNav"] { padding-top:0 !important; margin-top:0 !important; }
@@ -84,6 +85,47 @@ if not is_logged_in():
         }
         .stTabs [aria-selected="true"] {
             color: #e8651a !important; border-bottom-color: #e8651a !important;
+        }
+        /* Active sidebar nav link — fire orange (login page) */
+        section[data-testid="stSidebar"] a[aria-current="page"] span,
+        section[data-testid="stSidebar"] a[aria-current="page"] p,
+        section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-current="page"] span,
+        section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-current="page"] p {
+            color: #e8651a !important; font-weight: 600;
+        }
+        section[data-testid="stSidebar"] a[aria-current="page"] svg,
+        section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-current="page"] svg {
+            color: #e8651a !important; fill: #e8651a !important;
+        }
+        section[data-testid="stSidebar"] a[aria-current="page"],
+        section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-current="page"] {
+            background-color: rgba(232,101,26,0.12) !important;
+            border-left: 3px solid #e8651a !important;
+            box-shadow: inset 0 0 12px rgba(232,101,26,0.15), 0 0 8px rgba(232,101,26,0.1) !important;
+        }
+        /* Sidebar nav hover — orange glow (login page) */
+        section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"] a,
+        section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a {
+            transition: all 0.2s ease !important;
+        }
+        section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover,
+        section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover a,
+        section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a:hover {
+            background-color: rgba(232,101,26,0.1) !important;
+            box-shadow: 0 0 14px rgba(232,101,26,0.25), inset 0 0 8px rgba(232,101,26,0.1) !important;
+        }
+        section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover span,
+        section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover p,
+        section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a:hover span,
+        section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a:hover p {
+            color: #ff7e33 !important;
+            text-shadow: 0 0 10px rgba(232,101,26,0.5) !important;
+        }
+        section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"]:hover svg,
+        section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a:hover svg {
+            color: #ff7e33 !important;
+            fill: #ff7e33 !important;
+            filter: drop-shadow(0 0 6px rgba(232,101,26,0.6)) !important;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -193,6 +235,35 @@ st.markdown("""
         background-color: #0f0f0f;
         border-right: 1px solid #1a1210;
     }
+    /* Tighten sidebar element spacing */
+    section[data-testid="stSidebar"] .stElementContainer {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
+    section[data-testid="stSidebar"] .stMarkdown {
+        margin-bottom: 0 !important;
+    }
+    section[data-testid="stSidebar"] hr {
+        margin: 4px 0 !important;
+    }
+    /* Pin WHERE TRADING EVOLVES to absolute bottom of sidebar */
+    section[data-testid="stSidebar"]::after {
+        content: "WHERE TRADING EVOLVES";
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: var(--sidebar-width, 245px);
+        text-align: center;
+        font-size: 0.55rem;
+        color: #9e4a15;
+        letter-spacing: 2px;
+        font-weight: 600;
+        text-transform: uppercase;
+        padding: 6px 0;
+        border-top: 1px solid #1e1a17;
+        background: #0f0f0f;
+        z-index: 999;
+    }
 
     /* Fire orange primary buttons */
     .stButton > button[kind="primary"] {
@@ -276,15 +347,17 @@ st.markdown("""
     section[data-testid="stSidebar"] > div:first-child {
         padding-top: 0;
     }
-    /* Kill the gap between sidebar header and nav */
+    /* Kill the gap between sidebar header and nav + crush top space */
     section[data-testid="stSidebar"] div[data-testid="stSidebarHeader"],
     section[data-testid="stSidebar"] [data-testid="stSidebarContent"] > div[data-testid="stSidebarHeader"],
     [data-testid="stSidebarHeader"][class] {
         margin-bottom: 0 !important;
         padding-bottom: 0 !important;
         min-height: 0 !important;
+        height: auto !important;
         gap: 0 !important;
         flex-wrap: wrap !important;
+        padding-top: 4px !important;
     }
     section[data-testid="stSidebar"] [data-testid="stSidebarNav"] {
         padding-top: 0 !important;
@@ -395,12 +468,12 @@ st.markdown("""
 
     /* Success messages — keep green */
     .stSuccess {
-        background-color: rgba(34, 197, 94, 0.1);
-        border-left-color: #22c55e;
+        background-color: rgba(232, 101, 26, 0.1);
+        border-left-color: #ff7e33;
     }
     .stError {
-        background-color: rgba(239, 68, 68, 0.1);
-        border-left-color: #ef4444;
+        background-color: rgba(158, 74, 21, 0.1);
+        border-left-color: #9e4a15;
     }
 
     /* ALL alert/notification boxes — Chamber fire orange theme */
@@ -580,6 +653,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Ticker is rendered inside each page via lib/ticker.py
+
 with st.sidebar:
     # ── User info + Logout ──
     st.markdown(
@@ -616,23 +691,16 @@ with st.sidebar:
     st.markdown(
         '<a href="https://discord.gg/wRwCBuyW" target="_blank" style="'
         'display:flex; align-items:center; gap:8px; padding:8px 12px; '
-        'background:rgba(88,101,242,0.1); border:1px solid rgba(88,101,242,0.3); '
-        'border-radius:6px; text-decoration:none; color:#7289da; font-size:0.85rem; '
+        'background:rgba(232,101,26,0.1); border:1px solid rgba(232,101,26,0.3);'
+        'border-radius:6px; text-decoration:none; color:#e8651a; font-size:0.85rem;'
         'font-weight:600; transition:all 0.2s;">'
-        '<svg width="18" height="14" viewBox="0 0 71 55" fill="#7289da">'
+        '<svg width="18" height="14" viewBox="0 0 71 55" fill="#e8651a">'
         '<path d="M60.1 4.9A58.5 58.5 0 0045.4.2a.2.2 0 00-.2.1 40.8 40.8 0 00-1.8 3.7 54 54 0 00-16.2 0A37 37 0 0025.4.3a.2.2 0 00-.2-.1A58.4 58.4 0 0010.5 4.9a.2.2 0 00-.1.1C1.5 18.7-.9 32.2.3 45.5v.2a58.9 58.9 0 0017.7 9a.2.2 0 00.3-.1 42 42 0 003.6-5.9.2.2 0 00-.1-.3 38.8 38.8 0 01-5.5-2.6.2.2 0 01 0-.4l1.1-.9a.2.2 0 01.2 0 42 42 0 0035.6 0 .2.2 0 01.2 0l1.1.9a.2.2 0 010 .4 36.4 36.4 0 01-5.5 2.6.2.2 0 00-.1.3 47.2 47.2 0 003.6 5.9.2.2 0 00.3.1A58.7 58.7 0 0070.4 45.7v-.2c1.4-15-2.3-28-9.8-39.5a.2.2 0 00-.1-.1zM23.7 37.3c-3.4 0-6.2-3.1-6.2-7s2.7-7 6.2-7 6.3 3.2 6.2 7-2.8 7-6.2 7zm23 0c-3.4 0-6.2-3.1-6.2-7s2.7-7 6.2-7 6.3 3.2 6.2 7-2.7 7-6.2 7z"/>'
         '</svg>'
         'Join Discord'
         '</a>',
         unsafe_allow_html=True,
     )
-    st.markdown(
-        '<div style="text-align:center; padding:12px 0 4px 0; margin-top:8px; '
-        'border-top:1px solid #1e1a17;">'
-        '<div style="font-size:0.6rem; color:#9e4a15; letter-spacing:2px; '
-        'font-weight:600; text-transform:uppercase;">WHERE TRADING EVOLVES</div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    # "WHERE TRADING EVOLVES" is pinned to sidebar bottom via CSS ::after
 
 pg.run()

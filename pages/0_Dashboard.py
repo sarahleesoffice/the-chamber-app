@@ -11,8 +11,15 @@ from lib.knowledge.vector_store import get_collection_stats
 from lib.trading_calendar import render_trading_calendar
 from lib.auth import get_current_user_id
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception as e:
+    st.caption(f"⚠ Ticker: {e}")
+
 st.markdown(
-    '<div style="font-size:1.8rem; font-weight:700; color:#e8651a; letter-spacing:3px; '
+    '<div style="font-size:1.5rem; font-weight:700; color:#e8651a; letter-spacing:4px; '
     'text-shadow:0 0 20px rgba(232,101,26,0.4), 0 0 40px rgba(232,101,26,0.15); '
     'margin-bottom:8px;">DASHBOARD</div>',
     unsafe_allow_html=True,
@@ -109,8 +116,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-pnl_color = "#22c55e" if total_dollar > 0 else "#ef4444" if total_dollar < 0 else "#a0a0a0"
-wr_color = "#22c55e" if win_rate >= 55 else "#e8651a" if win_rate >= 45 else "#ef4444"
+pnl_color = "#ff7e33" if total_dollar > 0 else "#9e4a15" if total_dollar < 0 else "#a0a0a0"
+wr_color = "#ff7e33" if win_rate >= 55 else "#e8651a" if win_rate >= 45 else "#9e4a15"
 pf_val = f"{profit_factor:.2f}" if profit_factor != float("inf") else "—"
 rr_val = f"{rr_ratio:.2f}" if rr_ratio > 0 else "—"
 
@@ -119,8 +126,8 @@ row1 += stat_card("Net P&L", fmt_dollar(total_dollar) if all_trades else "—", 
 row1 += stat_card("Win Rate", f"{win_rate:.1f}%" if all_trades else "—", wr_color,
                    f"{len(winners)}W / {len(losers)}L" if all_trades else "No trades yet")
 row1 += stat_card("Profit Factor", pf_val,
-                   "#22c55e" if profit_factor > 1.5 else "#e8651a" if profit_factor > 1 else "#ef4444")
-row1 += stat_card("Max Drawdown", fmt_dollar(max_dd_dollar) if all_trades else "—", "#ef4444",
+                   "#ff7e33" if profit_factor > 1.5 else "#e8651a" if profit_factor > 1 else "#9e4a15")
+row1 += stat_card("Max Drawdown", fmt_dollar(max_dd_dollar) if all_trades else "—", "#9e4a15",
                    "from peak" if all_trades else "")
 row1 += '</div>'
 st.markdown(row1, unsafe_allow_html=True)
@@ -128,12 +135,12 @@ st.markdown(row1, unsafe_allow_html=True)
 row2 = '<div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:8px;">'
 row2 += stat_card("Trades", str(len(all_trades)), "#f5f5f5",
                    f"{len(trading_days)} days" if all_trades else "")
-row2 += stat_card("Avg Win", fmt_dollar(avg_win_dollar) if winners else "—", "#22c55e")
-row2 += stat_card("Avg Loss", fmt_dollar(avg_loss_dollar) if losers else "—", "#ef4444")
+row2 += stat_card("Avg Win", fmt_dollar(avg_win_dollar) if winners else "—", "#ff7e33")
+row2 += stat_card("Avg Loss", fmt_dollar(avg_loss_dollar) if losers else "—", "#9e4a15")
 row2 += stat_card("R:R Ratio", rr_val,
-                   "#22c55e" if rr_ratio >= 2 else "#e8651a" if rr_ratio >= 1 else "#ef4444")
+                   "#ff7e33" if rr_ratio >= 2 else "#e8651a" if rr_ratio >= 1 else "#9e4a15")
 row2 += stat_card("Current P&L", fmt_dollar(running_dollar) if all_trades else "—",
-                   "#22c55e" if running_dollar > 0 else "#ef4444")
+                   "#ff7e33" if running_dollar > 0 else "#9e4a15")
 row2 += '</div>'
 st.markdown(row2, unsafe_allow_html=True)
 
@@ -163,18 +170,18 @@ with donut_col:
     <div style="text-align:center; padding:8px;">
         <svg viewBox="0 0 120 120" width="180" height="180">
             <circle cx="60" cy="60" r="45" fill="none" stroke="#1e1a17" stroke-width="12"/>
-            <circle cx="60" cy="60" r="45" fill="none" stroke="#22c55e" stroke-width="12"
+            <circle cx="60" cy="60" r="45" fill="none" stroke="#ff7e33" stroke-width="12"
                     stroke-dasharray="{win_dash} {circumference}" stroke-dashoffset="0"
                     transform="rotate(-90 60 60)" stroke-linecap="round"/>
-            <circle cx="60" cy="60" r="45" fill="none" stroke="#ef4444" stroke-width="12"
+            <circle cx="60" cy="60" r="45" fill="none" stroke="#9e4a15" stroke-width="12"
                     stroke-dasharray="{loss_dash} {circumference}" stroke-dashoffset="{loss_offset}"
                     transform="rotate(-90 60 60)" stroke-linecap="round"/>
             <text x="60" y="55" text-anchor="middle" fill="{center_color}" font-size="18" font-weight="700">{center_text}</text>
             <text x="60" y="72" text-anchor="middle" fill="#888" font-size="8">WIN RATE</text>
         </svg>
         <div style="display:flex; justify-content:center; gap:12px; margin-top:4px;">
-            <span style="color:#22c55e; font-size:0.75rem;">&#9679; {len(winners)}W</span>
-            <span style="color:#ef4444; font-size:0.75rem;">&#9679; {len(losers)}L</span>
+            <span style="color:#ff7e33; font-size:0.75rem;">&#9679; {len(winners)}W</span>
+            <span style="color:#9e4a15; font-size:0.75rem;">&#9679; {len(losers)}L</span>
         </div>
     </div>
     '''
@@ -217,7 +224,7 @@ with recent_col:
 
     if all_trades:
         for t in all_trades[:10]:
-            pnl_color_t = "#22c55e" if t.pnl_pips > 0 else "#ef4444" if t.pnl_pips < 0 else "#888"
+            pnl_color_t = "#ff7e33" if t.pnl_pips > 0 else "#9e4a15" if t.pnl_pips < 0 else "#888"
             result = "W" if t.pnl_pips > 0 else "L" if t.pnl_pips < 0 else "BE"
             dollar_display = fmt_dollar(t.pnl_dollar) if t.pnl_dollar else ""
 
@@ -283,14 +290,14 @@ with streak_col:
     streak_html = '<div style="display:grid; grid-template-columns:1fr; gap:6px;">'
     streak_html += stat_card("Journal Streak", f"{journal_streak} days", "#e8651a" if journal_streak >= 3 else "#888")
     streak_html += stat_card("Profitable Day Streak", f"{profitable_streak} days",
-                             "#22c55e" if profitable_streak >= 3 else "#888")
+                             "#ff7e33" if profitable_streak >= 3 else "#888")
     streak_html += stat_card("Rules Followed Streak", f"{rules_streak} days",
-                             "#22c55e" if rules_streak >= 3 else "#888")
+                             "#ff7e33" if rules_streak >= 3 else "#888")
 
     # Today's readiness
     today_journal = get_journal(today_str, user_id=user_id)
     if today_journal:
-        r_color = "#22c55e" if today_journal.readiness_score >= 7 else "#e8651a" if today_journal.readiness_score >= 4 else "#ef4444"
+        r_color = "#ff7e33" if today_journal.readiness_score >= 7 else "#e8651a" if today_journal.readiness_score >= 4 else "#9e4a15"
         streak_html += stat_card("Today's Readiness", f"{today_journal.readiness_score}/10", r_color,
                                  today_journal.readiness_label or "")
     else:

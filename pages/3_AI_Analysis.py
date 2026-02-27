@@ -9,6 +9,13 @@ from lib.knowledge.vector_store import get_collection_stats
 from lib.models import Analysis
 from lib.auth import get_current_user_id, has_api_key
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception:
+    pass
+
 st.header("AI Analysis")
 
 user_id = get_current_user_id()

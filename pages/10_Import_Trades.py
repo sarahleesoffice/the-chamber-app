@@ -4,6 +4,13 @@ from lib.auth import get_current_user_id
 from lib.csv_import import detect_and_parse, parse_generic_csv
 from lib.database import insert_trade, get_trade_count, delete_all_trades
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception:
+    pass
+
 user_id = get_current_user_id()
 
 st.header("Import Trades")

@@ -5,6 +5,13 @@ from lib.database import get_all_trades, get_distinct_pairs, get_trade_count, de
 from lib.chart_storage import get_chart_absolute_path
 from lib.auth import get_current_user_id
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception:
+    pass
+
 st.header("Trade History")
 
 user_id = get_current_user_id()

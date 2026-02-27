@@ -8,6 +8,13 @@ from lib.auth import (
     delete_api_key,
 )
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception:
+    pass
+
 st.header("Settings")
 st.caption("Manage your API keys and account settings.")
 

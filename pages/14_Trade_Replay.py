@@ -11,6 +11,13 @@ from lib.database import (
 )
 from lib.chart_storage import load_chart
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception:
+    pass
+
 user_id = get_current_user_id()
 
 st.header("Trade Replay")
@@ -97,7 +104,7 @@ st.divider()
 trade = filtered[st.session_state.replay_index]
 
 # Header with result
-pnl_color = "#22c55e" if trade.pnl_pips > 0 else "#ef4444" if trade.pnl_pips < 0 else "#a0a0a0"
+pnl_color = "#ff7e33" if trade.pnl_pips > 0 else "#9e4a15" if trade.pnl_pips < 0 else "#a0a0a0"
 result_label = "WIN" if trade.pnl_pips > 0 else "LOSS" if trade.pnl_pips < 0 else "BE"
 
 st.markdown(
@@ -145,7 +152,7 @@ with col_details:
         for g in grades:
             pb = get_playbook(g.playbook_id, user_id=user_id)
             pb_name = pb.name if pb else f"Setup #{g.playbook_id}"
-            compliance_color = "#22c55e" if g.compliance_pct >= 80 else "#e8651a" if g.compliance_pct >= 50 else "#ef4444"
+            compliance_color = "#ff7e33" if g.compliance_pct >= 80 else "#e8651a" if g.compliance_pct >= 50 else "#9e4a15"
 
             st.markdown(f"**Playbook Grade: {pb_name}**")
             st.progress(g.compliance_pct / 100)

@@ -1,6 +1,13 @@
 import streamlit as st
 from datetime import datetime, timezone, timedelta
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception:
+    pass
+
 st.header("Live News")
 st.caption("Real-time market news from Financial Juice. Auto-categorized for traders.")
 
@@ -75,12 +82,12 @@ for n in all_news:
 
 # Category color map
 CAT_COLORS = {
-    "Economic Data": "#ef4444",
+    "Economic Data": "#9e4a15",
     "Central Banks": "#e8651a",
     "Geopolitical": "#a855f7",
     "Commodities": "#eab308",
-    "Equities": "#22c55e",
-    "Forex": "#3b82f6",
+    "Equities": "#ff7e33",
+    "Forex": "#e8651a",
     "Crypto": "#06b6d4",
     "Market News": "#a0a0a0",
 }

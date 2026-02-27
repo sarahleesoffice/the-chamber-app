@@ -10,6 +10,13 @@ from lib.database import (
 from lib.models import WatchlistItem
 from lib.psychology_framework import ICT_SETUPS
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception:
+    pass
+
 user_id = get_current_user_id()
 
 st.header("Watchlist")
@@ -76,8 +83,8 @@ if not items:
 else:
     # Bias color map
     bias_colors = {
-        "bullish": "#22c55e",
-        "bearish": "#ef4444",
+        "bullish": "#ff7e33",
+        "bearish": "#9e4a15",
         "neutral": "#a0a0a0",
     }
 

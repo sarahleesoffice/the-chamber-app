@@ -3,6 +3,13 @@ import streamlit as st
 from lib.knowledge.vector_store import get_collection_stats, query_similar, get_all_metadata
 from lib.knowledge.chunker import ICT_CONCEPT_PATTERNS
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception:
+    pass
+
 st.header("Learning Hub")
 st.caption("Structured ICT curriculum pulled from 675+ of ICT's YouTube lectures")
 
@@ -21,7 +28,7 @@ if not has_knowledge_base:
 CURRICULUM = [
     {
         "level": "Foundation",
-        "color": "#22c55e",
+        "color": "#ff7e33",
         "topics": [
             {
                 "name": "Market Structure",
@@ -68,7 +75,7 @@ CURRICULUM = [
     },
     {
         "level": "Timing & Sessions",
-        "color": "#3b82f6",
+        "color": "#e8651a",
         "topics": [
             {
                 "name": "Kill Zones",
@@ -120,7 +127,7 @@ CURRICULUM = [
     },
     {
         "level": "Risk & Psychology",
-        "color": "#ef4444",
+        "color": "#9e4a15",
         "topics": [
             {
                 "name": "Risk Management",

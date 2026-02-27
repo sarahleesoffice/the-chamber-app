@@ -4,6 +4,13 @@ from lib.knowledge.vector_store import query_similar, get_collection_stats
 from lib.ai_providers import get_provider
 from lib.auth import get_current_user_id, has_api_key
 
+# ── Live price ticker ──
+try:
+    from lib.ticker import render_ticker
+    render_ticker()
+except Exception:
+    pass
+
 st.header("AI ICT Mentor")
 st.caption("Ask anything about ICT methodology — powered by 675+ of ICT's YouTube lectures.")
 
