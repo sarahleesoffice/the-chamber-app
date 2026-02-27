@@ -77,7 +77,7 @@ def render_ticker_html(prices: list[dict]) -> str:
             f'<span style="padding:0 18px;white-space:nowrap;">'
             f'<span style="color:#e8651a;font-weight:700;letter-spacing:1px;">{p["name"]}</span>'
             f'&nbsp;&nbsp;'
-            f'<span style="color:#f5f5f5;font-weight:600;">{price_str}</span>'
+            f'<span style="color:#333;font-weight:600;">{price_str}</span>'
             f'&nbsp;&nbsp;'
             f'<span style="color:{color};font-weight:600;">{change_str}</span>'
             f'</span>'
