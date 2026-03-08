@@ -7,7 +7,6 @@ from lib.trade_math import calculate_pnl_pips, get_common_pairs, format_pair
 from lib.chart_storage import save_chart
 from lib.auth import get_current_user_id
 
-# ── Live price ticker ──
 try:
     from lib.ticker import render_ticker
     render_ticker()

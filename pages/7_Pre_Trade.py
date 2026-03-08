@@ -5,14 +5,13 @@ from lib.auth import get_current_user_id
 from lib.database import get_journal
 from lib.psychology_framework import assess_readiness
 
-# ── Live price ticker ──
+user_id = get_current_user_id()
+
 try:
     from lib.ticker import render_ticker
     render_ticker()
 except Exception:
     pass
-
-user_id = get_current_user_id()
 
 st.header("Pre-Trade Checklist")
 st.caption("Complete this before every trading session. No trade without a green light.")
@@ -37,11 +36,11 @@ if journal:
     readiness, label, reasoning = assess_readiness(scores)
 
     if readiness >= 7:
-        color = "#ff7e33"
+        color = "#22c55e"
     elif readiness >= 4:
         color = "#e8651a"
     else:
-        color = "#9e4a15"
+        color = "#ef4444"
 
     st.markdown(
         f'<div style="padding:12px; border-left:4px solid {color}; background:#141414; border-radius:4px;">'
@@ -138,10 +137,10 @@ has_plan = bias != "Neutral / No Trade" and pairs
 
 if all_prep and all_rules and has_readiness and has_plan:
     st.markdown(
-        '<div style="text-align:center; padding:20px; background:rgba(255,126,51,0.1); '
-        'border:2px solid #ff7e33; border-radius:8px;">'
+        '<div style="text-align:center; padding:20px; background:rgba(34,197,94,0.1); '
+        'border:2px solid #22c55e; border-radius:8px;">'
         '<div style="font-size:2rem;">&#x2705;</div>'
-        '<div style="color:#ff7e33; font-size:1.3rem; font-weight:700;">GO — Ready to Trade</div>'
+        '<div style="color:#22c55e; font-size:1.3rem; font-weight:700;">GO — Ready to Trade</div>'
         '<div style="color:#a0a0a0; font-size:0.85rem;">Stick to the plan. Execute with discipline.</div>'
         '</div>',
         unsafe_allow_html=True,
@@ -158,10 +157,10 @@ elif has_readiness and (all_prep or all_rules):
     )
 else:
     st.markdown(
-        '<div style="text-align:center; padding:20px; background:rgba(158,74,21,0.1); '
-        'border:2px solid #9e4a15; border-radius:8px;">'
+        '<div style="text-align:center; padding:20px; background:rgba(239,68,68,0.1); '
+        'border:2px solid #ef4444; border-radius:8px;">'
         '<div style="font-size:2rem;">&#x1F6D1;</div>'
-        '<div style="color:#9e4a15; font-size:1.3rem; font-weight:700;">NO-GO — Not Ready</div>'
+        '<div style="color:#ef4444; font-size:1.3rem; font-weight:700;">NO-GO — Not Ready</div>'
         '<div style="color:#a0a0a0; font-size:0.85rem;">Complete your prep, journal, and checklist before opening any trades.</div>'
         '</div>',
         unsafe_allow_html=True,

@@ -10,7 +10,6 @@ from lib.database import (
 from lib.trading_calendar import render_trading_calendar
 from lib.auth import get_current_user_id
 
-# ── Live price ticker ──
 try:
     from lib.ticker import render_ticker
     render_ticker()
@@ -97,8 +96,8 @@ def fmt_dollar(val: float) -> str:
 # STATS OVERVIEW CARDS (styled)
 # ============================================================
 
-pnl_color = "#ff7e33" if total_dollar > 0 else "#9e4a15" if total_dollar < 0 else "#a0a0a0"
-wr_color = "#ff7e33" if win_rate >= 55 else "#e8651a" if win_rate >= 45 else "#9e4a15"
+pnl_color = "#22c55e" if total_dollar > 0 else "#ef4444" if total_dollar < 0 else "#a0a0a0"
+wr_color = "#22c55e" if win_rate >= 55 else "#e8651a" if win_rate >= 45 else "#ef4444"
 pf_val = f"{profit_factor:.2f}" if profit_factor != float("inf") else "—"
 rr_val = f"{rr_ratio:.2f}" if rr_ratio > 0 else "—"
 
@@ -120,9 +119,9 @@ stats_row1 += stat_card("Net P&L", fmt_dollar(total_dollar) if trades else "—"
 stats_row1 += stat_card("Win Rate", f"{win_rate:.1f}%" if trades else "—", wr_color,
                         (f"{len(winners)}W / {len(losers)}L" + (f" / {len(breakeven)}BE" if breakeven else "")) if trades else "No trades yet")
 stats_row1 += stat_card("Profit Factor", pf_val,
-                        "#ff7e33" if profit_factor > 1.5 else "#e8651a" if profit_factor > 1 else "#9e4a15")
+                        "#22c55e" if profit_factor > 1.5 else "#e8651a" if profit_factor > 1 else "#ef4444")
 stats_row1 += stat_card("R:R Ratio", rr_val,
-                        "#ff7e33" if rr_ratio >= 2 else "#e8651a" if rr_ratio >= 1 else "#9e4a15")
+                        "#22c55e" if rr_ratio >= 2 else "#e8651a" if rr_ratio >= 1 else "#ef4444")
 stats_row1 += '</div>'
 st.markdown(stats_row1, unsafe_allow_html=True)
 
@@ -130,11 +129,11 @@ st.markdown(stats_row1, unsafe_allow_html=True)
 stats_row2 = '<div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:8px;">'
 stats_row2 += stat_card("Trades", str(len(trades)), "#f5f5f5",
                         f"{len(trading_days)} days" if trades else "")
-stats_row2 += stat_card("Avg Win", fmt_dollar(avg_win_dollar) if winners else "—", "#ff7e33")
-stats_row2 += stat_card("Avg Loss", fmt_dollar(avg_loss_dollar) if losers else "—", "#9e4a15")
-stats_row2 += stat_card("Best Trade", fmt_dollar(best_trade.pnl_dollar) if best_trade and best_trade.pnl_dollar else "—", "#ff7e33",
+stats_row2 += stat_card("Avg Win", fmt_dollar(avg_win_dollar) if winners else "—", "#22c55e")
+stats_row2 += stat_card("Avg Loss", fmt_dollar(avg_loss_dollar) if losers else "—", "#ef4444")
+stats_row2 += stat_card("Best Trade", fmt_dollar(best_trade.pnl_dollar) if best_trade and best_trade.pnl_dollar else "—", "#22c55e",
                         best_trade.pair if best_trade else "")
-stats_row2 += stat_card("Worst Trade", fmt_dollar(worst_trade.pnl_dollar) if worst_trade and worst_trade.pnl_dollar else "—", "#9e4a15",
+stats_row2 += stat_card("Worst Trade", fmt_dollar(worst_trade.pnl_dollar) if worst_trade and worst_trade.pnl_dollar else "—", "#ef4444",
                         worst_trade.pair if worst_trade else "")
 stats_row2 += '</div>'
 st.markdown(stats_row2, unsafe_allow_html=True)
@@ -168,11 +167,11 @@ with donut_col:
             <!-- Background circle -->
             <circle cx="60" cy="60" r="45" fill="none" stroke="#1e1a17" stroke-width="12"/>
             <!-- Win segment (green) -->
-            <circle cx="60" cy="60" r="45" fill="none" stroke="#ff7e33" stroke-width="12"
+            <circle cx="60" cy="60" r="45" fill="none" stroke="#22c55e" stroke-width="12"
                     stroke-dasharray="{win_dash} {circumference}" stroke-dashoffset="0"
                     transform="rotate(-90 60 60)" stroke-linecap="round"/>
             <!-- Loss segment (red) -->
-            <circle cx="60" cy="60" r="45" fill="none" stroke="#9e4a15" stroke-width="12"
+            <circle cx="60" cy="60" r="45" fill="none" stroke="#ef4444" stroke-width="12"
                     stroke-dasharray="{loss_dash} {circumference}" stroke-dashoffset="{loss_offset}"
                     transform="rotate(-90 60 60)" stroke-linecap="round"/>
             <!-- Center text -->
@@ -180,8 +179,8 @@ with donut_col:
             <text x="60" y="72" text-anchor="middle" fill="#888" font-size="8">WIN RATE</text>
         </svg>
         <div style="display:flex; justify-content:center; gap:16px; margin-top:8px;">
-            <span style="color:#ff7e33; font-size:0.8rem;">&#9679; {len(winners)} Wins</span>
-            <span style="color:#9e4a15; font-size:0.8rem;">&#9679; {len(losers)} Losses</span>
+            <span style="color:#22c55e; font-size:0.8rem;">&#9679; {len(winners)} Wins</span>
+            <span style="color:#ef4444; font-size:0.8rem;">&#9679; {len(losers)} Losses</span>
             {f'<span style="color:#888; font-size:0.8rem;">&#9679; {len(breakeven)} BE</span>' if breakeven else ""}
         </div>
     </div>
@@ -193,8 +192,8 @@ with stats_col:
     st.markdown("**Day Performance**")
 
     day_data = '<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">'
-    day_data += stat_card("Winning Days", str(len(winning_days)), "#ff7e33")
-    day_data += stat_card("Losing Days", str(len(losing_days)), "#9e4a15")
+    day_data += stat_card("Winning Days", str(len(winning_days)), "#22c55e")
+    day_data += stat_card("Losing Days", str(len(losing_days)), "#ef4444")
     day_data += stat_card("Total Days", str(len(trading_days)), "#f5f5f5")
     day_data += '</div>'
     st.markdown(day_data, unsafe_allow_html=True)
@@ -209,9 +208,9 @@ with stats_col:
     day_data2 = '<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">'
     day_data2 += stat_card("Avg Trades/Day", f"{avg_trades_per_day:.1f}", "#e8651a")
     day_data2 += stat_card("Avg $/Day", fmt_dollar(avg_dollar_per_day) if trades else "—",
-                           "#ff7e33" if avg_dollar_per_day > 0 else "#9e4a15")
+                           "#22c55e" if avg_dollar_per_day > 0 else "#ef4444")
     day_data2 += stat_card("Day Win Rate", f"{day_wr:.0f}%" if trades else "—",
-                           "#ff7e33" if day_wr >= 55 else "#e8651a" if day_wr >= 45 else "#9e4a15")
+                           "#22c55e" if day_wr >= 55 else "#e8651a" if day_wr >= 45 else "#ef4444")
     day_data2 += '</div>'
     st.markdown(day_data2, unsafe_allow_html=True)
 
@@ -260,10 +259,10 @@ with tab_equity:
                 max_dd = dd
 
         dd_html = '<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">'
-        dd_html += stat_card("Peak P&L", fmt_dollar(peak), "#ff7e33")
-        dd_html += stat_card("Max Drawdown", fmt_dollar(max_dd), "#9e4a15")
+        dd_html += stat_card("Peak P&L", fmt_dollar(peak), "#22c55e")
+        dd_html += stat_card("Max Drawdown", fmt_dollar(max_dd), "#ef4444")
         dd_html += stat_card("Current P&L", fmt_dollar(running_eq2),
-                             "#ff7e33" if running_eq2 > 0 else "#9e4a15")
+                             "#22c55e" if running_eq2 > 0 else "#ef4444")
         dd_html += '</div>'
         st.markdown(dd_html, unsafe_allow_html=True)
     else:
@@ -296,16 +295,16 @@ with tab_breakdown:
                 g_wr = g_wins / len(group_trades) * 100 if group_trades else 0
                 g_avg = g_dollar / len(group_trades) if group_trades else 0
 
-                color = "#ff7e33" if g_dollar > 0 else "#9e4a15" if g_dollar < 0 else "#888"
+                color = "#22c55e" if g_dollar > 0 else "#ef4444" if g_dollar < 0 else "#888"
 
                 with st.expander(f"**{name}** — {fmt_dollar(g_dollar)} ({len(group_trades)} trades)"):
                     row_html = '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px;">'
                     row_html += stat_card("P&L", fmt_dollar(g_dollar), color)
                     row_html += stat_card("Trades", str(len(group_trades)), "#f5f5f5")
                     row_html += stat_card("Win Rate", f"{g_wr:.0f}%",
-                                          "#ff7e33" if g_wr >= 55 else "#e8651a" if g_wr >= 45 else "#9e4a15")
+                                          "#22c55e" if g_wr >= 55 else "#e8651a" if g_wr >= 45 else "#ef4444")
                     row_html += stat_card("Avg P&L", fmt_dollar(g_avg),
-                                          "#ff7e33" if g_avg > 0 else "#9e4a15")
+                                          "#22c55e" if g_avg > 0 else "#ef4444")
                     row_html += '</div>'
                     st.markdown(row_html, unsafe_allow_html=True)
 
@@ -386,10 +385,10 @@ with tab_streaks:
             streaks.append((current_type, current_streak))
 
         streak_html = '<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px;">'
-        streak_html += stat_card("Best Win Streak", str(max_win_streak), "#ff7e33")
-        streak_html += stat_card("Worst Loss Streak", str(max_loss_streak), "#9e4a15")
+        streak_html += stat_card("Best Win Streak", str(max_win_streak), "#22c55e")
+        streak_html += stat_card("Worst Loss Streak", str(max_loss_streak), "#ef4444")
         current_label = f"{current_streak} {'W' if current_type == 'win' else 'L'}" if current_type else "—"
-        current_color = "#ff7e33" if current_type == "win" else "#9e4a15" if current_type == "loss" else "#888"
+        current_color = "#22c55e" if current_type == "win" else "#ef4444" if current_type == "loss" else "#888"
         streak_html += stat_card("Current Streak", current_label, current_color)
 
         w_days = len(winning_days)
@@ -426,10 +425,10 @@ with tab_streaks:
                 max_day_loss = max(max_day_loss, day_streak)
 
         ds_html = '<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">'
-        ds_html += stat_card("Best Green Day Streak", str(max_day_win), "#ff7e33")
-        ds_html += stat_card("Worst Red Day Streak", str(max_day_loss), "#9e4a15")
+        ds_html += stat_card("Best Green Day Streak", str(max_day_win), "#22c55e")
+        ds_html += stat_card("Worst Red Day Streak", str(max_day_loss), "#ef4444")
         ds_label = f"{day_streak} {'green' if day_type == 'win' else 'red'}" if day_type else "—"
-        ds_color = "#ff7e33" if day_type == "win" else "#9e4a15" if day_type == "loss" else "#888"
+        ds_color = "#22c55e" if day_type == "win" else "#ef4444" if day_type == "loss" else "#888"
         ds_html += stat_card("Current Day Streak", ds_label, ds_color)
         ds_html += '</div>'
         st.markdown(ds_html, unsafe_allow_html=True)
@@ -494,22 +493,22 @@ with tab_mental:
 
                 comp_html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">'
                 comp_html += (
-                    f'<div style="background:#141414; border:1px solid #ff7e3333; border-radius:8px; padding:16px;">'
-                    f'<div style="color:#ff7e33; font-weight:700; margin-bottom:8px;">High Readiness Days (7+)</div>'
+                    f'<div style="background:#141414; border:1px solid #22c55e33; border-radius:8px; padding:16px;">'
+                    f'<div style="color:#22c55e; font-weight:700; margin-bottom:8px;">High Readiness Days (7+)</div>'
                 )
                 comp_html += f'<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">'
-                comp_html += stat_card("Avg P&L", fmt_dollar(hr_avg), "#ff7e33")
-                comp_html += stat_card("Avg WR", f"{hr_wr:.0f}%", "#ff7e33")
+                comp_html += stat_card("Avg P&L", fmt_dollar(hr_avg), "#22c55e")
+                comp_html += stat_card("Avg WR", f"{hr_wr:.0f}%", "#22c55e")
                 comp_html += stat_card("Days", str(len(high_ready)), "#f5f5f5")
                 comp_html += '</div></div>'
 
                 comp_html += (
-                    f'<div style="background:#141414; border:1px solid #9e4a1533; border-radius:8px; padding:16px;">'
-                    f'<div style="color:#9e4a15; font-weight:700; margin-bottom:8px;">Low Readiness Days (4-)</div>'
+                    f'<div style="background:#141414; border:1px solid #ef444433; border-radius:8px; padding:16px;">'
+                    f'<div style="color:#ef4444; font-weight:700; margin-bottom:8px;">Low Readiness Days (4-)</div>'
                 )
                 comp_html += f'<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px;">'
-                comp_html += stat_card("Avg P&L", fmt_dollar(lr_avg), "#9e4a15")
-                comp_html += stat_card("Avg WR", f"{lr_wr:.0f}%", "#9e4a15")
+                comp_html += stat_card("Avg P&L", fmt_dollar(lr_avg), "#ef4444")
+                comp_html += stat_card("Avg WR", f"{lr_wr:.0f}%", "#ef4444")
                 comp_html += stat_card("Days", str(len(low_ready)), "#f5f5f5")
                 comp_html += '</div></div>'
                 comp_html += '</div>'
@@ -526,7 +525,7 @@ with tab_mental:
                     h_pnl = sum(c["pnl"] for c in high) / len(high)
                     l_pnl = sum(c["pnl"] for c in low) / len(low)
                     diff = h_pnl - l_pnl
-                    color = "#ff7e33" if diff > 0 else "#9e4a15"
+                    color = "#22c55e" if diff > 0 else "#ef4444"
                     st.markdown(
                         f"**{cat.title()}**: High ({len(high)}d) avg {fmt_dollar(h_pnl)} vs "
                         f"Low ({len(low)}d) avg {fmt_dollar(l_pnl)} — "

@@ -7,7 +7,6 @@ from lib.knowledge.vector_store import (
     query_similar,
 )
 
-# ── Live price ticker ──
 try:
     from lib.ticker import render_ticker
     render_ticker()

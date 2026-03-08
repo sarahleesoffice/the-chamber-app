@@ -52,14 +52,14 @@ def _show_day_dialog(date_str: str, trades: list, key_prefix: str):
     day_total_pips = sum(t.pnl_pips for t in trades)
     day_total_dollar = sum(t.pnl_dollar for t in trades if t.pnl_dollar)
     day_wr = len(day_wins) / len(trades) * 100 if trades else 0
-    day_pnl_color = "#ff7e33" if day_total_pips > 0 else "#9e4a15" if day_total_pips < 0 else "#888"
+    day_pnl_color = "#22c55e" if day_total_pips > 0 else "#ef4444" if day_total_pips < 0 else "#888"
 
     # Profit factor
     gross_win = sum(t.pnl_pips for t in day_wins)
     gross_loss = abs(sum(t.pnl_pips for t in day_losses))
     pf = gross_win / gross_loss if gross_loss > 0 else float("inf")
     pf_str = f"{pf:.2f}" if pf != float("inf") else "—"
-    pf_color = "#ff7e33" if pf > 1.5 else "#e8651a" if pf > 1 else "#9e4a15"
+    pf_color = "#22c55e" if pf > 1.5 else "#e8651a" if pf > 1 else "#ef4444"
 
     # Avg RR
     avg_win = gross_win / len(day_wins) if day_wins else 0
@@ -78,10 +78,10 @@ def _show_day_dialog(date_str: str, trades: list, key_prefix: str):
     stats_html += _stat_card(
         "Win Rate",
         f"{day_wr:.0f}%",
-        "#ff7e33" if day_wr >= 55 else "#e8651a" if day_wr >= 45 else "#9e4a15",
+        "#22c55e" if day_wr >= 55 else "#e8651a" if day_wr >= 45 else "#ef4444",
     )
     stats_html += _stat_card("Profit Factor", pf_str, pf_color)
-    stats_html += _stat_card("Avg R:R", rr_str, "#ff7e33" if rr >= 2 else "#e8651a" if rr >= 1 else "#9e4a15")
+    stats_html += _stat_card("Avg R:R", rr_str, "#22c55e" if rr >= 2 else "#e8651a" if rr >= 1 else "#ef4444")
     stats_html += '</div>'
     st.markdown(stats_html, unsafe_allow_html=True)
 
@@ -92,9 +92,9 @@ def _show_day_dialog(date_str: str, trades: list, key_prefix: str):
     )
 
     for i, t in enumerate(trades):
-        pnl_color = "#ff7e33" if t.pnl_pips > 0 else "#9e4a15" if t.pnl_pips < 0 else "#888"
+        pnl_color = "#22c55e" if t.pnl_pips > 0 else "#ef4444" if t.pnl_pips < 0 else "#888"
         result_tag = "WIN" if t.pnl_pips > 0 else "LOSS" if t.pnl_pips < 0 else "BE"
-        result_bg = "rgba(255,126,51,0.15)" if t.pnl_pips > 0 else "rgba(158,74,21,0.15)" if t.pnl_pips < 0 else "rgba(160,160,160,0.1)"
+        result_bg = "rgba(34,197,94,0.15)" if t.pnl_pips > 0 else "rgba(239,68,68,0.15)" if t.pnl_pips < 0 else "rgba(160,160,160,0.1)"
         dollar_str = f"-${abs(t.pnl_dollar):,.2f}" if t.pnl_dollar and t.pnl_dollar < 0 else f"${t.pnl_dollar:,.2f}" if t.pnl_dollar else ""
         reasoning_str = t.reasoning[:80] + "..." if t.reasoning and len(t.reasoning) > 80 else (t.reasoning or "")
 
@@ -129,41 +129,15 @@ def _show_day_dialog(date_str: str, trades: list, key_prefix: str):
         trade_html += '</div>'
         st.markdown(trade_html, unsafe_allow_html=True)
 
-        # AI Advice button for this trade
+        # Analyze Trade button — navigates to AI Analysis with this trade pre-selected
         if st.button(
-            f"🔥 Get AI Advice",
+            "🔥 Analyze Trade",
             key=f"{key_prefix}_dlg_ai_{t.id}_{i}",
             use_container_width=True,
             type="tertiary",
         ):
-            # Build a detailed question about this trade for the AI
-            result_word = "winning" if t.pnl_pips > 0 else "losing" if t.pnl_pips < 0 else "breakeven"
-            question = (
-                f"Analyze my {result_word} {t.pair} {t.direction} trade from {t.trade_date}. "
-                f"Entry: {t.entry_price}, Exit: {t.exit_price}, "
-                f"Result: {t.pnl_pips:+.1f} pips"
-                f"{f' (${t.pnl_dollar:+,.2f})' if t.pnl_dollar else ''}. "
-            )
-            if t.reasoning:
-                question += f'My reasoning was: "{t.reasoning}". '
-
-            if t.pnl_pips > 0:
-                question += (
-                    "What did I likely do right from an ICT perspective? "
-                    "What should I keep being consistent with? "
-                    "Any improvements I could still make?"
-                )
-            else:
-                question += (
-                    "What likely went wrong from an ICT perspective? "
-                    "What specific ICT concepts should I review to improve? "
-                    "What should I do differently next time?"
-                )
-
-            # Set up the AI ICT chat with this question
-            st.session_state.ict_chat_messages = [{"role": "user", "content": question}]
-            st.session_state["ict_trigger_response"] = True
-            st.switch_page("pages/11_AI_ICT.py")
+            st.session_state["analysis_preselect_trade_id"] = t.id
+            st.switch_page("pages/3_AI_Analysis.py")
 
 
 def _build_cell_label(day_num: int, count: int, dollar: float, pnl: float) -> str:
@@ -230,12 +204,12 @@ def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
     m_dollar = sum(t.pnl_dollar for t in month_trades if t.pnl_dollar) if month_trades else 0
     m_wins = sum(1 for t in month_trades if t.pnl_pips > 0)
     m_wr = m_wins / len(month_trades) * 100 if month_trades else 0
-    m_color = "#ff7e33" if m_total > 0 else "#9e4a15" if m_total < 0 else "#a0a0a0"
+    m_color = "#22c55e" if m_total > 0 else "#ef4444" if m_total < 0 else "#a0a0a0"
 
     # ── Header ──────────────────────────────────────────────────
     st.markdown(
         '<div style="margin-bottom:4px;">'
-        '<div style="color:#f5f5f5; font-size:1.05rem; font-weight:700;">Trading Calendar</div>'
+        '<div style="color:#f5f5f5; font-size:1.4rem; font-weight:700;">Trading Calendar</div>'
         '<div style="color:#888; font-size:0.85rem;">Click a trading day to see details</div>'
         '</div>',
         unsafe_allow_html=True,
@@ -251,12 +225,12 @@ def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
     )
     cards += _stat_card("Total Trades", str(len(month_trades)), "#f5f5f5")
     cards += _stat_card("Trading Days", str(len(trading_days)), "#e8651a")
-    cards += _stat_card("Winning Days", str(len(winning_days)), "#ff7e33")
-    cards += _stat_card("Losing Days", str(len(losing_days)), "#9e4a15")
+    cards += _stat_card("Winning Days", str(len(winning_days)), "#22c55e")
+    cards += _stat_card("Losing Days", str(len(losing_days)), "#ef4444")
     cards += _stat_card(
         "Win Rate",
         f"{m_wr:.0f}%",
-        "#ff7e33" if m_wr >= 55 else "#e8651a" if m_wr >= 45 else "#9e4a15",
+        "#22c55e" if m_wr >= 55 else "#e8651a" if m_wr >= 45 else "#ef4444",
     )
     cards += '</div>'
     st.markdown(cards, unsafe_allow_html=True)
@@ -368,13 +342,13 @@ def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
         'flex-wrap:wrap; margin-top:4px;">'
         # Profit
         '<div style="display:flex; align-items:center; gap:5px;">'
-        '<div style="width:12px; height:12px; border-radius:3px; background:rgba(255,126,51,0.3); '
-        'border:1px solid #ff7e33;"></div>'
+        '<div style="width:12px; height:12px; border-radius:3px; background:rgba(34,197,94,0.3); '
+        'border:1px solid #22c55e;"></div>'
         '<span style="color:#888; font-size:0.75rem;">Profit</span></div>'
         # Loss
         '<div style="display:flex; align-items:center; gap:5px;">'
-        '<div style="width:12px; height:12px; border-radius:3px; background:rgba(158,74,21,0.3); '
-        'border:1px solid #9e4a15;"></div>'
+        '<div style="width:12px; height:12px; border-radius:3px; background:rgba(239,68,68,0.3); '
+        'border:1px solid #ef4444;"></div>'
         '<span style="color:#888; font-size:0.75rem;">Loss</span></div>'
         # Mental Score
         '<div style="display:flex; align-items:center; gap:5px;">'
@@ -386,7 +360,7 @@ def render_trading_calendar(key_prefix: str = "tcal", user_id: int = 1) -> None:
         '<span style="color:#888; font-size:0.75rem;">Journal Entry</span></div>'
         # Today
         '<div style="display:flex; align-items:center; gap:5px;">'
-        '<div style="width:12px; height:12px; border-radius:3px; border:2px solid #e8651a; box-shadow:0 0 6px rgba(232,101,26,0.4);"></div>'
+        '<div style="width:12px; height:12px; border-radius:3px; border:2px solid #e8651a; box-shadow:0 0 6px rgba(232,101,26,0.5);"></div>'
         '<span style="color:#888; font-size:0.75rem;">Today</span></div>'
         '</div>'
     )
@@ -422,13 +396,13 @@ def _inject_calendar_css(
         # Determine colors based on P&L
         if count > 0:
             if pnl and pnl > 0:
-                bg = "rgba(255,126,51,0.12)"
-                border_c = "rgba(255,126,51,0.27)"
-                text_color = "#ff7e33"
+                bg = "rgba(34,197,94,0.12)"
+                border_c = "rgba(34,197,94,0.27)"
+                text_color = "#22c55e"
             elif pnl and pnl < 0:
-                bg = "rgba(158,74,21,0.12)"
-                border_c = "rgba(158,74,21,0.27)"
-                text_color = "#9e4a15"
+                bg = "rgba(239,68,68,0.12)"
+                border_c = "rgba(239,68,68,0.27)"
+                text_color = "#ef4444"
             else:
                 bg = "rgba(160,160,160,0.08)"
                 border_c = "rgba(160,160,160,0.2)"
@@ -439,7 +413,7 @@ def _inject_calendar_css(
             text_color = "#555"
 
         if is_today:
-            border_rule = "border: 2px solid #e8651a !important; box-shadow: 0 0 10px rgba(232,101,26,0.3), inset 0 0 6px rgba(232,101,26,0.1) !important;"
+            border_rule = "border: 2px solid #e8651a !important; box-shadow: 0 0 8px rgba(232,101,26,0.4), 0 0 16px rgba(232,101,26,0.15) !important;"
             day_num_color = "#f5f5f5"
         else:
             border_rule = f"border: 1px solid {border_c} !important;"

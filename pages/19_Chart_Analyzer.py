@@ -5,7 +5,6 @@ import streamlit as st
 from lib.chart_annotator import analyze_chart_with_ai
 from lib.auth import get_current_user_id, has_api_key
 
-# ── Live price ticker ──
 try:
     from lib.ticker import render_ticker
     render_ticker()
@@ -32,7 +31,7 @@ if not has_api_key(user_id, key_provider):
     )
     st.stop()
 
-model = st.session_state.get("ai_model", "claude-sonnet-4-5-20250514")
+model = st.session_state.get("ai_model", "claude-sonnet-4-6")
 
 img = st.file_uploader("Upload TradingView screenshot", type=["png", "jpg", "jpeg", "webp"])
 if img:

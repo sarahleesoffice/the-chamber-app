@@ -2,10 +2,16 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "the-chamber",
+      "name": "the-chamber-streamlit",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "streamlit", "run", "app.py"],
       "port": 8501
+    },
+    {
+      "name": "the-chamber-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "/Users/sarajuana/the-chamber"],
+      "port": 3000
     }
   ]
 }

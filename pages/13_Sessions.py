@@ -1,7 +1,6 @@
 import streamlit as st
 from datetime import datetime, timezone, timedelta
 
-# ── Live price ticker ──
 try:
     from lib.ticker import render_ticker
     render_ticker()
@@ -33,7 +32,7 @@ SESSIONS = [
         "name": "London Open",
         "start": "02:00",
         "end": "05:00",
-        "color": "#e8651a",
+        "color": "#3b82f6",
         "description": "Manipulation / first real move. London often sweeps Asia range liquidity before the real move.",
         "tips": [
             "Watch for Judas Swing — false breakout of Asia range",
@@ -57,7 +56,7 @@ SESSIONS = [
         "name": "London Close",
         "start": "10:00",
         "end": "12:00",
-        "color": "#ff7e33",
+        "color": "#22c55e",
         "description": "Last high-probability window. Often reverses or consolidates the NY move.",
         "tips": [
             "Silver Bullet window: 2:00-3:00 PM EST for FVG entries",
@@ -161,7 +160,7 @@ for sess in SESSIONS:
     is_active = active_session and active_session["name"] == sess["name"]
     border = f"2px solid {sess['color']}" if is_active else f"1px solid {sess['color']}44"
     glow = f"box-shadow: 0 0 12px {sess['color']}33;" if is_active else ""
-    badge = ' <span style="background:#ff7e33; color:#0a0a0a; padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;">LIVE</span>' if is_active else ""
+    badge = ' <span style="background:#22c55e; color:#0a0a0a; padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:700;">LIVE</span>' if is_active else ""
 
     st.markdown(
         f'<div style="padding:12px; border:{border}; border-radius:6px; margin-bottom:8px; {glow}">'
@@ -198,7 +197,7 @@ with mc2:
     st.subheader("Silver Bullets")
     for sb in SILVER_BULLETS:
         st.markdown(
-            f'<div style="padding:8px 12px; border-left:3px solid #e8651a; margin-bottom:6px;">'
+            f'<div style="padding:8px 12px; border-left:3px solid #3b82f6; margin-bottom:6px;">'
             f'<strong>{sb["name"]}</strong> — {sb["time"]}<br>'
             f'<span style="color:#a0a0a0; font-size:0.85rem;">{sb["description"]}</span></div>',
             unsafe_allow_html=True,
@@ -222,7 +221,7 @@ amd_phases = [
     {
         "phase": "Manipulation",
         "session": "London Open (2-5AM EST)",
-        "color": "#e8651a",
+        "color": "#3b82f6",
         "description": "The Judas Swing. Price breaks one side of the Asia range to sweep liquidity and trap retail traders. This is the FAKE move.",
     },
     {

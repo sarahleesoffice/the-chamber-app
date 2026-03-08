@@ -4,10 +4,13 @@ Handles user registration, login, session management, and password recovery.
 """
 import bcrypt
 import uuid
+import pathlib
 import streamlit as st
 import streamlit.components.v1 as components
 
 from lib.database import _db, _exec, _insert, USE_POSTGRES
+
+_SESSION_FILE = pathlib.Path(__file__).resolve().parent.parent / ".session_token"
 
 
 # ── User Management ──────────────────────────────────────────
@@ -223,37 +226,33 @@ def delete_session_token(user_id: int) -> None:
 
 
 def set_session_cookie(token: str) -> None:
-    """Inject JS to set a session cookie in the browser."""
-    components.html(
-        f"""<script>
-        document.cookie = "chamber_session={token}; path=/; max-age=2592000; SameSite=Lax";
-        </script>""",
-        height=0,
-    )
+    """Persist session token to a local file (reliable across refreshes)."""
+    try:
+        _SESSION_FILE.write_text(token)
+    except Exception:
+        pass
 
 
 def clear_session_cookie() -> None:
-    """Inject JS to clear the session cookie."""
-    components.html(
-        """<script>
-        document.cookie = "chamber_session=; path=/; max-age=0; SameSite=Lax";
-        </script>""",
-        height=0,
-    )
+    """Remove the local session token file."""
+    try:
+        _SESSION_FILE.unlink(missing_ok=True)
+    except Exception:
+        pass
 
 
 def try_cookie_login() -> bool:
-    """Try to restore session from cookie. Returns True if successful."""
+    """Try to restore session from local token file. Returns True if successful."""
     if is_logged_in():
         return True
     try:
-        cookies = st.context.cookies
-        token = cookies.get("chamber_session")
-        if token:
-            user = get_user_by_token(token)
-            if user:
-                login_user(user)
-                return True
+        if _SESSION_FILE.exists():
+            token = _SESSION_FILE.read_text().strip()
+            if token:
+                user = get_user_by_token(token)
+                if user:
+                    login_user(user)
+                    return True
     except Exception:
         pass
     return False

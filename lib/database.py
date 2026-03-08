@@ -335,6 +335,33 @@ def init_db() -> None:
             for table in ["trades", "analyses", "daily_journal", "playbook_setups", "trade_grades", "watchlist"]:
                 if not _column_exists(conn, table, "user_id"):
                     conn.execute(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER DEFAULT 1")
+            # Migration: make analyses.trade_id nullable for standalone analyses
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS analyses_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        trade_id INTEGER,
+                        provider TEXT NOT NULL,
+                        model TEXT NOT NULL,
+                        analysis_text TEXT NOT NULL,
+                        user_id INTEGER DEFAULT 1,
+                        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                        FOREIGN KEY (trade_id) REFERENCES trades(id) ON DELETE CASCADE
+                    )
+                """)
+                # Check if old table has NOT NULL on trade_id
+                info = conn.execute("PRAGMA table_info(analyses)").fetchall()
+                for col in info:
+                    if col[1] == "trade_id" and col[3] == 1:  # notnull = 1
+                        conn.execute("INSERT INTO analyses_new SELECT * FROM analyses")
+                        conn.execute("DROP TABLE analyses")
+                        conn.execute("ALTER TABLE analyses_new RENAME TO analyses")
+                        break
+                else:
+                    conn.execute("DROP TABLE IF EXISTS analyses_new")
+            except Exception:
+                conn.execute("DROP TABLE IF EXISTS analyses_new")
+
             # Add security columns to users if missing
             if not _column_exists(conn, "users", "security_question"):
                 conn.execute("ALTER TABLE users ADD COLUMN security_question TEXT DEFAULT ''")
@@ -526,8 +553,13 @@ def update_trade_chart_path(trade_id: int, chart_path: str, user_id: int = 1) ->
 
 # ── Analyses ──────────────────────────────────────────────────
 
-def insert_analysis(analysis: Analysis, user_id: int = 1) -> int:
+def insert_analysis(analysis: Analysis, user_id: int = 1, created_at: str | None = None) -> int:
     with _db() as conn:
+        if created_at:
+            return _insert(conn,
+                """INSERT INTO analyses (trade_id, provider, model, analysis_text, user_id, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (analysis.trade_id, analysis.provider, analysis.model, analysis.analysis_text, user_id, created_at))
         return _insert(conn,
             """INSERT INTO analyses (trade_id, provider, model, analysis_text, user_id)
                VALUES (?, ?, ?, ?, ?)""",
@@ -540,6 +572,25 @@ def get_analyses_for_trade(trade_id: int, user_id: int = 1) -> list[Analysis]:
             "SELECT * FROM analyses WHERE trade_id = ? AND user_id = ? ORDER BY created_at DESC",
             (trade_id, user_id)).fetchall()
     return [_row_to_analysis(r) for r in rows]
+
+
+def get_analyses_in_range(start_date: str, end_date: str, user_id: int = 1) -> list[Analysis]:
+    """Return analyses created within a date range (YYYY-MM-DD, inclusive)."""
+    with _db() as conn:
+        rows = _exec(conn,
+            """SELECT * FROM analyses
+               WHERE substr(created_at, 1, 10) >= ? AND substr(created_at, 1, 10) <= ?
+               AND user_id = ?
+               ORDER BY created_at DESC""",
+            (start_date, end_date, user_id)).fetchall()
+    return [_row_to_analysis(r) for r in rows]
+
+
+def delete_analysis(analysis_id: int, user_id: int = 1) -> None:
+    """Delete a single analysis by ID."""
+    with _db() as conn:
+        _exec(conn, "DELETE FROM analyses WHERE id = ? AND user_id = ?",
+              (analysis_id, user_id))
 
 
 # ── Daily Journal ─────────────────────────────────────────────

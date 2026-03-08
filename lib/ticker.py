@@ -62,10 +62,10 @@ def render_ticker_html(prices: list[dict]) -> str:
             price_str = f"{p['price']:,.2f}"
 
         if p["change"] > 0:
-            color = "#ff7e33"
+            color = "#22c55e"
             arrow = "▲"
         elif p["change"] < 0:
-            color = "#9e4a15"
+            color = "#ef4444"
             arrow = "▼"
         else:
             color = "#888"
@@ -77,7 +77,7 @@ def render_ticker_html(prices: list[dict]) -> str:
             f'<span style="padding:0 18px;white-space:nowrap;">'
             f'<span style="color:#e8651a;font-weight:700;letter-spacing:1px;">{p["name"]}</span>'
             f'&nbsp;&nbsp;'
-            f'<span style="color:#333;font-weight:600;">{price_str}</span>'
+            f'<span style="color:#f5f5f5;font-weight:600;">{price_str}</span>'
             f'&nbsp;&nbsp;'
             f'<span style="color:{color};font-weight:600;">{change_str}</span>'
             f'</span>'
@@ -141,12 +141,12 @@ def render_ticker() -> None:
     # Inject the ticker div — z-index 9999999 (above stHeader's 999990)
     st.markdown(
         f'<div style="position:fixed;top:0;left:0;right:0;z-index:9999999;'
-        f'background:linear-gradient(180deg,#f5f5f5,#eeeeee);'
-        f'border-bottom:1px solid #e0e0e0;padding:5px 0;overflow:hidden;height:28px;'
+        f'background:linear-gradient(180deg,#1a1a1a,#0f0f0f);'
+        f'border-bottom:1px solid #2a2a2a;padding:5px 0;overflow:hidden;height:28px;'
         f'font-family:-apple-system,BlinkMacSystemFont,SF Mono,Menlo,monospace;">'
         f'<div style="display:flex;white-space:nowrap;width:max-content;'
         f'animation:chamberTickerScroll 35s linear infinite;'
-        f'font-size:0.72rem;letter-spacing:0.3px;color:#333;font-weight:500;">'
+        f'font-size:0.72rem;letter-spacing:0.3px;color:#f5f5f5;font-weight:500;">'
         f'{marquee}</div></div>',
         unsafe_allow_html=True,
     )

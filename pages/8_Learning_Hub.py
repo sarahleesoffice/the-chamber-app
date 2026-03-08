@@ -3,7 +3,6 @@ import streamlit as st
 from lib.knowledge.vector_store import get_collection_stats, query_similar, get_all_metadata
 from lib.knowledge.chunker import ICT_CONCEPT_PATTERNS
 
-# ── Live price ticker ──
 try:
     from lib.ticker import render_ticker
     render_ticker()
@@ -28,7 +27,7 @@ if not has_knowledge_base:
 CURRICULUM = [
     {
         "level": "Foundation",
-        "color": "#ff7e33",
+        "color": "#22c55e",
         "topics": [
             {
                 "name": "Market Structure",
@@ -75,7 +74,7 @@ CURRICULUM = [
     },
     {
         "level": "Timing & Sessions",
-        "color": "#e8651a",
+        "color": "#3b82f6",
         "topics": [
             {
                 "name": "Kill Zones",
@@ -127,7 +126,7 @@ CURRICULUM = [
     },
     {
         "level": "Risk & Psychology",
-        "color": "#9e4a15",
+        "color": "#ef4444",
         "topics": [
             {
                 "name": "Risk Management",

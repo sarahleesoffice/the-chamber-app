@@ -1,7 +1,6 @@
 import streamlit as st
 from datetime import datetime, timezone, timedelta
 
-# ── Live price ticker ──
 try:
     from lib.ticker import render_ticker
     render_ticker()
@@ -82,12 +81,12 @@ for n in all_news:
 
 # Category color map
 CAT_COLORS = {
-    "Economic Data": "#9e4a15",
+    "Economic Data": "#ef4444",
     "Central Banks": "#e8651a",
     "Geopolitical": "#a855f7",
     "Commodities": "#eab308",
-    "Equities": "#ff7e33",
-    "Forex": "#e8651a",
+    "Equities": "#22c55e",
+    "Forex": "#3b82f6",
     "Crypto": "#06b6d4",
     "Market News": "#a0a0a0",
 }

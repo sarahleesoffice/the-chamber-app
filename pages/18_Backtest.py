@@ -4,7 +4,6 @@ import streamlit as st
 
 from lib.backtesting import run_backtest
 
-# ── Live price ticker ──
 try:
     from lib.ticker import render_ticker
     render_ticker()

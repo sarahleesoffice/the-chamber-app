@@ -40,12 +40,19 @@ class GeminiProvider(AIProvider):
         self,
         system_prompt: str,
         messages: list[dict],
+        images: list[tuple[bytes, str]] | None = None,
     ) -> str:
         # Convert to Gemini's content format
         contents = []
-        for m in messages:
+        for i, m in enumerate(messages):
             role = "user" if m["role"] == "user" else "model"
-            contents.append(types.Content(role=role, parts=[types.Part.from_text(text=m["content"])]))
+            parts = []
+            # Attach images to the last user message
+            if (images and i == len(messages) - 1 and m["role"] == "user"):
+                for img_bytes, img_mime in images:
+                    parts.append(types.Part.from_bytes(data=img_bytes, mime_type=img_mime))
+            parts.append(types.Part.from_text(text=m["content"]))
+            contents.append(types.Content(role=role, parts=parts))
 
         response = self.client.models.generate_content(
             model=self.model,

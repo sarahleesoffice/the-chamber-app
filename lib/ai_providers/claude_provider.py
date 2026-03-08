@@ -6,7 +6,7 @@ from lib.models import Trade
 
 
 class ClaudeProvider(AIProvider):
-    def __init__(self, api_key: str, model: str = "claude-sonnet-4-5-20250514"):
+    def __init__(self, api_key: str, model: str = "claude-sonnet-4-6"):
         self.client = Anthropic(api_key=api_key)
         self.model = model
 
@@ -47,11 +47,27 @@ class ClaudeProvider(AIProvider):
         self,
         system_prompt: str,
         messages: list[dict],
+        images: list[tuple[bytes, str]] | None = None,
     ) -> str:
-        api_messages = [
-            {"role": m["role"], "content": m["content"]}
-            for m in messages
-        ]
+        api_messages = []
+        for i, m in enumerate(messages):
+            # Attach images to the last user message
+            if (images and i == len(messages) - 1 and m["role"] == "user"):
+                content = []
+                for img_bytes, img_mime in images:
+                    content.append({
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": img_mime,
+                            "data": base64.b64encode(img_bytes).decode("utf-8"),
+                        },
+                    })
+                content.append({"type": "text", "text": m["content"]})
+                api_messages.append({"role": "user", "content": content})
+            else:
+                api_messages.append({"role": m["role"], "content": m["content"]})
+
         message = self.client.messages.create(
             model=self.model,
             max_tokens=4096,

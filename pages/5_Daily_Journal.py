@@ -13,7 +13,6 @@ from lib.psychology_framework import (
 )
 from lib.auth import get_current_user_id
 
-# ── Live price ticker ──
 try:
     from lib.ticker import render_ticker
     render_ticker()
@@ -114,11 +113,11 @@ readiness_score, readiness_label, readiness_reasoning = assess_readiness(mental_
 
 # Color the readiness
 if readiness_score >= 7:
-    color = "#ff7e33"  # green
+    color = "#22c55e"  # green
 elif readiness_score >= 4:
     color = "#e8651a"  # fire orange
 else:
-    color = "#9e4a15"  # red
+    color = "#ef4444"  # red
 
 st.markdown(
     f'<div style="padding: 12px; border-left: 4px solid {color}; background: #141414; border-radius: 4px;">'

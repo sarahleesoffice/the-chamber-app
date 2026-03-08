@@ -18,8 +18,9 @@ class AIProvider(ABC):
         self,
         system_prompt: str,
         messages: list[dict],
+        images: list[tuple[bytes, str]] | None = None,
     ) -> str:
-        """Send a multi-turn chat. messages = [{"role": "user"|"assistant", "content": str}, ...]"""
+        """Send a multi-turn chat. Optionally attach images (bytes, mime_type) to the latest user message."""
         pass
 
     @abstractmethod

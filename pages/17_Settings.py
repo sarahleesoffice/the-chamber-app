@@ -8,7 +8,6 @@ from lib.auth import (
     delete_api_key,
 )
 
-# ── Live price ticker ──
 try:
     from lib.ticker import render_ticker
     render_ticker()
