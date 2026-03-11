@@ -1,0 +1,898 @@
+{
+  "_meta": {
+    "description": "Maps ICT concepts to slide images, Discord threads, and Gamma deck links",
+    "discord_guild": "1349855142119215215",
+    "discord_channel": "1349862103283929220",
+    "last_updated": "2025-03-07"
+  },
+  "collections": {
+    "core-content-month-1": {
+      "label": "Core Content Month 1",
+      "folder": "ict-core-content-month-1",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1350573716010176654",
+      "gamma_url": null
+    },
+    "core-content-month-4": {
+      "label": "Core Content Month 4",
+      "folder": "the-chamber-month-4-ict-core-content",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1374510461827027064",
+      "gamma_url": "https://interest-rate-effects-on-c3gf4uo.gamma.site/"
+    },
+    "core-content-month-5": {
+      "label": "Core Content Month 5",
+      "folder": "the-chamber-png's-month-5-ict-core-content-the-chamber",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1380295927625154690",
+      "gamma_url": null
+    },
+    "core-content-month-6": {
+      "label": "Core Content Month 6",
+      "folder": "the-chamber-month-6-ict-core-content",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1381750546070769866",
+      "gamma_url": null
+    },
+    "core-content-month-8": {
+      "label": "Core Content Month 8",
+      "folder": "the-chamber-month-8-ict-core-content",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1382491860680835123",
+      "gamma_url": null
+    },
+    "core-content-month-10": {
+      "label": "Core Content Month 10",
+      "folder": "month-10-ict-mentorship",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1390464145593335808",
+      "gamma_url": null
+    },
+    "core-content-month-11": {
+      "label": "Core Content Month 11",
+      "folder": "month-11-chamber-pdf-core-content",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1395866450543116481",
+      "gamma_url": null
+    },
+    "core-content-month-12": {
+      "label": "Core Content Month 12",
+      "folder": "ict-mentorship-core-content-month-12",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1395888538993823745",
+      "gamma_url": null
+    },
+    "judas-swing": {
+      "label": "ICT Judas Swing",
+      "folder": "ict-judas-swing",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349855142664605703/1450286686515888138",
+      "gamma_url": null
+    },
+    "ote": {
+      "label": "ICT Optimal Trade Entry (OTE)",
+      "folder": "ict-optimal-trade-entry-ote",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349855142664605703/1453092917064237087",
+      "gamma_url": null
+    },
+    "one-setup": {
+      "label": "One Trading Setup For Life",
+      "folder": "one-trading-setup-for-life",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349855142664605703/1448108318613831791",
+      "gamma_url": null
+    },
+    "liquidity-purge": {
+      "label": "Liquidity Purge & Revert",
+      "folder": "liquidity-purge-&-revert",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349855142664605703/1441595365362241608",
+      "gamma_url": null
+    },
+    "2022-model": {
+      "label": "Execution of the 2022 Model",
+      "folder": "execution-of-the-2022-model",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1440468417013350462",
+      "gamma_url": null
+    },
+    "sentiment-effect": {
+      "label": "The Sentiment Effect",
+      "folder": "the-sentiment-effect",
+      "discord_thread": null,
+      "gamma_url": null
+    },
+    "ict-2025": {
+      "label": "ICT 2025 Content",
+      "folder": "ict-2025-content",
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1422650018052968611",
+      "gamma_url": null
+    },
+    "core-content-month-2": {
+      "label": "Core Content Month 2",
+      "folder": null,
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1350597596942438551",
+      "gamma_url": null
+    },
+    "core-content-month-3": {
+      "label": "Core Content Month 3",
+      "folder": null,
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1371956711375638637",
+      "gamma_url": null
+    },
+    "core-content-month-9": {
+      "label": "Core Content Month 9",
+      "folder": null,
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349862103283929220/1387909380963438592",
+      "gamma_url": null
+    },
+    "silver-bullet": {
+      "label": "ICT Silver Bullet",
+      "folder": null,
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349855142664605703/1364740627752947722",
+      "gamma_url": null
+    },
+    "unicorn-model": {
+      "label": "Unicorn Model",
+      "folder": null,
+      "discord_thread": "https://discord.com/channels/1349855142119215215/1349855142664605703/1467238712864673963",
+      "gamma_url": null
+    }
+  },
+  "concepts": {
+    "order block": {
+      "keywords": [
+        "order block",
+        "orderblock",
+        "bullish ob",
+        "bearish ob",
+        "ob entry"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/4_Order-Blocks.png",
+          "title": "Order Blocks",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "breaker block": {
+      "keywords": [
+        "breaker block",
+        "breaker"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/8_Breaker-Blocks.png",
+          "title": "Breaker Blocks",
+          "collection": "core-content-month-4"
+        },
+        {
+          "file": "the-chamber-month-4-ict-core-content/9_ICT-Breaker-Blocks.png",
+          "title": "ICT Breaker Blocks",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "mitigation block": {
+      "keywords": [
+        "mitigation block",
+        "mitigation"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/5_Mitigation-Blocks-Finding-Reversals.png",
+          "title": "Mitigation Blocks - Finding Reversals",
+          "collection": "core-content-month-4"
+        },
+        {
+          "file": "the-chamber-month-4-ict-core-content/6_Mitigation-Blocks.png",
+          "title": "Mitigation Blocks",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "rejection block": {
+      "keywords": [
+        "rejection block"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/10_Rejection-Blocks.png",
+          "title": "Rejection Blocks",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "reclaimed order block": {
+      "keywords": [
+        "reclaimed order block",
+        "reclaimed ob"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/14_Reclaimed-Order-Blocks.png",
+          "title": "Reclaimed Order Blocks",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "propulsion block": {
+      "keywords": [
+        "propulsion block"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/15_Propulsion-Block.png",
+          "title": "Propulsion Block",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "vacuum block": {
+      "keywords": [
+        "vacuum block"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/16_Vacuum-Block.png",
+          "title": "Vacuum Block",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "fair value gap": {
+      "keywords": [
+        "fair value gap",
+        "fvg",
+        "fair value",
+        "imbalance"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/19_Fair-Value-Gaps-FVG.png",
+          "title": "Fair Value Gaps (FVG)",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "liquidity void": {
+      "keywords": [
+        "liquidity void",
+        "liquidity voids"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/17_Liquidity-Voids.png",
+          "title": "Liquidity Voids",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "liquidity pool": {
+      "keywords": [
+        "liquidity pool",
+        "liquidity pools",
+        "buy side liquidity",
+        "sell side liquidity"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/18_Liquidity-Pools.png",
+          "title": "Liquidity Pools",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "liquidity": {
+      "keywords": [
+        "liquidity",
+        "liquidity run",
+        "liquidity sweep",
+        "liquidity grab",
+        "liquidity purge",
+        "purge and revert"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/2_Liquidity-Concepts-and-Price-Delivery.png",
+          "title": "Liquidity Concepts and Price Delivery",
+          "collection": "core-content-month-4"
+        },
+        {
+          "file": "liquidity-purge-&-revert/1_Understanding-Liquidity-in-Trading.png",
+          "title": "Understanding Liquidity in Trading",
+          "collection": "liquidity-purge"
+        },
+        {
+          "file": "liquidity-purge-&-revert/2_Types-of-Market-Highs-and-Lows.png",
+          "title": "Types of Market Highs and Lows",
+          "collection": "liquidity-purge"
+        },
+        {
+          "file": "liquidity-purge-&-revert/4_Identifying-Buy-Side-Liquidity-Targets.png",
+          "title": "Identifying Buy Side Liquidity Targets",
+          "collection": "liquidity-purge"
+        },
+        {
+          "file": "liquidity-purge-&-revert/6_Buy-Side-Liquidity-Mapping.png",
+          "title": "Buy Side Liquidity Mapping",
+          "collection": "liquidity-purge"
+        }
+      ]
+    },
+    "market structure": {
+      "keywords": [
+        "market structure",
+        "structure shift",
+        "mss",
+        "bos",
+        "break of structure",
+        "choch",
+        "higher high",
+        "lower low"
+      ],
+      "slides": [
+        {
+          "file": "liquidity-purge-&-revert/3_Market-Structure-Breaks.png",
+          "title": "Market Structure Breaks",
+          "collection": "liquidity-purge"
+        }
+      ]
+    },
+    "turtle soup": {
+      "keywords": [
+        "turtle soup"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/11_Turtle-Soup.png",
+          "title": "Turtle Soup",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "market maker model": {
+      "keywords": [
+        "market maker",
+        "market maker model",
+        "mm buy model",
+        "mm sell model",
+        "mmm"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/12_Market-Maker-Buy-Model.png",
+          "title": "Market Maker Buy Model",
+          "collection": "core-content-month-4"
+        },
+        {
+          "file": "the-chamber-month-4-ict-core-content/13_Market-Maker-Sell-Model.png",
+          "title": "Market Maker Sell Model",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "double top": {
+      "keywords": [
+        "double top",
+        "double bottom"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/20_Double-Tops-and-Double-Bottoms.png",
+          "title": "Double Tops and Double Bottoms",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "higher timeframe": {
+      "keywords": [
+        "higher timeframe",
+        "htf",
+        "timeframe bias",
+        "htf bias"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/3_Trading-with-Higher-Timeframe-Bias.png",
+          "title": "Trading with Higher Timeframe Bias",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "interest rate": {
+      "keywords": [
+        "interest rate",
+        "interest rates",
+        "currency correlation"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/1_Interest-Rate-Effects-on-Currency-Trades.png",
+          "title": "Interest Rate Effects on Currency Trades",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "entries": {
+      "keywords": [
+        "entry technique",
+        "entry model",
+        "trade entry",
+        "validation"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-4-ict-core-content/7_Entries-and-Validation.png",
+          "title": "Entries and Validation",
+          "collection": "core-content-month-4"
+        }
+      ]
+    },
+    "judas swing": {
+      "keywords": [
+        "judas swing",
+        "judas"
+      ],
+      "slides": [
+        {
+          "file": "ict-judas-swing/1_Judas-Swing-Trading-Strategy.png",
+          "title": "Judas Swing Trading Strategy",
+          "collection": "judas-swing"
+        },
+        {
+          "file": "ict-judas-swing/2_Understanding-the-Judas-Swing.png",
+          "title": "Understanding the Judas Swing",
+          "collection": "judas-swing"
+        },
+        {
+          "file": "ict-judas-swing/3_Critical-Time-Windows.png",
+          "title": "Critical Time Windows",
+          "collection": "judas-swing"
+        },
+        {
+          "file": "ict-judas-swing/5_Bullish-Judas-Swing-Setup.png",
+          "title": "Bullish Judas Swing Setup",
+          "collection": "judas-swing"
+        },
+        {
+          "file": "ict-judas-swing/7_Bearish-Judas-Swing-Pattern.png",
+          "title": "Bearish Judas Swing Pattern",
+          "collection": "judas-swing"
+        },
+        {
+          "file": "ict-judas-swing/8_Step-by-Step-Execution-Guide.png",
+          "title": "Step by Step Execution Guide",
+          "collection": "judas-swing"
+        },
+        {
+          "file": "ict-judas-swing/9_Key-Takeaways.png",
+          "title": "Key Takeaways",
+          "collection": "judas-swing"
+        }
+      ]
+    },
+    "optimal trade entry": {
+      "keywords": [
+        "optimal trade entry",
+        "ote",
+        "fibonacci",
+        "fib retracement",
+        "62%",
+        "70.5%",
+        "79%"
+      ],
+      "slides": [
+        {
+          "file": "ict-optimal-trade-entry-ote/1_ICT-Optimal-Trade-Entry-OTE.png",
+          "title": "ICT Optimal Trade Entry (OTE)",
+          "collection": "ote"
+        },
+        {
+          "file": "ict-optimal-trade-entry-ote/2_The-Core-Strategy.png",
+          "title": "The Core Strategy",
+          "collection": "ote"
+        },
+        {
+          "file": "ict-optimal-trade-entry-ote/3_Fibonacci-Extension-Levels.png",
+          "title": "Fibonacci Extension Levels",
+          "collection": "ote"
+        },
+        {
+          "file": "ict-optimal-trade-entry-ote/5_Bullish-Setup.png",
+          "title": "Bullish Setup",
+          "collection": "ote"
+        },
+        {
+          "file": "ict-optimal-trade-entry-ote/6_Bearish-Setup.png",
+          "title": "Bearish Setup",
+          "collection": "ote"
+        },
+        {
+          "file": "ict-optimal-trade-entry-ote/8_Key-Takeaways.png",
+          "title": "Key Takeaways",
+          "collection": "ote"
+        },
+        {
+          "file": "liquidity-purge-&-revert/8_OTE-Entry-Model.png",
+          "title": "OTE Entry Model",
+          "collection": "liquidity-purge"
+        }
+      ]
+    },
+    "session ranges": {
+      "keywords": [
+        "session range",
+        "kill zone",
+        "london session",
+        "new york session",
+        "asia session",
+        "pm session",
+        "am session",
+        "ny lunch"
+      ],
+      "slides": [
+        {
+          "file": "one-trading-setup-for-life/2_PM-Session-Ranges-The-Foundation.png",
+          "title": "PM Session Ranges - The Foundation",
+          "collection": "one-setup"
+        },
+        {
+          "file": "one-trading-setup-for-life/3_London-Session-Raid-Strategy.png",
+          "title": "London Session Raid Strategy",
+          "collection": "one-setup"
+        },
+        {
+          "file": "one-trading-setup-for-life/5_NY-Lunch-Raid-The-Judas-Swing.png",
+          "title": "NY Lunch Raid - The Judas Swing",
+          "collection": "one-setup"
+        },
+        {
+          "file": "one-trading-setup-for-life/7_AM-Session-Ranges-Drawing-Liquidity.png",
+          "title": "AM Session Ranges - Drawing Liquidity",
+          "collection": "one-setup"
+        },
+        {
+          "file": "one-trading-setup-for-life/8_Asia-Session-Range.png",
+          "title": "Asia Session Range",
+          "collection": "one-setup"
+        }
+      ]
+    },
+    "opening range gap": {
+      "keywords": [
+        "opening range gap",
+        "opening range",
+        "gap"
+      ],
+      "slides": [
+        {
+          "file": "one-trading-setup-for-life/6_Opening-Range-Gaps-Price-Magnets.png",
+          "title": "Opening Range Gaps - Price Magnets",
+          "collection": "one-setup"
+        }
+      ]
+    },
+    "draw on liquidity": {
+      "keywords": [
+        "draw on liquidity",
+        "dol"
+      ],
+      "slides": [
+        {
+          "file": "one-trading-setup-for-life/1_One-Trading-Setup-For-Life.png",
+          "title": "One Trading Setup For Life",
+          "collection": "one-setup"
+        }
+      ]
+    },
+    "power of 3": {
+      "keywords": [
+        "power of 3",
+        "power of three",
+        "amd",
+        "accumulation manipulation distribution"
+      ],
+      "slides": [
+        {
+          "file": "one-trading-setup-for-life/4_Entry-Models-and-Techniques.png",
+          "title": "Entry Models and Techniques",
+          "collection": "one-setup"
+        },
+        {
+          "file": "one-trading-setup-for-life/10_The-Complete-Framework.png",
+          "title": "The Complete Framework",
+          "collection": "one-setup"
+        }
+      ]
+    },
+    "top down analysis": {
+      "keywords": [
+        "top down analysis",
+        "top-down",
+        "multi timeframe"
+      ],
+      "slides": [
+        {
+          "file": "ict-mentorship-core-content-month-12/1_LongTerm-TopDown-Analysis.png",
+          "title": "Long Term Top-Down Analysis",
+          "collection": "core-content-month-12"
+        },
+        {
+          "file": "ict-mentorship-core-content-month-12/2_Intermediate-Term-TopDown-Analysis.png",
+          "title": "Intermediate Term Top-Down Analysis",
+          "collection": "core-content-month-12"
+        },
+        {
+          "file": "ict-mentorship-core-content-month-12/3_Short-Term-Top-Down-Analysis.png",
+          "title": "Short Term Top-Down Analysis",
+          "collection": "core-content-month-12"
+        },
+        {
+          "file": "ict-mentorship-core-content-month-12/4_Intraday-Top-Down-Analysis.png",
+          "title": "Intraday Top-Down Analysis",
+          "collection": "core-content-month-12"
+        }
+      ]
+    },
+    "equilibrium": {
+      "keywords": [
+        "equilibrium",
+        "premium",
+        "discount",
+        "premium and discount"
+      ],
+      "slides": [
+        {
+          "file": "liquidity-purge-&-revert/5_Probability-Assessment-at-Equilibrium.png",
+          "title": "Probability Assessment at Equilibrium",
+          "collection": "liquidity-purge"
+        }
+      ]
+    },
+    "swing trading": {
+      "keywords": [
+        "swing trade",
+        "swing setup",
+        "swing condition"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-6-ict-core-content/1_Ideal-Swing-Conditions-For-Any-Market.png",
+          "title": "Ideal Swing Conditions For Any Market",
+          "collection": "core-content-month-6"
+        },
+        {
+          "file": "the-chamber-month-6-ict-core-content/11_The-Million-Dollar-Swing-Setup.png",
+          "title": "The Million Dollar Swing Setup",
+          "collection": "core-content-month-6"
+        }
+      ]
+    },
+    "day trading": {
+      "keywords": [
+        "day trade",
+        "day trading",
+        "daytrading",
+        "daily range",
+        "intraday"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-month-8-ict-core-content/1_Essentials-To-ICT-Daytrading.png",
+          "title": "Essentials To ICT Daytrading",
+          "collection": "core-content-month-8"
+        },
+        {
+          "file": "the-chamber-month-8-ict-core-content/2_Defining-The-Daily-Range.png",
+          "title": "Defining The Daily Range",
+          "collection": "core-content-month-8"
+        },
+        {
+          "file": "the-chamber-month-8-ict-core-content/10_Integrating-Day-Trades-With-HTF-Trade-Entries.png",
+          "title": "Integrating Day Trades With HTF Trade Entries",
+          "collection": "core-content-month-8"
+        }
+      ]
+    },
+    "seasonal tendency": {
+      "keywords": [
+        "seasonal",
+        "seasonality",
+        "seasonal tendency"
+      ],
+      "slides": [
+        {
+          "file": "the-chamber-png's-month-5-ict-core-content-the-chamber/10_How-To-Use-Bullish-Seasonal-Tendencies-In-HTF-Analysis.png",
+          "title": "Bullish Seasonal Tendencies in HTF Analysis",
+          "collection": "core-content-month-5"
+        },
+        {
+          "file": "the-chamber-png's-month-5-ict-core-content-the-chamber/11_How-To-Use-Bearish-Seasonal-Tendencies-In-HTF-Analysis.png",
+          "title": "Bearish Seasonal Tendencies in HTF Analysis",
+          "collection": "core-content-month-5"
+        },
+        {
+          "file": "the-chamber-png's-month-5-ict-core-content-the-chamber/12_Ideal-Seasonal-Tendencies.png",
+          "title": "Ideal Seasonal Tendencies",
+          "collection": "core-content-month-5"
+        }
+      ]
+    },
+    "smt divergence": {
+      "keywords": [
+        "smt",
+        "smt divergence",
+        "smart money technique"
+      ],
+      "slides": [
+        {
+          "file": "execution-of-the-2022-model/11_SMT-Divergence-Analysis.png",
+          "title": "SMT Divergence Analysis",
+          "collection": "2022-model"
+        }
+      ]
+    },
+    "2022 model": {
+      "keywords": [
+        "2022 model",
+        "ict 2022",
+        "mentorship 2022"
+      ],
+      "slides": [
+        {
+          "file": "execution-of-the-2022-model/1_The-ICT-2022-Mentorship-Model.png",
+          "title": "The ICT 2022 Mentorship Model",
+          "collection": "2022-model"
+        },
+        {
+          "file": "execution-of-the-2022-model/2_Foundation-Silver-Bullet-Strategy.png",
+          "title": "Foundation - Silver Bullet Strategy",
+          "collection": "2022-model"
+        },
+        {
+          "file": "execution-of-the-2022-model/3_Core-Concepts-FVG-and-Liquidity-Sweeps.png",
+          "title": "Core Concepts - FVG and Liquidity Sweeps",
+          "collection": "2022-model"
+        }
+      ]
+    },
+    "silver bullet": {
+      "keywords": [
+        "silver bullet"
+      ],
+      "slides": [
+        {
+          "file": "",
+          "title": "ICT Silver Bullet",
+          "collection": "silver-bullet"
+        },
+        {
+          "file": "execution-of-the-2022-model/1_Execution-of-the-2022-Model.png",
+          "title": "ICT 2022 Model (Silver Bullet)",
+          "collection": "2022-model"
+        }
+      ]
+    },
+    "fomc": {
+      "keywords": [
+        "fomc",
+        "fed",
+        "federal reserve",
+        "news trading"
+      ],
+      "slides": [
+        {
+          "file": "execution-of-the-2022-model/12_FOMC-Trading-Strategy.png",
+          "title": "FOMC Trading Strategy",
+          "collection": "2022-model"
+        }
+      ]
+    },
+    "sentiment": {
+      "keywords": [
+        "sentiment",
+        "sentiment effect"
+      ],
+      "slides": [
+        {
+          "file": "the-sentiment-effect/1_The-Sentiment-Effect.png",
+          "title": "The Sentiment Effect",
+          "collection": "sentiment-effect"
+        },
+        {
+          "file": "the-sentiment-effect/2_Market-Sentiment-and-Smart-Money-Strategy.png",
+          "title": "Market Sentiment and Smart Money Strategy",
+          "collection": "sentiment-effect"
+        }
+      ]
+    },
+    "bond trading": {
+      "keywords": [
+        "bond",
+        "bonds",
+        "treasury"
+      ],
+      "slides": [
+        {
+          "file": "month-10-ict-mentorship/9_Bond-Trading-Basics-and-Opening-Range.png",
+          "title": "Bond Trading Basics and Opening Range",
+          "collection": "core-content-month-10"
+        },
+        {
+          "file": "month-11-chamber-pdf-core-content/1_Bond-Mega-Trades.png",
+          "title": "Bond Mega Trades",
+          "collection": "core-content-month-11"
+        }
+      ]
+    },
+    "index futures": {
+      "keywords": [
+        "index futures",
+        "es",
+        "nq",
+        "nasdaq",
+        "s&p",
+        "mini s&p"
+      ],
+      "slides": [
+        {
+          "file": "month-10-ict-mentorship/14_Index-Futures-Basics-and-Opening-Range.png",
+          "title": "Index Futures Basics and Opening Range",
+          "collection": "core-content-month-10"
+        },
+        {
+          "file": "month-10-ict-mentorship/16_Index-Futures-PM-Trend.png",
+          "title": "Index Futures PM Trend",
+          "collection": "core-content-month-10"
+        },
+        {
+          "file": "month-10-ict-mentorship/17_Index-Futures-Projected-Range-and-Objectives.png",
+          "title": "Index Futures Projected Range and Objectives",
+          "collection": "core-content-month-10"
+        }
+      ]
+    },
+    "counter trend": {
+      "keywords": [
+        "counter trend",
+        "counter-trend"
+      ],
+      "slides": [
+        {
+          "file": "ict-2025-content/1_Video-27-Counter-Trend-Ideas.png",
+          "title": "Counter Trend Ideas",
+          "collection": "ict-2025"
+        }
+      ]
+    },
+    "daily bias": {
+      "keywords": [
+        "daily bias",
+        "bias"
+      ],
+      "slides": [
+        {
+          "file": "ict-2025-content/11_Video-37-Adding-Daily-Bias-to-Trades.png",
+          "title": "Adding Daily Bias to Trades",
+          "collection": "ict-2025"
+        }
+      ]
+    },
+    "ny lunch": {
+      "keywords": [
+        "ny lunch",
+        "new york lunch",
+        "lunch macro"
+      ],
+      "slides": [
+        {
+          "file": "one-trading-setup-for-life/5_NY-Lunch-Raid-The-Judas-Swing.png",
+          "title": "NY Lunch Raid - The Judas Swing",
+          "collection": "one-setup"
+        },
+        {
+          "file": "ict-2025-content/10_Video-36-New-York-Lunch-Trading.png",
+          "title": "New York Lunch Trading",
+          "collection": "ict-2025"
+        }
+      ]
+    },
+    "unicorn model": {
+      "keywords": [
+        "unicorn model",
+        "unicorn"
+      ],
+      "slides": []
+    }
+  }
+}

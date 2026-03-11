@@ -5,10 +5,22 @@ from lib.ai_providers.prompts import ICT_SYSTEM_PROMPT, build_analysis_prompt
 from lib.models import Trade
 
 
+CLAUDE_PRICING = {
+    "claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
+    "claude-haiku-4-5-20251001": {"input": 0.80, "output": 4.00},
+    "claude-opus-4-6": {"input": 15.00, "output": 75.00},
+}
+CLAUDE_DEFAULT_PRICING = {"input": 3.00, "output": 15.00}
+
+
 class ClaudeProvider(AIProvider):
     def __init__(self, api_key: str, model: str = "claude-sonnet-4-6"):
         self.client = Anthropic(api_key=api_key)
         self.model = model
+
+    def _calc_cost(self, input_tokens: int, output_tokens: int) -> float:
+        pricing = CLAUDE_PRICING.get(self.model, CLAUDE_DEFAULT_PRICING)
+        return (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000
 
     def analyze_trade(
         self,
@@ -48,7 +60,7 @@ class ClaudeProvider(AIProvider):
         system_prompt: str,
         messages: list[dict],
         images: list[tuple[bytes, str]] | None = None,
-    ) -> str:
+    ) -> tuple[str, dict]:
         api_messages = []
         for i, m in enumerate(messages):
             # Attach images to the last user message
@@ -74,7 +86,14 @@ class ClaudeProvider(AIProvider):
             system=system_prompt,
             messages=api_messages,
         )
-        return message.content[0].text
+        inp = message.usage.input_tokens
+        out = message.usage.output_tokens
+        usage = {
+            "input_tokens": inp,
+            "output_tokens": out,
+            "cost_usd": self._calc_cost(inp, out),
+        }
+        return message.content[0].text, usage
 
     def get_provider_name(self) -> str:
         return "Claude"

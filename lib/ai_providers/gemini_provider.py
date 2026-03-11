@@ -5,10 +5,22 @@ from lib.ai_providers.prompts import ICT_SYSTEM_PROMPT, build_analysis_prompt
 from lib.models import Trade
 
 
+GEMINI_PRICING = {
+    "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
+    "gemini-2.5-flash-preview-04-17": {"input": 0.15, "output": 0.60},
+    "gemini-2.5-pro-preview-05-06": {"input": 1.25, "output": 10.00},
+}
+GEMINI_DEFAULT_PRICING = {"input": 0.10, "output": 0.40}
+
+
 class GeminiProvider(AIProvider):
     def __init__(self, api_key: str, model: str = "gemini-2.0-flash"):
         self.client = genai.Client(api_key=api_key)
         self.model = model
+
+    def _calc_cost(self, input_tokens: int, output_tokens: int) -> float:
+        pricing = GEMINI_PRICING.get(self.model, GEMINI_DEFAULT_PRICING)
+        return (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000
 
     def analyze_trade(
         self,
@@ -41,7 +53,7 @@ class GeminiProvider(AIProvider):
         system_prompt: str,
         messages: list[dict],
         images: list[tuple[bytes, str]] | None = None,
-    ) -> str:
+    ) -> tuple[str, dict]:
         # Convert to Gemini's content format
         contents = []
         for i, m in enumerate(messages):
@@ -62,7 +74,15 @@ class GeminiProvider(AIProvider):
                 max_output_tokens=4096,
             ),
         )
-        return response.text
+        meta = response.usage_metadata
+        inp = meta.prompt_token_count or 0
+        out = meta.candidates_token_count or 0
+        usage = {
+            "input_tokens": inp,
+            "output_tokens": out,
+            "cost_usd": self._calc_cost(inp, out),
+        }
+        return response.text, usage
 
     def get_provider_name(self) -> str:
         return "Gemini"

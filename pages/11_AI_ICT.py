@@ -1,4 +1,7 @@
 import streamlit as st
+import json
+import os
+import re
 
 from lib.knowledge.vector_store import query_similar, get_collection_stats
 from lib.ai_providers import get_provider
@@ -11,6 +14,144 @@ except Exception:
     pass
 
 # ============================================================
+# CONCEPT SLIDES — load index + matching
+# ============================================================
+
+SLIDES_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "knowledge_base", "concept_slides")
+INDEX_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "knowledge_base", "concept_index.json")
+
+@st.cache_data(ttl=3600)
+def _load_concept_index():
+    """Load the concept-to-slide mapping."""
+    try:
+        with open(INDEX_PATH, "r") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+def find_matching_slides(question: str, response: str = "", max_slides: int = 4) -> list[dict]:
+    """Match a question/response to relevant concept slides.
+    Prioritizes concepts that match the question over ones only in the response.
+    Scores by keyword length (specificity) to avoid generic keywords stealing slots.
+    Returns list of {file, title, collection, discord_thread, gamma_url}."""
+    index = _load_concept_index()
+    if not index:
+        return []
+
+    q_lower = question.lower()
+    r_lower = response.lower() if response else ""
+
+    # Score each concept: question matches get priority, longer keywords score higher
+    scored_concepts = []
+    for concept_name, concept_data in index.get("concepts", {}).items():
+        best_score = 0
+        for kw in concept_data.get("keywords", []):
+            if kw in q_lower:
+                # Question match: base 1000 + keyword length for specificity
+                best_score = max(best_score, 1000 + len(kw))
+            elif kw in r_lower:
+                # Response-only match: just keyword length
+                best_score = max(best_score, len(kw))
+        if best_score > 0:
+            scored_concepts.append((best_score, concept_name, concept_data))
+
+    # Sort by score descending — question matches first, then most specific
+    scored_concepts.sort(key=lambda x: x[0], reverse=True)
+
+    matches = []
+    seen_files = set()
+    for _score, _name, concept_data in scored_concepts:
+        for slide in concept_data.get("slides", []):
+            if slide["file"] in seen_files:
+                continue
+            seen_files.add(slide["file"])
+            coll_key = slide.get("collection", "")
+            coll = index.get("collections", {}).get(coll_key, {})
+            matches.append({
+                "file": slide["file"],
+                "title": slide["title"],
+                "collection_label": coll.get("label", ""),
+                "discord_thread": coll.get("discord_thread"),
+                "gamma_url": coll.get("gamma_url"),
+            })
+        if len(matches) >= max_slides:
+            break
+
+    return matches[:max_slides]
+
+
+def render_concept_slides(slides: list[dict], msg_idx: int = 0):
+    """Display matched concept slides as a slideshow with prev/next nav."""
+    # Filter to only slides that have valid image files
+    valid_slides = []
+    for s in slides:
+        if s.get("file"):
+            img_path = os.path.join(SLIDES_DIR, s["file"])
+            if os.path.exists(img_path):
+                valid_slides.append(s)
+        elif s.get("discord_thread"):
+            # Keep slides with Discord links even without images
+            valid_slides.append(s)
+
+    if not valid_slides:
+        return
+
+    # Session state key unique per message
+    ss_key = f"slide_idx_{msg_idx}"
+    if ss_key not in st.session_state:
+        st.session_state[ss_key] = 0
+
+    idx = st.session_state[ss_key]
+    idx = max(0, min(idx, len(valid_slides) - 1))
+    slide = valid_slides[idx]
+
+    st.markdown(
+        '<div style="color:#e8651a; font-size:0.7rem; font-weight:700; letter-spacing:1.5px; '
+        'text-transform:uppercase; margin:16px 0 8px 0; border-top:1px solid #1e1a17; '
+        'padding-top:12px;">STUDY MATERIALS</div>',
+        unsafe_allow_html=True,
+    )
+
+    # Show current slide image
+    if slide.get("file"):
+        img_path = os.path.join(SLIDES_DIR, slide["file"])
+        if os.path.exists(img_path):
+            st.image(img_path, use_container_width=True)
+
+    # Slide title + counter
+    total = len(valid_slides)
+    title = slide.get("title", "")
+    st.markdown(
+        f'<div style="text-align:center; margin:6px 0 2px 0;">'
+        f'<span style="color:#e8651a; font-weight:600; font-size:0.85rem;">{title}</span>'
+        f'<span style="color:#555; font-size:0.75rem; margin-left:10px;">{idx + 1} / {total}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    # Links row (centered)
+    links = []
+    if slide.get("discord_thread"):
+        links.append(f"[Study in Discord]({slide['discord_thread']})")
+    if slide.get("collection_label"):
+        links.append(f"*{slide['collection_label']}*")
+    if links:
+        st.caption(" · ".join(links))
+
+    # Prev / Next buttons (only if multiple slides)
+    if total > 1:
+        c_prev, c_dot, c_next = st.columns([1, 6, 1])
+        with c_prev:
+            if st.button("◀", key=f"sprev_{msg_idx}", use_container_width=True):
+                st.session_state[ss_key] = (idx - 1) % total
+                st.rerun()
+        with c_next:
+            if st.button("▶", key=f"snext_{msg_idx}", use_container_width=True):
+                st.session_state[ss_key] = (idx + 1) % total
+                st.rerun()
+
+
+# ============================================================
 # PAGE CSS
 # ============================================================
 
@@ -18,6 +159,41 @@ st.markdown("""
 <style>
     /* Kill top padding */
     .block-container { padding-top: 1rem !important; }
+
+    /* Chat message headers — orange like analysis page */
+    [data-testid="stChatMessage"] h4 {
+        color: #e8651a !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        margin-top: 1rem !important;
+        margin-bottom: 0.4rem !important;
+        border-bottom: 1px solid #1e1a17;
+        padding-bottom: 4px;
+    }
+    /* First h4 in a message needs no top margin */
+    [data-testid="stChatMessage"] h4:first-of-type {
+        margin-top: 0.2rem !important;
+    }
+    /* Bold terms inside chat — slightly orange tint */
+    [data-testid="stChatMessage"] strong {
+        color: #f0f0f0 !important;
+    }
+
+    /* Slideshow prev/next buttons */
+    [data-testid="stChatMessage"] [data-testid="stHorizontalBlock"] button[kind="secondary"] {
+        background: transparent !important;
+        border: 1px solid #333 !important;
+        color: #e8651a !important;
+        font-size: 0.85rem !important;
+        padding: 4px 0 !important;
+        min-height: 0 !important;
+        height: 28px !important;
+        border-radius: 6px !important;
+    }
+    [data-testid="stChatMessage"] [data-testid="stHorizontalBlock"] button[kind="secondary"]:hover {
+        border-color: #e8651a !important;
+        background: rgba(232,101,26,0.08) !important;
+    }
 
     /* Suggested question buttons — compact */
     .st-key-suggest_grid [data-testid="stVerticalBlock"] {
@@ -67,7 +243,7 @@ st.markdown("""
         color: #888;
         font-size: 0.72rem;
         letter-spacing: 0.5px;
-        margin-bottom: 4px;
+        margin-bottom: 18px;
     }
     .kb-pill .dot {
         display: inline-block;
@@ -268,43 +444,33 @@ ICT_CHAT_SYSTEM_PROMPT = """You are an expert ICT (Inner Circle Trader) methodol
 - Use ICT's exact terminology and frameworks
 - Be direct — traders want actionable knowledge, not essays
 
-## Visual Examples
-When explaining price action concepts, **always include a text-based diagram** using code blocks to show the concept visually. Examples:
+## Response Structure
+Always structure your response using these sections with markdown headers:
 
-For an Order Block:
-```
-    ▲ Rally
-    │
-    █ ← Bearish OB (last up-close candle before sell-off)
-    │
-    ▼ Sell-off (displacement)
-    │
-    ▲ Price returns to OB → Entry
-```
+#### What It Is
+A clear 2-3 sentence definition of the concept with **bold** ICT terms.
 
-For a Fair Value Gap:
-```
-    Candle 1  │████│
-              │    │  ← GAP (FVG)
-    Candle 3  │████│
-```
+#### Key Rules
+- ⚡ **Rule name** — brief explanation
+- ⚡ **Rule name** — brief explanation
+(Use ⚡ emoji bullets, 3-5 key rules, bold the rule name)
 
-For Market Structure Shift:
-```
-    HH ─── HH ─── HH
-     HL ─── HL ─┐
-                 └── LL ← MSS (Break of HL)
-                      └── New bearish structure
-```
+#### How to Trade It
+1. Step one with **bold** key terms
+2. Step two
+3. Step three
+(Numbered steps, 3-5 max)
 
-Adapt these to fit the concept being discussed. Use arrows, boxes, and labels.
+#### Pro Tip
+💡 One practical takeaway — make it memorable and actionable.
 
-## Formatting
+## Formatting Rules
 - Use **bold** for key ICT terms when first introduced
-- Use bullet points and short sections with headers
-- Include a "**Quick Rules**" or "**How to Trade It**" section with numbered steps
-- Reference specific video titles from context so traders can study the source
-- End with a one-line practical tip or reminder
+- Use #### headers (h4) for section titles — they render in orange
+- Use ⚡ for rules, ✅ for confirmations, ⚠️ for warnings/cautions, 💡 for tips
+- Do NOT use code blocks, ASCII art, or text-based diagrams — visual study slides are shown automatically below your response
+- Keep paragraphs to 2-3 sentences max
+- Reference specific video titles from context in *italics* so traders can study the source
 
 ## Boundaries
 - Only teach ICT methodology — note if asked about other systems
@@ -362,9 +528,13 @@ if not st.session_state.ict_chat_messages:
 # DISPLAY CHAT HISTORY
 # ============================================================
 
-for msg in st.session_state.ict_chat_messages:
+for _mi, msg in enumerate(st.session_state.ict_chat_messages):
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
+
+        # Show concept slides if matched
+        if msg["role"] == "assistant" and "slides" in msg:
+            render_concept_slides(msg["slides"], msg_idx=_mi)
 
         if msg["role"] == "assistant" and "sources" in msg:
             with st.expander("Sources from ICT's teachings"):
@@ -377,12 +547,13 @@ for msg in st.session_state.ict_chat_messages:
                         st.markdown(f"[Watch on YouTube]({src['video_url']})")
                     st.divider()
 
+
 # ============================================================
 # PROCESS QUESTION
 # ============================================================
 
 def process_question(question: str, images: list[tuple[bytes, str]] | None = None):
-    """Retrieve RAG context and get AI response."""
+    """Retrieve RAG context and get AI response. Returns (text, sources, usage)."""
     results = []
     if has_knowledge_base:
         try:
@@ -427,14 +598,14 @@ Use the above teachings to inform your response. Cite video titles where relevan
 
     try:
         provider = get_provider(provider_name, model)
-        response = provider.chat(
+        response, usage = provider.chat(
             system_prompt=system_with_context,
             messages=st.session_state.ict_chat_messages,
             images=images,
         )
-        return response, sources
+        return response, sources, usage
     except Exception as e:
-        return f"Error: {str(e)}", []
+        return f"Error: {str(e)}", [], {}
 
 
 # Handle triggered response (from suggested questions)
@@ -444,13 +615,17 @@ if st.session_state.get("ict_trigger_response"):
 
     with st.chat_message("assistant"):
         with st.spinner("Consulting ICT's teachings..."):
-            response, sources = process_question(question)
+            response, sources, usage = process_question(question)
             st.markdown(response)
+            slides = find_matching_slides(question, response)
+            render_concept_slides(slides, msg_idx=len(st.session_state.ict_chat_messages))
 
     st.session_state.ict_chat_messages.append({
         "role": "assistant",
         "content": response,
         "sources": sources,
+        "slides": slides,
+        "usage": usage,
     })
     st.rerun()
 
@@ -472,13 +647,17 @@ if st.session_state.get("ict_pending_msg"):
 
     with st.chat_message("assistant"):
         with st.spinner("Consulting ICT's teachings..."):
-            response, sources = process_question(question, images)
+            response, sources, usage = process_question(question, images)
             st.markdown(response)
+            slides = find_matching_slides(question, response)
+            render_concept_slides(slides, msg_idx=len(st.session_state.ict_chat_messages))
 
     st.session_state.ict_chat_messages.append({
         "role": "assistant",
         "content": response,
         "sources": sources,
+        "slides": slides,
+        "usage": usage,
     })
     st.rerun()
 

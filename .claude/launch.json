@@ -5,7 +5,8 @@
       "name": "the-chamber-streamlit",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "streamlit", "run", "app.py"],
-      "port": 8501
+      "port": 8501,
+      "autoPort": true
     },
     {
       "name": "the-chamber-web",

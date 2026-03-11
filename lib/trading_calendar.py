@@ -131,7 +131,7 @@ def _show_day_dialog(date_str: str, trades: list, key_prefix: str):
 
         # Analyze Trade button — navigates to AI Analysis with this trade pre-selected
         if st.button(
-            "🔥 Analyze Trade",
+            "⚡ Analyze Trade",
             key=f"{key_prefix}_dlg_ai_{t.id}_{i}",
             use_container_width=True,
             type="tertiary",

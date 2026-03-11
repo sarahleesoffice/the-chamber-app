@@ -301,6 +301,7 @@ st.markdown("""
         border: 1px solid rgba(232,101,26,0.2);
         border-radius: 4px;
         padding: 3px 10px;
+        margin-top: 20px;
         margin-bottom: 10px;
     }
     /* Chart slot label */
@@ -445,7 +446,7 @@ with tab_analyze:
     # CHART SCREENSHOTS
     # ============================================================
 
-    st.markdown('<div class="section-tag">CHART SCREENSHOTS</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-tag" style="margin-top:6px;">CHART SCREENSHOTS</div>', unsafe_allow_html=True)
 
     col_htf, col_entry = st.columns(2)
 
@@ -479,6 +480,7 @@ with tab_analyze:
         if entry_chart:
             st.image(entry_chart, use_container_width=True)
 
+    st.markdown('<div style="margin-top:14px;"></div>', unsafe_allow_html=True)
     with st.expander("Extra chart (optional)"):
         extra_chart = st.file_uploader(
             "Extra",
@@ -493,7 +495,7 @@ with tab_analyze:
     # TRADE DETAILS
     # ============================================================
 
-    st.markdown('<div class="section-tag">TRADE DETAILS</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-tag" style="margin-top:8px;">TRADE DETAILS</div>', unsafe_allow_html=True)
 
     col_date, col1, col2, col3, col4 = st.columns([1.2, 1, 1, 1, 1])
     with col_date:
@@ -632,7 +634,7 @@ Reference specific video titles where relevant so the trader can study the sourc
         with st.spinner("Analyzing trade..."):
             try:
                 messages = [{"role": "user", "content": prompt}]
-                result = provider.chat(system_prompt=system_prompt, messages=messages, images=images)
+                result, _usage = provider.chat(system_prompt=system_prompt, messages=messages, images=images)
             except Exception as e:
                 st.error(f"Analysis failed: {e}")
                 st.stop()
