@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 
 // ============================================================
 // ICT CURRICULUM DATA
@@ -123,6 +123,22 @@ const CURRICULUM = [
   },
 ];
 
+// ============================================================
+// TYPES & HELPERS
+// ============================================================
+interface KnowledgeChunk {
+  id: string;
+  content: string;
+  source_video: string | null;
+  source_url: string | null;
+  tags: string[] | null;
+  chunk_index: number | null;
+  rank?: number;
+}
+
+type TopicCache = Record<string, KnowledgeChunk[]>;
+type LoadingState = Record<string, boolean>;
+
 const LEVEL_NAMES = ["All", ...CURRICULUM.map((s) => s.level)];
 const TOTAL_TOPICS = CURRICULUM.reduce((s, c) => s + c.topics.length, 0);
 
@@ -132,6 +148,35 @@ const TOTAL_TOPICS = CURRICULUM.reduce((s, c) => s + c.topics.length, 0);
 export default function LearningHubPage() {
   const [selectedLevel, setSelectedLevel] = useState("All");
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
+  const [topicLoading, setTopicLoading] = useState<LoadingState>({});
+  const cacheRef = useRef<TopicCache>({});
+
+  const fetchTopicContent = useCallback(async (topicName: string) => {
+    // Already cached
+    if (cacheRef.current[topicName]) return;
+
+    setTopicLoading((prev) => ({ ...prev, [topicName]: true }));
+
+    try {
+      const res = await fetch("/api/knowledge-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: topicName, limit: 5 }),
+      });
+
+      if (!res.ok) {
+        cacheRef.current[topicName] = [];
+        return;
+      }
+
+      const json = await res.json();
+      cacheRef.current[topicName] = json.results ?? [];
+    } catch {
+      cacheRef.current[topicName] = [];
+    } finally {
+      setTopicLoading((prev) => ({ ...prev, [topicName]: false }));
+    }
+  }, []);
 
   const showSections =
     selectedLevel === "All"
@@ -140,11 +185,16 @@ export default function LearningHubPage() {
 
   const visibleTopics = showSections.reduce((s, c) => s + c.topics.length, 0);
 
-  function toggleTopic(key: string) {
+  function toggleTopic(key: string, topicName: string) {
     setExpandedTopics((prev) => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+        // Trigger fetch when expanding (cache prevents re-fetch)
+        fetchTopicContent(topicName);
+      }
       return next;
     });
   }
@@ -245,7 +295,7 @@ export default function LearningHubPage() {
               >
                 {/* Topic header (clickable) */}
                 <button
-                  onClick={() => toggleTopic(key)}
+                  onClick={() => toggleTopic(key, topic.name)}
                   className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors"
                 >
                   <span className="text-sm font-semibold text-chamber-text">
@@ -283,11 +333,13 @@ export default function LearningHubPage() {
                       </p>
                     </div>
 
-                    <div className="text-center py-3">
-                      <span className="text-chamber-text-dim text-[0.8rem]">
-                        Lesson content available when knowledge base is loaded.
-                      </span>
-                    </div>
+                    {/* Lesson snippets from knowledge base */}
+                    <LessonSnippets
+                      topicName={topic.name}
+                      loading={!!topicLoading[topic.name]}
+                      chunks={cacheRef.current[topic.name]}
+                      accentColor={section.color}
+                    />
                   </div>
                 )}
               </div>
@@ -306,6 +358,123 @@ export default function LearningHubPage() {
           THIS IS NOT FINANCIAL ADVICE
         </span>
       </div>
+    </div>
+  );
+}
+
+// ============================================================
+// LESSON SNIPPETS COMPONENT
+// ============================================================
+function LessonSnippets({
+  topicName,
+  loading,
+  chunks,
+  accentColor,
+}: {
+  topicName: string;
+  loading: boolean;
+  chunks: KnowledgeChunk[] | undefined;
+  accentColor: string;
+}) {
+  const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
+
+  // Loading skeleton
+  if (loading) {
+    return (
+      <div className="mt-3 space-y-2">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="rounded-md px-4 py-3 animate-pulse"
+            style={{ background: "#111" }}
+          >
+            <div className="h-3 bg-white/5 rounded w-3/4 mb-2" />
+            <div className="h-3 bg-white/5 rounded w-full mb-1" />
+            <div className="h-3 bg-white/5 rounded w-5/6" />
+          </div>
+        ))}
+        <p className="text-chamber-text-dim text-[0.72rem] text-center pt-1">
+          Searching transcripts for &ldquo;{topicName}&rdquo;...
+        </p>
+      </div>
+    );
+  }
+
+  // No results
+  if (chunks && chunks.length === 0) {
+    return (
+      <div className="text-center py-3">
+        <span className="text-chamber-text-dim text-[0.8rem]">
+          No lesson content found for this topic yet.
+        </span>
+      </div>
+    );
+  }
+
+  // Not yet loaded (shouldn't normally show, but safe fallback)
+  if (!chunks) return null;
+
+  const SNIPPET_LEN = 500;
+
+  function toggleChunkExpand(id: string) {
+    setExpandedChunks((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-chamber-text-dim text-[0.7rem] tracking-wide uppercase mb-1">
+        From ICT Transcripts ({chunks.length} snippet{chunks.length !== 1 ? "s" : ""})
+      </p>
+
+      {chunks.map((chunk) => {
+        const isTruncated = chunk.content.length > SNIPPET_LEN;
+        const isExpanded = expandedChunks.has(chunk.id);
+        const displayText = isExpanded
+          ? chunk.content
+          : chunk.content.slice(0, SNIPPET_LEN) +
+            (isTruncated ? "..." : "");
+
+        return (
+          <div
+            key={chunk.id}
+            className="rounded-md px-4 py-3"
+            style={{
+              background: "#111",
+              borderLeft: `2px solid ${accentColor}33`,
+            }}
+          >
+            <p className="text-[#bbb] text-[0.82rem] leading-relaxed whitespace-pre-wrap">
+              {displayText}
+            </p>
+
+            {/* Source citation */}
+            {chunk.source_video && (
+              <p
+                className="mt-2 text-[0.7rem] font-medium"
+                style={{ color: `${accentColor}99` }}
+              >
+                Source: {chunk.source_video}
+              </p>
+            )}
+
+            {/* Read more toggle */}
+            {isTruncated && (
+              <button
+                onClick={() => toggleChunkExpand(chunk.id)}
+                className="mt-1 text-[0.75rem] font-medium hover:underline transition-colors"
+                style={{ color: accentColor }}
+              >
+                {isExpanded ? "Show less" : "Read more"}
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -74,10 +74,28 @@ export async function POST(req: NextRequest) {
         const filters = words.map((w: string) => `title.ilike.%${w}%`).join(",");
         const { data: cards } = await supabase.from("gamma_cards").select("title, category, gamma_url, content").or(filters).limit(5);
 
-        // Score and rank cards by relevance — more matching words = higher score
+        // Score and rank cards — heavily favor exact concept matches over partials
+        const queryPhrase = words.join(" ");
         const scoredCards = (cards || []).map((card: { title: string; category: string; gamma_url: string; content: string }) => {
-          const titleLower = card.title.toLowerCase();
-          const score = words.reduce((s: number, w: string) => s + (titleLower.includes(w) ? (w.length > 4 ? 2 : 1) : 0), 0);
+          const titleLower = card.title.toLowerCase().replace(/-/g, " ");
+          let score = 0;
+
+          // Exact match or near-exact (e.g. "Order Blocks" matches "Order Blocks") — highest priority
+          if (titleLower === queryPhrase || titleLower.replace(/s$/, "") === queryPhrase.replace(/s$/, "")) score += 100;
+          // Title starts with the query phrase
+          else if (titleLower.startsWith(queryPhrase)) score += 50;
+          // Query phrase appears in title
+          else if (titleLower.includes(queryPhrase)) score += 30;
+
+          // Individual word matches — shorter titles with more matches rank higher
+          const wordScore = words.reduce((s: number, w: string) => s + (titleLower.includes(w) ? (w.length > 4 ? 3 : 1) : 0), 0);
+          score += wordScore;
+
+          // Penalize very long titles (these are usually video titles, not concept slides)
+          if (card.title.length > 40) score -= 5;
+          // Bonus for short, concept-like titles (e.g. "Order Blocks", "Fair Value Gaps")
+          if (card.title.length < 25) score += 10;
+
           return { ...card, score };
         }).filter((c: { score: number }) => c.score > 0)
           .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
@@ -112,11 +130,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Extract source video names for the frontend
+    // Extract source video names from RAG context
     if (ragContext) {
       const videoMatches = ragContext.match(/\[([^\]]+)\]:/g);
       if (videoMatches) {
         studyMaterials.sources = videoMatches.map(m => ({ video: m.replace(/[\[\]:]/g, "").trim() }));
+      }
+    }
+
+    // If no sources found from RAG, search for matching videos directly
+    if (studyMaterials.sources.length === 0 && lastUserMessage) {
+      const searchWords = lastUserMessage.content.toLowerCase()
+        .replace(/[?!.,;:'"]/g, "")
+        .split(/\s+/)
+        .filter((w: string) => w.length > 3 && !new Set(["what", "how", "does", "explain", "about"]).has(w))
+        .slice(0, 2);
+
+      if (searchWords.length > 0) {
+        const videoFilter = searchWords.map((w: string) => `source_video.ilike.%${w}%`).join(",");
+        const { data: videos } = await supabase
+          .from("knowledge_chunks")
+          .select("source_video")
+          .or(videoFilter)
+          .not("source_video", "is", null)
+          .limit(20);
+
+        if (videos?.length) {
+          // Deduplicate and take top 3
+          const unique = [...new Set(videos.map((v: { source_video: string }) => v.source_video).filter(Boolean))].slice(0, 3);
+          studyMaterials.sources = unique.map(v => ({ video: v as string }));
+        }
       }
     }
 
