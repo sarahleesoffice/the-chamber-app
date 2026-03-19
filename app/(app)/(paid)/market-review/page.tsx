@@ -321,13 +321,57 @@ function InstrumentCard({
       <button
         onClick={async () => {
           if (biasResult) { setBiasResult(null); return; }
-          setBiasResult("Analyzing bias...");
+          setBiasResult("Analyzing " + pairName + "...");
           try {
+            // Format candle data for the AI
+            const last20 = candles.slice(-20).reverse();
+            const dailyData = last20.map((c: CandleData) =>
+              `${c.time} | O:${c.open.toFixed(2)} H:${c.high.toFixed(2)} L:${c.low.toFixed(2)} C:${c.close.toFixed(2)}`
+            ).join("\n");
+            const currentPrice = candles.length ? candles[candles.length - 1].close.toFixed(2) : "N/A";
+            const prevClose = candles.length > 1 ? candles[candles.length - 2].close : 0;
+            const change = candles.length ? candles[candles.length - 1].close - prevClose : 0;
+            const changePct = prevClose ? ((change / prevClose) * 100).toFixed(2) : "0";
+
+            const biasPrompt = `Analyze ${pairName} using ICT methodology. Here is the recent price data:
+
+**Last 20 Daily Candles (most recent first):**
+${dailyData}
+
+**Current Price:** ${currentPrice}
+**Daily Change:** ${change > 0 ? "+" : ""}${change.toFixed(2)} (${changePct}%)
+
+Give your ICT bias analysis in this EXACT format:
+
+## ${pairName} — ICT Bias Analysis
+
+**DAILY BIAS:** 🟢 BULLISH / 🔴 BEARISH (X% confidence)
+One sentence why — reference specific ICT concept.
+
+**WEEKLY BIAS:** 🟢 BULLISH / 🔴 BEARISH (X% confidence)
+One sentence why — reference specific ICT concept.
+
+**MONTHLY BIAS:** 🟢 BULLISH / 🔴 BEARISH (X% confidence)
+One sentence why — reference specific ICT concept.
+
+**YEARLY BIAS:** 🟢 BULLISH / 🔴 BEARISH (X% confidence)
+One sentence why — reference specific ICT concept.
+
+**KEY LEVELS TO WATCH:**
+- Sell-side liquidity: $X.XX (description)
+- Buy-side liquidity: $X.XX (description)
+- Key Order Block: $X.XX–$X.XX (description)
+- FVG to fill: $X.XX–$X.XX (description)
+
+**THE PLAY:** Describe the optimal ICT setup — entry model, kill zone, and confirmation needed.
+
+Be concise and decisive. Use ICT terminology only.`;
+
             const res = await fetch("/api/ai-chat", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                messages: [{ role: "user", content: `Analyze the current daily chart bias for ${pairName} using ICT methodology. Consider market structure (BOS/CHoCH), key liquidity levels, premium/discount zones, and upcoming kill zones. Give a brief directional bias with entry considerations.` }],
+                messages: [{ role: "user", content: biasPrompt }],
               }),
             });
             const data = await res.json();
@@ -348,8 +392,34 @@ function InstrumentCard({
       </button>
 
       {biasResult && (
-        <div className="mt-2 p-4 rounded-lg border text-sm text-chamber-text-muted" style={{ background: "#0e0e0e", borderColor: "rgba(232,101,26,0.25)" }}>
-          {biasResult}
+        <div className="mt-2 rounded-lg border text-sm" style={{ background: "#0e0e0e", borderColor: "rgba(232,101,26,0.25)" }}>
+          <div className="p-5 space-y-2 leading-relaxed" style={{ color: "#d0d0d0" }}>
+            {biasResult === `Analyzing ${pairName}...` ? (
+              <p className="animate-pulse" style={{ color: "#e8651a" }}>{biasResult}</p>
+            ) : (
+              biasResult.split("\n").map((line, i) => {
+                const trimmed = line.trim();
+                if (!trimmed) return <div key={i} className="h-2" />;
+                if (trimmed.startsWith("## ")) return <h3 key={i} className="text-base font-bold mt-1" style={{ color: "#e8651a" }}>{trimmed.replace("## ", "")}</h3>;
+                if (trimmed.startsWith("**") && trimmed.includes("BIAS:")) {
+                  const isBullish = trimmed.includes("BULLISH");
+                  return <p key={i} className="font-semibold mt-2" style={{ color: isBullish ? "#22c55e" : "#ef4444" }}>{trimmed.replace(/\*\*/g, "")}</p>;
+                }
+                if (trimmed.startsWith("**KEY LEVELS") || trimmed.startsWith("**THE PLAY")) return <p key={i} className="font-semibold mt-3 text-white">{trimmed.replace(/\*\*/g, "")}</p>;
+                if (trimmed.startsWith("**") && trimmed.endsWith("**")) return <p key={i} className="font-semibold text-white mt-2">{trimmed.replace(/\*\*/g, "")}</p>;
+                if (trimmed.startsWith("- ")) return <p key={i} className="ml-3 flex gap-2"><span style={{ color: "#e8651a" }}>•</span><span dangerouslySetInnerHTML={{ __html: trimmed.slice(2).replace(/\*\*(.*?)\*\*/g, '<span class="text-white font-medium">$1</span>') }} /></p>;
+                return <p key={i} dangerouslySetInnerHTML={{ __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<span class="text-white font-medium">$1</span>') }} />;
+              })
+            )}
+          </div>
+          {biasResult !== `Analyzing ${pairName}...` && (
+            <div className="px-5 py-3 border-t" style={{ borderColor: "#1e1a17" }}>
+              <button onClick={() => setBiasResult(null)} className="text-xs cursor-pointer" style={{ color: "#555" }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = "#ef4444"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = "#555"; }}
+              >Clear</button>
+            </div>
+          )}
         </div>
       )}
     </div>
