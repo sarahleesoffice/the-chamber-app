@@ -327,14 +327,14 @@ function InstrumentCard({
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                messages: [{ role: "user", content: `Analyze the current market bias for ${Object.values(selectedPairs).flat().join(", ")} based on ICT methodology. Consider daily timeframe structure, key levels, and upcoming sessions. Give a brief directional bias for each.` }],
+                messages: [{ role: "user", content: `Analyze the current daily chart bias for ${pairName} using ICT methodology. Consider market structure (BOS/CHoCH), key liquidity levels, premium/discount zones, and upcoming kill zones. Give a brief directional bias with entry considerations.` }],
               }),
             });
             const data = await res.json();
             if (!res.ok) setBiasResult(data.error || "Error analyzing bias. Check your API key in Settings.");
             else setBiasResult(data.reply);
-          } catch {
-            setBiasResult("Network error. Please try again.");
+          } catch (err) {
+            setBiasResult(`Error: ${err instanceof Error ? err.message : "Network error. Please try again."}`);
           }
         }}
         className="w-full mt-2 py-2 rounded-md text-sm font-semibold tracking-wider transition-all"

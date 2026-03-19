@@ -3,10 +3,205 @@
 import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+interface StudyCard {
+  title: string;
+  category: string;
+  gamma_url?: string;
+}
+
+interface DiscordLink {
+  concept: string;
+  thread_url: string;
+}
+
+interface SourceRef {
+  video: string;
+}
+
+interface StudyMaterials {
+  cards?: StudyCard[];
+  discord?: DiscordLink[];
+  sources?: SourceRef[];
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+  studyMaterials?: StudyMaterials;
+}
+
+/* ── Study Materials visual section ── */
+function StudyMaterialsSection({ data }: { data: StudyMaterials }) {
+  const [cardIndex, setCardIndex] = useState(0);
+  const hasCards = data.cards && data.cards.length > 0;
+  const hasDiscord = data.discord && data.discord.length > 0;
+  const hasSources = data.sources && data.sources.length > 0;
+
+  if (!hasCards && !hasDiscord && !hasSources) return null;
+
+  return (
+    <div
+      className="mt-3 pt-3 space-y-3"
+      style={{ borderTop: "1px solid #1e1a17" }}
+    >
+      {/* ── Study Cards ── */}
+      {hasCards && (
+        <div>
+          <p
+            className="text-[10px] font-semibold tracking-widest mb-2"
+            style={{ color: "#e8651a", fontVariant: "small-caps" }}
+          >
+            STUDY MATERIALS
+          </p>
+          <div
+            className="rounded-lg p-4 relative"
+            style={{ backgroundColor: "#111", border: "1px solid #1e1a17" }}
+          >
+            {/* Nav arrows */}
+            {data.cards!.length > 1 && (
+              <div className="flex items-center justify-between mb-2">
+                <button
+                  onClick={() =>
+                    setCardIndex((prev) =>
+                      prev === 0 ? data.cards!.length - 1 : prev - 1
+                    )
+                  }
+                  className="w-7 h-7 rounded flex items-center justify-center text-xs cursor-pointer"
+                  style={{
+                    backgroundColor: "#1a1a1a",
+                    border: "1px solid #2a2a2a",
+                    color: "#888",
+                  }}
+                >
+                  &lt;
+                </button>
+                <span className="text-[10px]" style={{ color: "#555" }}>
+                  {cardIndex + 1} / {data.cards!.length}
+                </span>
+                <button
+                  onClick={() =>
+                    setCardIndex((prev) =>
+                      prev === data.cards!.length - 1 ? 0 : prev + 1
+                    )
+                  }
+                  className="w-7 h-7 rounded flex items-center justify-center text-xs cursor-pointer"
+                  style={{
+                    backgroundColor: "#1a1a1a",
+                    border: "1px solid #2a2a2a",
+                    color: "#888",
+                  }}
+                >
+                  &gt;
+                </button>
+              </div>
+            )}
+
+            {/* Current card */}
+            {(() => {
+              const card = data.cards![cardIndex];
+              return (
+                <div key={cardIndex}>
+                  <p
+                    className="font-semibold text-sm"
+                    style={{ color: "#e8651a" }}
+                  >
+                    {card.title}
+                  </p>
+                  <p
+                    className="text-xs mt-0.5"
+                    style={{ color: "#888" }}
+                  >
+                    {card.category}
+                  </p>
+                  {card.gamma_url && (
+                    <a
+                      href={card.gamma_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 mt-2 text-xs px-3 py-1.5 rounded-md transition-colors"
+                      style={{
+                        backgroundColor: "#1a1210",
+                        border: "1px solid #e8651a40",
+                        color: "#e8651a",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "#2a1a10";
+                        e.currentTarget.style.color = "#ff7e33";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "#1a1210";
+                        e.currentTarget.style.color = "#e8651a";
+                      }}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                      </svg>
+                      View Gamma Deck
+                    </a>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* ── Discord links ── */}
+      {hasDiscord && (
+        <div className="flex flex-wrap gap-2">
+          {data.discord!.map((d, i) => (
+            <a
+              key={i}
+              href={d.thread_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-colors"
+              style={{
+                backgroundColor: "#141414",
+                border: "1px solid #2a2a2a",
+                color: "#888",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "#5865F2";
+                e.currentTarget.style.color = "#a8b1ff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#2a2a2a";
+                e.currentTarget.style.color = "#888";
+              }}
+            >
+              {/* Discord icon */}
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+              </svg>
+              Study in Discord
+            </a>
+          ))}
+        </div>
+      )}
+
+      {/* ── ICT Sources ── */}
+      {hasSources && (
+        <div>
+          <p
+            className="text-[10px] font-semibold tracking-widest mb-1.5"
+            style={{ color: "#888", fontVariant: "small-caps" }}
+          >
+            FROM ICT LECTURES
+          </p>
+          <div className="space-y-1">
+            {data.sources!.map((s, i) => (
+              <p key={i} className="text-xs flex items-center gap-1.5" style={{ color: "#666" }}>
+                <span>&#127909;</span>
+                {s.video}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 const SUGGESTED_QUESTIONS = [
@@ -90,7 +285,12 @@ export default function AIChatPage() {
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.reply, timestamp: new Date() },
+        {
+          role: "assistant",
+          content: data.reply,
+          timestamp: new Date(),
+          ...(data.studyMaterials ? { studyMaterials: data.studyMaterials } : {}),
+        },
       ]);
     } catch {
       setMessages((prev) => [
@@ -308,6 +508,9 @@ export default function AIChatPage() {
                   >
                     {msg.content}
                   </p>
+                )}
+                {msg.role === "assistant" && msg.studyMaterials && (
+                  <StudyMaterialsSection data={msg.studyMaterials} />
                 )}
                 <p
                   className="text-xs mt-2"
