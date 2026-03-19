@@ -58,19 +58,33 @@ export async function POST(req: NextRequest) {
 
     // RAG: Search Gamma cards + Discord
     let studyContext = "";
-    let studyMaterials: { cards: Array<{ title: string; category: string; gamma_url: string }>; discord: Array<{ concept: string; thread_url: string }>; sources: Array<{ video: string }> } = { cards: [], discord: [], sources: [] };
+    let studyMaterials: { cards: Array<{ title: string; category: string; gamma_url: string; content: string }>; discord: Array<{ concept: string; thread_url: string }>; sources: Array<{ video: string }> } = { cards: [], discord: [], sources: [] };
 
     if (lastUserMessage) {
       const words = lastUserMessage.content.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2).slice(0, 3);
       if (words.length > 0) {
         const filters = words.map((w: string) => `title.ilike.%${w}%`).join(",");
-        const { data: cards } = await supabase.from("gamma_cards").select("title, category, gamma_url").or(filters).limit(3);
-        const conceptFilters = words.map((w: string) => `concept.ilike.%${w}%`).join(",");
-        const { data: discord } = await supabase.from("discord_references").select("concept, thread_url").or(conceptFilters).limit(2);
+        const { data: cards } = await supabase.from("gamma_cards").select("title, category, gamma_url, content").or(filters).limit(3);
+        // Discord: search concept AND description, also match study card categories
+        const matchedCategories = cards?.map((c: { category: string }) => c.category).filter(Boolean) || [];
+        let discord: Array<{ concept: string; thread_url: string }> | null = null;
+
+        if (matchedCategories.length > 0) {
+          // Match by category from found cards
+          const catFilters = matchedCategories.map((c: string) => `concept.eq.${c}`).join(",");
+          const { data } = await supabase.from("discord_references").select("concept, thread_url").or(catFilters).limit(2);
+          discord = data;
+        }
+        if (!discord?.length) {
+          // Fallback: keyword search on concept + description
+          const descFilters = words.map((w: string) => `concept.ilike.%${w}%,description.ilike.%${w}%`).join(",");
+          const { data } = await supabase.from("discord_references").select("concept, thread_url").or(descFilters).limit(2);
+          discord = data;
+        }
 
         if (cards?.length) {
           studyMaterials.cards = cards;
-          studyContext += "\nSTUDY CARDS: " + cards.map((g: { title: string; category: string; gamma_url: string }) => `${g.title} (${g.category})`).join("; ");
+          studyContext += "\nSTUDY CARDS: " + cards.map((g: { title: string; category: string; gamma_url: string; content: string }) => `${g.title} (${g.category})`).join("; ");
         }
         if (discord?.length) {
           studyMaterials.discord = discord;

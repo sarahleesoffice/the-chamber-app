@@ -7,6 +7,7 @@ interface StudyCard {
   title: string;
   category: string;
   gamma_url?: string;
+  content?: string;
 }
 
 interface DiscordLink {
@@ -31,9 +32,20 @@ interface Message {
   studyMaterials?: StudyMaterials;
 }
 
+/* ── Helper: extract image path from content field ── */
+function getSlideImage(content?: string): string | null {
+  if (!content) return null;
+  if (content.startsWith("IMG:")) {
+    const newlineIdx = content.indexOf("\n");
+    return newlineIdx > 4 ? content.slice(4, newlineIdx) : content.slice(4);
+  }
+  return null;
+}
+
 /* ── Study Materials visual section ── */
 function StudyMaterialsSection({ data }: { data: StudyMaterials }) {
   const [cardIndex, setCardIndex] = useState(0);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const hasCards = data.cards && data.cards.length > 0;
   const hasDiscord = data.discord && data.discord.length > 0;
   const hasSources = data.sources && data.sources.length > 0;
@@ -100,8 +112,20 @@ function StudyMaterialsSection({ data }: { data: StudyMaterials }) {
             {/* Current card */}
             {(() => {
               const card = data.cards![cardIndex];
+              const slideImage = getSlideImage(card.content);
               return (
                 <div key={cardIndex}>
+                  {/* Slide image */}
+                  {slideImage && (
+                    <div className="mb-3 rounded-lg overflow-hidden" style={{ border: "1px solid #1e1a17" }}>
+                      <img
+                        src={slideImage}
+                        alt={card.title}
+                        className="w-full h-auto"
+                        style={{ display: "block" }}
+                      />
+                    </div>
+                  )}
                   <p
                     className="font-semibold text-sm"
                     style={{ color: "#e8651a" }}
@@ -181,23 +205,43 @@ function StudyMaterialsSection({ data }: { data: StudyMaterials }) {
         </div>
       )}
 
-      {/* ── ICT Sources ── */}
+      {/* ── ICT Video Sources (collapsible) ── */}
       {hasSources && (
         <div>
-          <p
-            className="text-[10px] font-semibold tracking-widest mb-1.5"
-            style={{ color: "#888", fontVariant: "small-caps" }}
+          <button
+            onClick={() => setSourcesOpen((prev) => !prev)}
+            className="flex items-center gap-1.5 w-full text-left cursor-pointer"
           >
-            FROM ICT LECTURES
-          </p>
-          <div className="space-y-1">
-            {data.sources!.map((s, i) => (
-              <p key={i} className="text-xs flex items-center gap-1.5" style={{ color: "#666" }}>
-                <span>&#127909;</span>
-                {s.video}
-              </p>
-            ))}
-          </div>
+            <svg
+              className="w-3 h-3 transition-transform"
+              style={{
+                color: "#888",
+                transform: sourcesOpen ? "rotate(90deg)" : "rotate(0deg)",
+              }}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+            <p
+              className="text-[10px] font-semibold tracking-widest"
+              style={{ color: "#888", fontVariant: "small-caps" }}
+            >
+              ICT VIDEO SOURCES ({data.sources!.length})
+            </p>
+          </button>
+          {sourcesOpen && (
+            <div className="space-y-1 mt-1.5 ml-4">
+              {data.sources!.map((s, i) => (
+                <p key={i} className="text-xs flex items-center gap-1.5" style={{ color: "#666" }}>
+                  <span>&#127909;</span>
+                  {s.video}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
