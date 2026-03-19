@@ -58,74 +58,167 @@ export async function POST(req: NextRequest) {
 
     // RAG: Search Gamma cards + Discord
     let studyContext = "";
-    let studyMaterials: { cards: Array<{ title: string; category: string; gamma_url: string; content: string }>; discord: Array<{ concept: string; thread_url: string }>; sources: Array<{ video: string }> } = { cards: [], discord: [], sources: [] };
+    let studyMaterials: { cards: Array<{ title: string; category: string; gamma_url: string; content: string }>; discord: Array<{ concept: string; thread_url: string }>; sources: Array<{ video: string; url: string }> } = { cards: [], discord: [], sources: [] };
 
     if (lastUserMessage) {
-      // Filter out stop words and generic terms to get meaningful search words
-      const STOP_WORDS = new Set(["what", "how", "does", "the", "are", "is", "can", "you", "explain", "tell", "about", "ict", "trading", "trade", "market", "price", "use", "work", "mean", "definition", "define", "describe", "give", "show", "find", "help", "please", "would", "could", "should", "will", "this", "that", "with", "from", "have", "been", "being", "they", "them", "their", "which", "when", "where", "why", "who", "whom"]);
+      const STOP_WORDS = new Set(["what", "how", "does", "the", "are", "is", "can", "you", "explain", "tell", "about", "ict", "trading", "trade", "market", "price", "use", "work", "mean", "definition", "define", "describe", "give", "show", "find", "help", "please", "would", "could", "should", "will", "this", "that", "with", "from", "have", "been", "being", "they", "them", "their", "which", "when", "where", "why", "who", "whom", "me", "do", "my", "for", "and", "any", "some"]);
       const words = lastUserMessage.content.toLowerCase()
-        .replace(/[?!.,;:'"]/g, "")
+        .replace(/[?!.,;:'"()]/g, "")
         .split(/\s+/)
-        .filter((w: string) => w.length > 2 && !STOP_WORDS.has(w))
-        .slice(0, 4);
+        .filter((w: string) => w.length > 1 && !STOP_WORDS.has(w))
+        .slice(0, 6);
 
-      if (words.length > 0) {
-        // Build smarter filters — require longer/more specific words
-        const filters = words.map((w: string) => `title.ilike.%${w}%`).join(",");
-        const { data: cards } = await supabase.from("gamma_cards").select("title, category, gamma_url, content").or(filters).limit(5);
+      // Also extract multi-word phrases that match common ICT concepts
+      const queryLower = lastUserMessage.content.toLowerCase();
+      const ICT_CONCEPTS: Record<string, string[]> = {
+        "order block": ["order", "block"],
+        "fair value gap": ["fair", "value", "gap"],
+        "fvg": ["fair", "value", "gap", "fvg"],
+        "ote": ["optimal", "trade", "entry", "ote"],
+        "optimal trade entry": ["optimal", "trade", "entry"],
+        "breaker block": ["breaker", "block"],
+        "mitigation block": ["mitigation", "block"],
+        "rejection block": ["rejection", "block"],
+        "propulsion block": ["propulsion", "block"],
+        "vacuum block": ["vacuum", "block"],
+        "reclaimed order block": ["reclaimed", "order", "block"],
+        "judas swing": ["judas", "swing"],
+        "kill zone": ["kill", "zone"],
+        "silver bullet": ["silver", "bullet"],
+        "macro": ["macro", "macros"],
+        "liquidity": ["liquidity"],
+        "liquidity void": ["liquidity", "void"],
+        "liquidity pool": ["liquidity", "pool"],
+        "market structure": ["market", "structure"],
+        "market maker": ["market", "maker"],
+        "turtle soup": ["turtle", "soup"],
+        "power of 3": ["power"],
+        "displacement": ["displacement"],
+        "top down analysis": ["top", "down", "analysis"],
+        "bias": ["bias", "higher", "timeframe"],
+        "interest rate": ["interest", "rate"],
+        "sentiment": ["sentiment"],
+      };
 
-        // Score and rank cards — heavily favor exact concept matches over partials
+      // Find which ICT concept(s) the user is asking about
+      const matchedConcepts: string[] = [];
+      for (const [concept, _keywords] of Object.entries(ICT_CONCEPTS)) {
+        if (queryLower.includes(concept)) {
+          matchedConcepts.push(concept);
+        }
+      }
+
+      if (words.length > 0 || matchedConcepts.length > 0) {
+        // Search by title AND tags for broader matching
+        const titleFilters = words.map((w: string) => `title.ilike.%${w}%`).join(",");
+        const { data: titleCards } = await supabase
+          .from("gamma_cards")
+          .select("title, category, gamma_url, content, tags")
+          .or(titleFilters)
+          .limit(15);
+
+        // Also search by tags array — overlap with keywords
+        const tagFilters = words.map((w: string) => `tags.cs.{${w}}`).join(",");
+        const { data: tagCards } = await supabase
+          .from("gamma_cards")
+          .select("title, category, gamma_url, content, tags")
+          .or(tagFilters)
+          .limit(15);
+
+        // Merge and deduplicate
+        const allCards = new Map<string, { title: string; category: string; gamma_url: string; content: string; tags?: string[] }>();
+        for (const card of [...(titleCards || []), ...(tagCards || [])]) {
+          allCards.set(card.title, card);
+        }
+
+        // Score cards with concept-aware matching
         const queryPhrase = words.join(" ");
-        const scoredCards = (cards || []).map((card: { title: string; category: string; gamma_url: string; content: string }) => {
+        const conceptWords = matchedConcepts.flatMap(c => ICT_CONCEPTS[c] || []);
+        const allSearchTerms = [...new Set([...words, ...conceptWords])];
+
+        const scoredCards = Array.from(allCards.values()).map((card) => {
           const titleLower = card.title.toLowerCase().replace(/-/g, " ");
           let score = 0;
 
-          // Exact match or near-exact (e.g. "Order Blocks" matches "Order Blocks") — highest priority
-          if (titleLower === queryPhrase || titleLower.replace(/s$/, "") === queryPhrase.replace(/s$/, "")) score += 100;
-          // Title starts with the query phrase
-          else if (titleLower.startsWith(queryPhrase)) score += 50;
-          // Query phrase appears in title
-          else if (titleLower.includes(queryPhrase)) score += 30;
+          // Check if title matches a known ICT concept from the query
+          for (const concept of matchedConcepts) {
+            if (titleLower.includes(concept)) score += 80;
+            // Also check if the concept keywords all appear in the title
+            const cWords = ICT_CONCEPTS[concept] || [];
+            const allPresent = cWords.every(w => titleLower.includes(w));
+            if (allPresent && cWords.length >= 2) score += 60;
+          }
 
-          // Individual word matches — shorter titles with more matches rank higher
-          const wordScore = words.reduce((s: number, w: string) => s + (titleLower.includes(w) ? (w.length > 4 ? 3 : 1) : 0), 0);
-          score += wordScore;
+          // Exact full phrase match
+          if (titleLower === queryPhrase) score += 100;
+          else if (titleLower.includes(queryPhrase) && queryPhrase.length > 4) score += 40;
 
-          // Penalize very long titles (these are usually video titles, not concept slides)
-          if (card.title.length > 40) score -= 5;
-          // Bonus for short, concept-like titles (e.g. "Order Blocks", "Fair Value Gaps")
-          if (card.title.length < 25) score += 10;
+          // Word-level matching — more matching words = higher score
+          let matchCount = 0;
+          for (const w of allSearchTerms) {
+            if (titleLower.includes(w)) {
+              matchCount++;
+              score += w.length > 4 ? 4 : 2;
+            }
+          }
+          // Bonus for multiple word matches (suggests strong relevance)
+          if (matchCount >= 2) score += matchCount * 5;
+
+          // Tag matching
+          const cardTags = (card.tags || []).map((t: string) => t.toLowerCase());
+          for (const w of allSearchTerms) {
+            if (cardTags.includes(w)) score += 3;
+          }
+
+          // Prefer concept slides (short titles) over long video titles
+          if (card.title.length > 50) score -= 10;
+          if (card.title.length < 30) score += 5;
+
+          // Has image = higher priority (we want to show visuals)
+          if (card.content?.startsWith("IMG:")) score += 8;
 
           return { ...card, score };
-        }).filter((c: { score: number }) => c.score > 0)
-          .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
-          .slice(0, 3);
+        }).filter((c) => c.score > 5)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 4);
 
-        const rankedCards = scoredCards.length > 0 ? scoredCards : (cards || []).slice(0, 3);
-        // Discord: search concept AND description, also match study card categories
-        const matchedCategories = rankedCards.map((c: { category: string }) => c.category).filter(Boolean) || [];
+        const rankedCards = scoredCards.length > 0 ? scoredCards : [];
+
+        // Discord: match by category from found cards, OR by concept keywords
+        const matchedCategories = rankedCards.map((c) => c.category).filter(Boolean);
         let discord: Array<{ concept: string; thread_url: string }> | null = null;
 
+        // First try matching by card categories
         if (matchedCategories.length > 0) {
-          // Match by category from found cards
-          const catFilters = matchedCategories.map((c: string) => `concept.eq.${c}`).join(",");
+          const catFilters = [...new Set(matchedCategories)].map((c: string) => `concept.eq.${c}`).join(",");
           const { data } = await supabase.from("discord_references").select("concept, thread_url").or(catFilters).limit(2);
           discord = data;
         }
-        if (!discord?.length) {
-          // Fallback: keyword search on concept + description
-          const descFilters = words.map((w: string) => `concept.ilike.%${w}%,description.ilike.%${w}%`).join(",");
-          const { data } = await supabase.from("discord_references").select("concept, thread_url").or(descFilters).limit(2);
+        // Then try concept name matching
+        if (!discord?.length && matchedConcepts.length > 0) {
+          const conceptFilters = matchedConcepts.map((c) => `concept.ilike.%${c}%,description.ilike.%${c}%`).join(",");
+          const { data } = await supabase.from("discord_references").select("concept, thread_url").or(conceptFilters).limit(2);
           discord = data;
+        }
+        // Fallback: keyword search
+        if (!discord?.length) {
+          const descFilters = words.filter((w: string) => w.length > 3).map((w: string) => `concept.ilike.%${w}%,description.ilike.%${w}%`).join(",");
+          if (descFilters) {
+            const { data } = await supabase.from("discord_references").select("concept, thread_url").or(descFilters).limit(2);
+            discord = data;
+          }
         }
 
         if (rankedCards.length) {
           studyMaterials.cards = rankedCards;
-          studyContext += "\nSTUDY CARDS: " + rankedCards.map((g: { title: string; category: string }) => `${g.title} (${g.category})`).join("; ");
+          studyContext += "\nSTUDY CARDS:\n" + rankedCards.map((g) => {
+            const slideImg = g.content?.startsWith("IMG:") ? " [HAS SLIDE IMAGE]" : "";
+            return `- ${g.title} (${g.category})${slideImg}`;
+          }).join("\n");
         }
         if (discord?.length) {
           studyMaterials.discord = discord;
-          studyContext += "\nDISCORD: " + discord.map((d: { concept: string; thread_url: string }) => `${d.concept}`).join("; ");
+          studyContext += "\nDISCORD THREADS: " + discord.map((d) => `${d.concept}: ${d.thread_url}`).join("; ");
         }
       }
     }
@@ -134,7 +227,11 @@ export async function POST(req: NextRequest) {
     if (ragContext) {
       const videoMatches = ragContext.match(/\[([^\]]+)\]:/g);
       if (videoMatches) {
-        studyMaterials.sources = videoMatches.map(m => ({ video: m.replace(/[\[\]:]/g, "").trim() }));
+        const names = videoMatches.map(m => m.replace(/[\[\]:]/g, "").trim()).filter(v => v !== "ICT");
+        studyMaterials.sources = names.map(v => ({
+          video: v,
+          url: `https://www.youtube.com/results?search_query=ICT+${encodeURIComponent(v)}`,
+        }));
       }
     }
 
@@ -143,8 +240,8 @@ export async function POST(req: NextRequest) {
       const searchWords = lastUserMessage.content.toLowerCase()
         .replace(/[?!.,;:'"]/g, "")
         .split(/\s+/)
-        .filter((w: string) => w.length > 3 && !new Set(["what", "how", "does", "explain", "about"]).has(w))
-        .slice(0, 2);
+        .filter((w: string) => w.length > 3 && !new Set(["what", "how", "does", "explain", "about", "trading", "market"]).has(w))
+        .slice(0, 3);
 
       if (searchWords.length > 0) {
         const videoFilter = searchWords.map((w: string) => `source_video.ilike.%${w}%`).join(",");
@@ -153,12 +250,15 @@ export async function POST(req: NextRequest) {
           .select("source_video")
           .or(videoFilter)
           .not("source_video", "is", null)
-          .limit(20);
+          .limit(30);
 
         if (videos?.length) {
           // Deduplicate and take top 3
           const unique = [...new Set(videos.map((v: { source_video: string }) => v.source_video).filter(Boolean))].slice(0, 3);
-          studyMaterials.sources = unique.map(v => ({ video: v as string }));
+          studyMaterials.sources = unique.map(v => ({
+            video: v as string,
+            url: `https://www.youtube.com/results?search_query=ICT+${encodeURIComponent(v as string)}`,
+          }));
         }
       }
     }
