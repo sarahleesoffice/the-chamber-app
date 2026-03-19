@@ -30,7 +30,8 @@ export default function SignupPage() {
     if (error) {
       setError(error.message);
     } else {
-      setSuccess(true);
+      // Email confirmation disabled — go straight to the app
+      window.location.href = "/dashboard";
     }
   };
 
