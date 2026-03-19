@@ -61,12 +61,31 @@ export async function POST(req: NextRequest) {
     let studyMaterials: { cards: Array<{ title: string; category: string; gamma_url: string; content: string }>; discord: Array<{ concept: string; thread_url: string }>; sources: Array<{ video: string }> } = { cards: [], discord: [], sources: [] };
 
     if (lastUserMessage) {
-      const words = lastUserMessage.content.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2).slice(0, 3);
+      // Filter out stop words and generic terms to get meaningful search words
+      const STOP_WORDS = new Set(["what", "how", "does", "the", "are", "is", "can", "you", "explain", "tell", "about", "ict", "trading", "trade", "market", "price", "use", "work", "mean", "definition", "define", "describe", "give", "show", "find", "help", "please", "would", "could", "should", "will", "this", "that", "with", "from", "have", "been", "being", "they", "them", "their", "which", "when", "where", "why", "who", "whom"]);
+      const words = lastUserMessage.content.toLowerCase()
+        .replace(/[?!.,;:'"]/g, "")
+        .split(/\s+/)
+        .filter((w: string) => w.length > 2 && !STOP_WORDS.has(w))
+        .slice(0, 4);
+
       if (words.length > 0) {
+        // Build smarter filters — require longer/more specific words
         const filters = words.map((w: string) => `title.ilike.%${w}%`).join(",");
-        const { data: cards } = await supabase.from("gamma_cards").select("title, category, gamma_url, content").or(filters).limit(3);
+        const { data: cards } = await supabase.from("gamma_cards").select("title, category, gamma_url, content").or(filters).limit(5);
+
+        // Score and rank cards by relevance — more matching words = higher score
+        const scoredCards = (cards || []).map((card: { title: string; category: string; gamma_url: string; content: string }) => {
+          const titleLower = card.title.toLowerCase();
+          const score = words.reduce((s: number, w: string) => s + (titleLower.includes(w) ? (w.length > 4 ? 2 : 1) : 0), 0);
+          return { ...card, score };
+        }).filter((c: { score: number }) => c.score > 0)
+          .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
+          .slice(0, 3);
+
+        const rankedCards = scoredCards.length > 0 ? scoredCards : (cards || []).slice(0, 3);
         // Discord: search concept AND description, also match study card categories
-        const matchedCategories = cards?.map((c: { category: string }) => c.category).filter(Boolean) || [];
+        const matchedCategories = rankedCards.map((c: { category: string }) => c.category).filter(Boolean) || [];
         let discord: Array<{ concept: string; thread_url: string }> | null = null;
 
         if (matchedCategories.length > 0) {
@@ -82,9 +101,9 @@ export async function POST(req: NextRequest) {
           discord = data;
         }
 
-        if (cards?.length) {
-          studyMaterials.cards = cards;
-          studyContext += "\nSTUDY CARDS: " + cards.map((g: { title: string; category: string; gamma_url: string; content: string }) => `${g.title} (${g.category})`).join("; ");
+        if (rankedCards.length) {
+          studyMaterials.cards = rankedCards;
+          studyContext += "\nSTUDY CARDS: " + rankedCards.map((g: { title: string; category: string }) => `${g.title} (${g.category})`).join("; ");
         }
         if (discord?.length) {
           studyMaterials.discord = discord;
