@@ -308,6 +308,7 @@ export default function DailyJournalPage() {
   const [marketCondition, setMarketCondition] = useState(MARKET_CONDITIONS[0]);
   const [selectedMistakes, setSelectedMistakes] = useState<string[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [customMistakeInputs, setCustomMistakeInputs] = useState<Record<string, string>>({});
 
   // Text areas
   const [reflection, setReflection] = useState("");
@@ -381,6 +382,7 @@ export default function DailyJournalPage() {
     }
 
     setExpandedCategories({});
+    setCustomMistakeInputs({});
     setLoading(false);
   }, [dateStr]);
 
@@ -811,18 +813,22 @@ export default function DailyJournalPage() {
                     <div className="pt-2 mt-1 border-t border-chamber-border/50">
                       <input
                         type="text"
+                        value={customMistakeInputs[category] || ""}
+                        onChange={(e) =>
+                          setCustomMistakeInputs((prev) => ({ ...prev, [category]: e.target.value }))
+                        }
                         placeholder={`Add a custom ${category.toLowerCase()} mistake...`}
                         className="w-full bg-[#0e0e0e] border border-chamber-border rounded-md px-3 py-1.5 text-sm text-white placeholder-chamber-text-dim focus:outline-none focus:border-chamber-orange/50 transition-colors"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
-                            const input = e.currentTarget;
-                            const val = input.value.trim();
+                            e.preventDefault();
+                            const val = (customMistakeInputs[category] || "").trim();
                             if (val) {
                               const taggedVal = `[${category}] ${val}`;
                               if (!selectedMistakes.includes(taggedVal)) {
-                                toggleMistake(taggedVal);
+                                setSelectedMistakes((prev) => [...prev, taggedVal]);
                               }
-                              input.value = "";
+                              setCustomMistakeInputs((prev) => ({ ...prev, [category]: "" }));
                             }
                           }
                         }}

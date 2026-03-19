@@ -1,33 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const ICT_SYSTEM_PROMPT = `You are an expert ICT (Inner Circle Trader) methodology trading mentor inside "The Chamber" trading app.
+const ICT_SYSTEM_PROMPT = `You are the AI mentor inside "The Chamber" — a trading app built on ICT (Inner Circle Trader) methodology, powered by 675+ ICT YouTube lecture transcripts, study cards, and Discord discussions.
 
-Your knowledge covers all ICT concepts including:
-- Market Structure (BOS, CHoCH, swing highs/lows)
-- Order Blocks (bullish/bearish, mitigation, refinement)
-- Fair Value Gaps (FVG, IFVG, BISI/SIBI)
-- Liquidity (buy-side/sell-side, equal highs/lows, liquidity pools)
-- Optimal Trade Entry (OTE, 62-79% fib retracement)
-- Kill Zones (London, New York AM/PM, Asian)
-- ICT Macros (9:50-10:10, 10:50-11:10, etc.)
-- Power of 3 (Accumulation, Manipulation, Distribution)
-- Silver Bullet (10:00-11:00 AM, 2:00-3:00 PM entries)
-- Displacement and institutional candles
-- Premium/Discount zones
-- Judas Swing
-- Smart Money Concepts
+RESPONSE FORMAT — You MUST follow this structure for EVERY response:
 
-You are based on Jared Tendler's "The Mental Game of Trading" for psychology.
+1. **Answer the question** using the provided transcript excerpts and study materials. Base your answer on the SOURCE MATERIAL provided, not general knowledge.
+
+2. **📘 Study Cards** — If study cards are provided below, you MUST include a section at the end:
+   📘 **Related Study Cards:**
+   - [Card Title] — [Category]
+   If a Gamma deck URL is provided, add: [View Study Deck](url)
+
+3. **🎥 ICT Sources** — If transcript excerpts are provided, you MUST cite them:
+   🎥 **From ICT Lectures:**
+   - "[Video Title]" — [brief what was covered]
+
+4. **💬 Discord** — If Discord thread links are provided, you MUST include at the very end:
+   💬 **Study this topic in our Discord:** [full URL]
 
 Rules:
-- Be concise but thorough
-- Use ICT terminology correctly
-- Reference specific ICT concepts when relevant
-- If asked about non-ICT topics, politely redirect to trading
-- Never give specific financial advice or trade recommendations
-- Always remind users to do their own analysis
-- Keep responses under 300 words unless the topic requires more detail`;
+- ALWAYS use the provided source materials to answer. Do NOT rely on general knowledge when sources are available.
+- ALWAYS include the study cards, video sources, and Discord sections when the data is provided to you.
+- Be concise but thorough. Use ICT terminology.
+- Never give specific financial advice or trade recommendations.
+- Psychology questions use Jared Tendler's "The Mental Game of Trading" framework.`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,80 +45,49 @@ export async function POST(req: NextRequest) {
       // Try full-text search first
       const { data: chunks } = await supabase.rpc("search_knowledge_text", {
         search_query: lastUserMessage.content,
-        match_count: 5,
+        match_count: 2,
       });
 
       if (chunks && chunks.length > 0) {
-        ragContext = "\n\n---\nRELEVANT ICT TRANSCRIPT EXCERPTS (from 675+ ICT YouTube lectures):\n\n" +
-          chunks.map((c: { content: string; source_video: string }, i: number) =>
-            `[Source ${i + 1}: ${c.source_video || "ICT Lecture"}]\n${c.content}`
-          ).join("\n\n") +
-          "\n---\nUse these transcript excerpts to inform your answer. Cite the source when referencing specific content. If the excerpts don't cover the topic, use your general ICT knowledge.";
-      } else {
-        // Fallback: ILIKE search
-        const { data: fallback } = await supabase
-          .from("knowledge_chunks")
-          .select("content, source_video")
-          .ilike("content", `%${lastUserMessage.content.split(" ").slice(0, 3).join("%")}%`)
-          .limit(3);
-
-        if (fallback && fallback.length > 0) {
-          ragContext = "\n\n---\nRELEVANT ICT TRANSCRIPT EXCERPTS:\n\n" +
-            fallback.map((c: { content: string; source_video: string }, i: number) =>
-              `[Source ${i + 1}: ${c.source_video || "ICT Lecture"}]\n${c.content}`
-            ).join("\n\n") +
-            "\n---\nUse these excerpts to inform your answer.";
-        }
+        ragContext = "\n\nSOURCES:\n" +
+          chunks.map((c: { content: string; source_video: string }) =>
+            `[${c.source_video || "ICT"}]: ${c.content.slice(0, 300)}`
+          ).join("\n");
       }
     }
 
-    // RAG: Search Gamma study cards by title AND content
-    let gammaContext = "";
+    // RAG: Search Gamma cards + Discord
+    let studyContext = "";
+    let studyMaterials: { cards: Array<{ title: string; category: string; gamma_url: string }>; discord: Array<{ concept: string; thread_url: string }>; sources: Array<{ video: string }> } = { cards: [], discord: [], sources: [] };
+
     if (lastUserMessage) {
-      const queryWords = lastUserMessage.content.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
-      if (queryWords.length > 0) {
-        // Search by title (most specific) and tags
-        const titleFilters = queryWords.slice(0, 4).map((w: string) => `title.ilike.%${w}%`).join(",");
-        const { data: gammaCards } = await supabase
-          .from("gamma_cards")
-          .select("title, content, deck_name, gamma_url, category")
-          .or(titleFilters)
-          .limit(5);
+      const words = lastUserMessage.content.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2).slice(0, 3);
+      if (words.length > 0) {
+        const filters = words.map((w: string) => `title.ilike.%${w}%`).join(",");
+        const { data: cards } = await supabase.from("gamma_cards").select("title, category, gamma_url").or(filters).limit(3);
+        const conceptFilters = words.map((w: string) => `concept.ilike.%${w}%`).join(",");
+        const { data: discord } = await supabase.from("discord_references").select("concept, thread_url").or(conceptFilters).limit(2);
 
-        if (gammaCards && gammaCards.length > 0) {
-          gammaContext = "\n\n---\nSTUDY CARDS FROM THE CHAMBER (your study materials):\n\n" +
-            gammaCards.map((g: { title: string; content: string; deck_name: string; gamma_url: string; category: string }, i: number) =>
-              `📘 ${g.title} (${g.category || g.deck_name})${g.gamma_url ? ` — Gamma deck: ${g.gamma_url}` : ""}`
-            ).join("\n") +
-            "\n---\nIMPORTANT: Always mention these study cards when they match the topic. Say something like 'You can review this in your study cards: [card title] from [category]'. If a Gamma deck link exists, include it.";
+        if (cards?.length) {
+          studyMaterials.cards = cards;
+          studyContext += "\nSTUDY CARDS: " + cards.map((g: { title: string; category: string; gamma_url: string }) => `${g.title} (${g.category})`).join("; ");
+        }
+        if (discord?.length) {
+          studyMaterials.discord = discord;
+          studyContext += "\nDISCORD: " + discord.map((d: { concept: string; thread_url: string }) => `${d.concept}`).join("; ");
         }
       }
     }
 
-    // RAG: Search Discord thread references — broader matching
-    let discordContext = "";
-    if (lastUserMessage) {
-      const queryWords = lastUserMessage.content.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2);
-      if (queryWords.length > 0) {
-        // Search concept names and descriptions
-        const conceptFilters = queryWords.slice(0, 4).map((w: string) => `concept.ilike.%${w}%`).join(",");
-        const { data: discordRefs } = await supabase
-          .from("discord_references")
-          .select("concept, thread_title, thread_url, channel_name, description")
-          .or(conceptFilters)
-          .limit(3);
-
-        if (discordRefs && discordRefs.length > 0) {
-          discordContext = "\n\n---\nDISCORD STUDY THREADS (from The Chamber Discord):\n\n" +
-            discordRefs.map((d: { concept: string; thread_title: string; thread_url: string; channel_name: string; description: string }) =>
-              `💬 ${d.concept}: ${d.thread_url}`
-            ).join("\n") +
-            "\n---\nIMPORTANT: Always include the Discord link at the end of your response when a matching thread exists. Format it as: '📚 Study more in our Discord: [link]'";
-        }
+    // Extract source video names for the frontend
+    if (ragContext) {
+      const videoMatches = ragContext.match(/\[([^\]]+)\]:/g);
+      if (videoMatches) {
+        studyMaterials.sources = videoMatches.map(m => ({ video: m.replace(/[\[\]:]/g, "").trim() }));
       }
     }
 
-    const systemPromptWithRAG = ICT_SYSTEM_PROMPT + ragContext + gammaContext + discordContext;
+    const systemPromptWithRAG = ICT_SYSTEM_PROMPT + ragContext + studyContext;
 
     // Get user's API key
     const { data: keys } = await supabase
@@ -167,7 +133,7 @@ export async function POST(req: NextRequest) {
 
       const data = await response.json();
       const reply = data.content?.[0]?.text || "No response from Claude.";
-      return NextResponse.json({ reply, provider: "claude" });
+      return NextResponse.json({ reply, provider: "claude", studyMaterials });
 
     } else if (geminiKey) {
       // Call Gemini API
@@ -196,7 +162,7 @@ export async function POST(req: NextRequest) {
 
       const data = await response.json();
       const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Gemini.";
-      return NextResponse.json({ reply, provider: "gemini" });
+      return NextResponse.json({ reply, provider: "gemini", studyMaterials });
 
     } else {
       return NextResponse.json({ error: "No supported API key found" }, { status: 400 });
