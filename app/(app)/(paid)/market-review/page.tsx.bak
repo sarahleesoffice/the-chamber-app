@@ -1,0 +1,491 @@
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
+
+// ============================================================
+// Ticker categories & Yahoo Finance symbol mapping
+// ============================================================
+const CATEGORIES: Record<string, Record<string, string>> = {
+  ETF: { QQQ: "QQQ", SPY: "SPY", DIA: "DIA", ARKK: "ARKK", IWM: "IWM" },
+  FUTURES: { DXY: "DX=F", NQ: "NQ=F", ES: "ES=F", YM: "YM=F", GOLD: "GC=F", SILVER: "SI=F", "CRUDE OIL": "CL=F" },
+  FOREX: { "EUR/USD": "EURUSD=X", "GBP/USD": "GBPUSD=X", "USD/JPY": "USDJPY=X", "GBP/JPY": "GBPJPY=X", "AUD/USD": "AUDUSD=X", "USD/CAD": "USDCAD=X" },
+  STOCKS: { NVIDIA: "NVDA", AMAZON: "AMZN", AMD: "AMD", MICROSOFT: "MSFT", TESLA: "TSLA" },
+  CRYPTO: { BITCOIN: "BTC-USD", ETHEREUM: "ETH-USD", XRP: "XRP-USD", SOLANA: "SOL-USD" },
+  CFDs: { NAS100USD: "NQ=F", SPX500USD: "ES=F", US30USD: "YM=F" },
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  ETF: "#3b82f6", FUTURES: "#a855f7", FOREX: "#22c55e", STOCKS: "#e8651a", CRYPTO: "#eab308", CFDs: "#ec4899",
+};
+
+type Timeframe = "D" | "W" | "M" | "Y";
+const TF_INTERVALS: Record<Timeframe, { interval: string; range: string }> = {
+  D: { interval: "1d", range: "1y" },
+  W: { interval: "1wk", range: "5y" },
+  M: { interval: "1mo", range: "10y" },
+  Y: { interval: "1mo", range: "max" },
+};
+
+interface CandleData {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+interface VolumeData {
+  time: string;
+  value: number;
+  color: string;
+}
+
+interface ChartMeta {
+  currentPrice: number;
+  prevClose: number;
+  change: number;
+  changePct: number;
+}
+
+// ============================================================
+// TradingView Lightweight Chart Component
+// ============================================================
+function CandleChart({
+  pairName,
+  candles,
+  volumes,
+  meta,
+  height = 420,
+}: {
+  pairName: string;
+  candles: CandleData[];
+  volumes: VolumeData[];
+  meta: ChartMeta;
+  height?: number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<unknown>(null);
+
+  useEffect(() => {
+    if (!containerRef.current || candles.length === 0) return;
+
+    // Load TradingView lightweight-charts
+    const scriptId = "lightweight-charts-script";
+    let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+
+    function initChart() {
+      const LWC = (window as Record<string, unknown>).LightweightCharts as Record<string, unknown> | undefined;
+      if (!LWC || !containerRef.current) return;
+
+      // Clear previous chart
+      containerRef.current.innerHTML = "";
+
+      const createChart = LWC.createChart as (container: HTMLElement, options: Record<string, unknown>) => Record<string, unknown>;
+
+      const chart = createChart(containerRef.current, {
+        width: containerRef.current.offsetWidth,
+        height,
+        layout: {
+          background: { type: "solid", color: "#0a0a0a" },
+          textColor: "#555",
+          fontSize: 10,
+        },
+        grid: {
+          vertLines: { color: "rgba(255,255,255,0.02)" },
+          horzLines: { color: "rgba(255,255,255,0.02)" },
+        },
+        crosshair: {
+          mode: 0, // Normal
+          vertLine: { color: "rgba(232,101,26,0.4)", width: 1, style: 2, labelBackgroundColor: "#e8651a" },
+          horzLine: { color: "rgba(232,101,26,0.4)", width: 1, style: 2, labelBackgroundColor: "#e8651a" },
+        },
+        rightPriceScale: {
+          borderColor: "#1a1a1a",
+          scaleMargins: { top: 0.05, bottom: 0.2 },
+        },
+        timeScale: {
+          borderColor: "#1a1a1a",
+          timeVisible: false,
+          rightOffset: 3,
+        },
+      });
+
+      // Candlestick series
+      const addCandlestickSeries = chart.addCandlestickSeries as (options: Record<string, unknown>) => Record<string, unknown>;
+      const candleSeries = addCandlestickSeries({
+        upColor: "#22c55e",
+        downColor: "#ef4444",
+        borderUpColor: "#22c55e",
+        borderDownColor: "#ef4444",
+        wickUpColor: "#22c55e",
+        wickDownColor: "#ef4444",
+      });
+      (candleSeries.setData as (data: CandleData[]) => void)(candles);
+
+      // EMA 50
+      function calcEma(data: CandleData[], period: number) {
+        const ema: Array<{ time: string; value: number }> = [];
+        if (data.length < period) return ema;
+        let sum = 0;
+        for (let i = 0; i < period; i++) sum += data[i].close;
+        let prev = sum / period;
+        ema.push({ time: data[period - 1].time, value: Math.round(prev * 100000) / 100000 });
+        const k = 2 / (period + 1);
+        for (let i = period; i < data.length; i++) {
+          prev = data[i].close * k + prev * (1 - k);
+          ema.push({ time: data[i].time, value: Math.round(prev * 100000) / 100000 });
+        }
+        return ema;
+      }
+
+      const ema50 = calcEma(candles, 50);
+      const ema200 = calcEma(candles, 200);
+
+      const addLineSeries = chart.addLineSeries as (options: Record<string, unknown>) => Record<string, unknown>;
+
+      if (ema50.length > 0) {
+        const ema50Series = addLineSeries({
+          color: "#e8651a",
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        (ema50Series.setData as (data: Array<{ time: string; value: number }>) => void)(ema50);
+      }
+
+      if (ema200.length > 0) {
+        const ema200Series = addLineSeries({
+          color: "#d4d4d4",
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        });
+        (ema200Series.setData as (data: Array<{ time: string; value: number }>) => void)(ema200);
+      }
+
+      // Volume
+      if (volumes.length > 0 && volumes.some((v) => v.value > 0)) {
+        const addHistogramSeries = chart.addHistogramSeries as (options: Record<string, unknown>) => Record<string, unknown>;
+        const volumeSeries = addHistogramSeries({
+          priceFormat: { type: "volume" },
+          priceScaleId: "vol",
+        });
+        const priceScale = chart.priceScale as (id: string) => Record<string, unknown>;
+        const volScale = priceScale("vol");
+        (volScale.applyOptions as (opts: Record<string, unknown>) => void)({
+          scaleMargins: { top: 0.85, bottom: 0 },
+        });
+        (volumeSeries.setData as (data: VolumeData[]) => void)(volumes);
+      }
+
+      const timeScale = chart.timeScale as () => Record<string, unknown>;
+      (timeScale().fitContent as () => void)();
+
+      chartRef.current = chart;
+
+      // Resize observer
+      const ro = new ResizeObserver((entries) => {
+        const applyOptions = chart.applyOptions as (opts: Record<string, unknown>) => void;
+        applyOptions({ width: entries[0].contentRect.width });
+      });
+      ro.observe(containerRef.current);
+
+      return () => ro.disconnect();
+    }
+
+    if (!script) {
+      script = document.createElement("script");
+      script.id = scriptId;
+      script.src = "https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js";
+      script.onload = () => initChart();
+      document.head.appendChild(script);
+    } else {
+      // Script already loaded
+      initChart();
+    }
+
+    return () => {
+      if (chartRef.current && containerRef.current) {
+        try {
+          const remove = (chartRef.current as Record<string, unknown>).remove as (() => void) | undefined;
+          remove?.();
+        } catch { /* */ }
+      }
+    };
+  }, [candles, volumes, height, pairName]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="w-full rounded-md border border-[#1a1a1a] overflow-hidden"
+      style={{ height, background: "#0a0a0a" }}
+    />
+  );
+}
+
+// ============================================================
+// Single Instrument Card
+// ============================================================
+function InstrumentCard({
+  pairName,
+  yfSymbol,
+  timeframe,
+  onTimeframeChange,
+}: {
+  pairName: string;
+  yfSymbol: string;
+  timeframe: Timeframe;
+  onTimeframeChange: (tf: Timeframe) => void;
+}) {
+  const [candles, setCandles] = useState<CandleData[]>([]);
+  const [volumes, setVolumes] = useState<VolumeData[]>([]);
+  const [meta, setMeta] = useState<ChartMeta | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [biasResult, setBiasResult] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const { interval, range } = TF_INTERVALS[timeframe];
+    try {
+      // Add small stagger delay based on symbol hash to avoid hitting Yahoo rate limits
+      const hash = yfSymbol.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+      await new Promise((r) => setTimeout(r, (hash % 5) * 400));
+
+      const res = await fetch(`/api/yahoo-candles?symbol=${encodeURIComponent(yfSymbol)}&interval=${interval}&range=${range}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCandles(data.candles || []);
+        setVolumes(data.volumes || []);
+        setMeta(data.meta || null);
+      }
+    } catch { /* */ }
+    setLoading(false);
+  }, [yfSymbol, timeframe]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const changeColor = meta ? (meta.change >= 0 ? "#22c55e" : "#ef4444") : "#888";
+  const sign = meta && meta.change >= 0 ? "+" : "";
+
+  return (
+    <div className="mb-8">
+      {/* Price header bar */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-3">
+          <span className="text-white text-lg font-bold">{pairName}</span>
+          {meta && (
+            <>
+              <span className="text-white text-base font-medium">
+                {meta.currentPrice < 10 ? meta.currentPrice.toFixed(4) : meta.currentPrice < 100 ? meta.currentPrice.toFixed(3) : meta.currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className="text-sm" style={{ color: changeColor }}>
+                {sign}{meta.change < 10 ? meta.change.toFixed(4) : meta.change.toFixed(2)} ({sign}{meta.changePct.toFixed(2)}%)
+              </span>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[0.6rem] text-chamber-text-dim mr-2">
+            <span className="inline-block w-1.5 h-[1px] bg-chamber-orange mr-1 align-middle" />EMA 50
+            <span className="inline-block w-1.5 h-[1px] bg-[#d4d4d4] ml-3 mr-1 align-middle" />EMA 200
+          </span>
+          {(["D", "W", "M", "Y"] as Timeframe[]).map((tf) => (
+            <button
+              key={tf}
+              onClick={() => onTimeframeChange(tf)}
+              className="px-2 py-0.5 text-xs font-bold transition-colors"
+              style={{ color: timeframe === tf ? "#e8651a" : "#444" }}
+            >
+              {tf}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chart */}
+      {loading ? (
+        <div className="flex items-center justify-center rounded-md border border-[#1a1a1a]" style={{ height: 420, background: "#0a0a0a" }}>
+          <span className="text-chamber-text-dim text-sm">Loading {pairName}...</span>
+        </div>
+      ) : candles.length > 0 && meta ? (
+        <CandleChart pairName={pairName} candles={candles} volumes={volumes} meta={meta} />
+      ) : (
+        <div className="flex items-center justify-center rounded-md border border-dashed border-[#1e1a17]" style={{ height: 420 }}>
+          <div className="text-center">
+            <span className="text-chamber-text-muted font-semibold">{pairName}</span>
+            <br />
+            <span className="text-chamber-text-dim text-sm">Failed to load data</span>
+          </div>
+        </div>
+      )}
+
+      {/* Analyze Bias button */}
+      <button
+        onClick={() => setBiasResult(biasResult ? null : "AI bias analysis requires API key configuration in Settings. Configure your Claude or Gemini API key to enable ICT bias analysis.")}
+        className="w-full mt-2 py-2 rounded-md text-sm font-semibold tracking-wider transition-all"
+        style={{
+          background: "rgba(232,101,26,0.06)",
+          border: "1px solid rgba(232,101,26,0.25)",
+          color: "#e8651a",
+        }}
+      >
+        Analyze Bias
+      </button>
+
+      {biasResult && (
+        <div className="mt-2 p-4 rounded-lg border text-sm text-chamber-text-muted" style={{ background: "#0e0e0e", borderColor: "rgba(232,101,26,0.25)" }}>
+          {biasResult}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Main Page
+// ============================================================
+export default function MarketReviewPage() {
+  const [selectedPairs, setSelectedPairs] = useState<Record<string, Set<string>>>({
+    ETF: new Set(["QQQ"]),
+    FUTURES: new Set(["NQ"]),
+    FOREX: new Set(["EUR/USD"]),
+    STOCKS: new Set(),
+    CRYPTO: new Set(),
+    CFDs: new Set(),
+  });
+  const [timeframe, setTimeframe] = useState<Timeframe>("D");
+
+  function togglePair(cat: string, pair: string) {
+    setSelectedPairs((prev) => {
+      const next = { ...prev };
+      const set = new Set(prev[cat]);
+      if (set.has(pair)) set.delete(pair);
+      else set.add(pair);
+      next[cat] = set;
+      return next;
+    });
+  }
+
+  function selectAll(cat: string) {
+    setSelectedPairs((prev) => {
+      const next = { ...prev };
+      const allPairs = Object.keys(CATEGORIES[cat]);
+      const currentlyAll = allPairs.every((p) => prev[cat].has(p));
+      next[cat] = currentlyAll ? new Set() : new Set(allPairs);
+      return next;
+    });
+  }
+
+  // Flatten selected pairs
+  const activePairs: Array<{ name: string; symbol: string }> = [];
+  for (const [cat, pairs] of Object.entries(selectedPairs)) {
+    for (const pair of pairs) {
+      const symbol = CATEGORIES[cat]?.[pair];
+      if (symbol) activePairs.push({ name: pair, symbol });
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-white">Market Review</h1>
+        <p className="text-chamber-text-dim text-sm mt-1">
+          Daily candles · End-of-day data · Study the chart, not the P&L
+        </p>
+      </div>
+
+      {/* Instrument Picker — row of multiselect dropdowns matching 8501 */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        {Object.entries(CATEGORIES).map(([cat, tickers]) => {
+          const selected = selectedPairs[cat] || new Set();
+          const pairs = Object.keys(tickers);
+          return (
+            <div key={cat}>
+              <label className="text-[0.65rem] font-bold tracking-[1.5px] uppercase mb-1.5 block" style={{ color: CATEGORY_COLORS[cat] }}>
+                {cat}
+              </label>
+              {/* Selected pills */}
+              <div className="flex flex-wrap gap-1 mb-1.5 min-h-[28px]">
+                {pairs.filter((p) => selected.has(p)).map((pair) => (
+                  <span
+                    key={pair}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.68rem] font-semibold tracking-wider cursor-pointer transition-all hover:opacity-80"
+                    style={{
+                      background: "rgba(232,101,26,0.12)",
+                      border: "1px solid rgba(232,101,26,0.35)",
+                      color: "#e8651a",
+                    }}
+                    onClick={() => togglePair(cat, pair)}
+                  >
+                    {pair}
+                    <span className="text-[0.55rem] opacity-50 ml-0.5">×</span>
+                  </span>
+                ))}
+              </div>
+              {/* Dropdown to add */}
+              <div className="flex items-center gap-1">
+                <select
+                  value=""
+                  onChange={(e) => { if (e.target.value) togglePair(cat, e.target.value); }}
+                  className="flex-1 bg-chamber-surface border border-chamber-border rounded-md px-2 py-1.5 text-xs text-chamber-text-muted focus:outline-none focus:border-chamber-orange/50 appearance-none cursor-pointer"
+                >
+                  <option value="">Choose options</option>
+                  {pairs.filter((p) => !selected.has(p)).map((pair) => (
+                    <option key={pair} value={pair}>{pair}</option>
+                  ))}
+                </select>
+                {/* Clear + dropdown icon */}
+                <button
+                  onClick={() => selectAll(cat)}
+                  className="text-[0.6rem] text-chamber-text-dim hover:text-chamber-orange transition-colors"
+                  title={pairs.every((p) => selected.has(p)) ? "Clear all" : "Select all"}
+                >
+                  ⚙
+                </button>
+                <span className="text-chamber-text-dim text-xs">▾</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Charts */}
+      {activePairs.length === 0 ? (
+        <div className="bg-chamber-surface border border-chamber-border rounded-lg p-10 text-center text-chamber-text-muted">
+          Select instruments from the categories above to see charts.
+        </div>
+      ) : (
+        <div>
+          {activePairs.map((pair) => (
+            <InstrumentCard
+              key={pair.name}
+              pairName={pair.name}
+              yfSymbol={pair.symbol}
+              timeframe={timeframe}
+              onTimeframeChange={setTimeframe}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="text-center mt-8 leading-relaxed">
+        <p className="text-[#333] text-[0.65rem] tracking-wider">
+          DATA FROM YAHOO FINANCE · DAILY CANDLES · END-OF-DAY · EMA 50 · EMA 200
+        </p>
+        <p className="text-[#292929] text-[0.58rem] mt-1">
+          BIAS ANALYSIS POWERED BY ICT METHODOLOGY
+        </p>
+        <p className="text-[#292929] text-[0.58rem] mt-0.5">
+          TRAINED ON 675+ ICT YOUTUBE TRANSCRIPTS & MENTORSHIP TEACHINGS
+        </p>
+        <p className="text-[#292929] text-[0.58rem] mt-0.5">THIS IS NOT FINANCIAL ADVICE</p>
+      </div>
+    </div>
+  );
+}
