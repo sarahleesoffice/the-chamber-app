@@ -319,7 +319,24 @@ function InstrumentCard({
 
       {/* Analyze Bias button */}
       <button
-        onClick={() => setBiasResult(biasResult ? null : "AI bias analysis requires API key configuration in Settings. Configure your Claude or Gemini API key to enable ICT bias analysis.")}
+        onClick={async () => {
+          if (biasResult) { setBiasResult(null); return; }
+          setBiasResult("Analyzing bias...");
+          try {
+            const res = await fetch("/api/ai-chat", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                messages: [{ role: "user", content: `Analyze the current market bias for ${Object.values(selectedPairs).flat().join(", ")} based on ICT methodology. Consider daily timeframe structure, key levels, and upcoming sessions. Give a brief directional bias for each.` }],
+              }),
+            });
+            const data = await res.json();
+            if (!res.ok) setBiasResult(data.error || "Error analyzing bias. Check your API key in Settings.");
+            else setBiasResult(data.reply);
+          } catch {
+            setBiasResult("Network error. Please try again.");
+          }
+        }}
         className="w-full mt-2 py-2 rounded-md text-sm font-semibold tracking-wider transition-all"
         style={{
           background: "rgba(232,101,26,0.06)",
