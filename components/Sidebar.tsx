@@ -86,7 +86,7 @@ export default function Sidebar() {
       {/* Mobile hamburger */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed top-4 left-4 z-40 p-2 rounded-lg bg-[#0f0f0f] border border-chamber-border text-chamber-orange md:hidden"
+        className="fixed top-8 left-4 z-40 p-2 rounded-lg bg-[#0f0f0f] border border-chamber-border text-chamber-orange md:hidden"
       >
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />

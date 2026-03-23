@@ -278,7 +278,7 @@ export default function DashboardPage() {
           const mWrColor = mWr >= 55 ? "#22c55e" : mWr >= 45 ? "#e8651a" : "#ef4444";
 
           return (
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-2 mb-4">
               <StatCard
                 label="Monthly P&L"
                 value={mDollar ? formatDollar(mDollar) : mTotal ? `${mTotal > 0 ? "+" : ""}${mTotal.toFixed(1)} pips` : "—"}
@@ -296,33 +296,34 @@ export default function DashboardPage() {
 
         {/* Month nav */}
         <div className="flex items-center mb-3">
-          <button onClick={() => setCalMonth(subMonths(calMonth, 1))} className="px-4 py-2 rounded-lg bg-chamber-surface border border-chamber-border text-sm text-chamber-text-muted hover:text-chamber-orange transition-colors">
+          <button onClick={() => setCalMonth(subMonths(calMonth, 1))} className="px-2 py-1.5 md:px-4 md:py-2 rounded-lg bg-chamber-surface border border-chamber-border text-xs md:text-sm text-chamber-text-muted hover:text-chamber-orange transition-colors">
             &lt; Prev
           </button>
-          <span className="flex-1 text-center text-lg font-semibold text-white">{format(calMonth, "MMMM yyyy")}</span>
-          <div className="flex gap-2">
-            <button onClick={() => setCalMonth(new Date())} className="px-4 py-2 rounded-lg bg-chamber-surface border border-chamber-border text-sm text-chamber-text-muted hover:text-chamber-orange transition-colors">
+          <span className="flex-1 text-center text-sm md:text-lg font-semibold text-white">{format(calMonth, "MMMM yyyy")}</span>
+          <div className="flex gap-1.5 md:gap-2">
+            <button onClick={() => setCalMonth(new Date())} className="hidden md:block px-4 py-2 rounded-lg bg-chamber-surface border border-chamber-border text-sm text-chamber-text-muted hover:text-chamber-orange transition-colors">
               Today
             </button>
-            <button onClick={() => setCalMonth(addMonths(calMonth, 1))} className="px-4 py-2 rounded-lg bg-chamber-surface border border-chamber-border text-sm text-chamber-text-muted hover:text-chamber-orange transition-colors">
+            <button onClick={() => setCalMonth(addMonths(calMonth, 1))} className="px-2 py-1.5 md:px-4 md:py-2 rounded-lg bg-chamber-surface border border-chamber-border text-xs md:text-sm text-chamber-text-muted hover:text-chamber-orange transition-colors">
               Next &gt;
             </button>
           </div>
         </div>
 
         {/* Day headers */}
-        <div className="grid grid-cols-7 gap-1 mb-1">
+        <div className="grid grid-cols-7 gap-0.5 md:gap-1 mb-1">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-            <div key={d} className="text-center text-[0.7rem] text-chamber-text-muted uppercase tracking-wider py-1.5 font-semibold">
-              {d}
+            <div key={d} className="text-center text-[0.55rem] md:text-[0.7rem] text-chamber-text-muted uppercase tracking-wider py-1 md:py-1.5 font-semibold">
+              <span className="hidden md:inline">{d}</span>
+              <span className="md:hidden">{d[0]}</span>
             </div>
           ))}
         </div>
 
         {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-0.5 md:gap-1">
           {Array.from({ length: startPad }).map((_, i) => (
-            <div key={`pad-${i}`} className="min-h-[90px] lg:min-h-[110px] 2xl:min-h-[130px]" />
+            <div key={`pad-${i}`} className="min-h-[65px] md:min-h-[90px] lg:min-h-[110px] 2xl:min-h-[130px]" />
           ))}
           {daysInMonth.map((day) => {
             const dateStr = format(day, "yyyy-MM-dd");
@@ -341,32 +342,36 @@ export default function DashboardPage() {
             return (
               <div
                 key={dateStr}
-                className={`min-h-[90px] lg:min-h-[110px] 2xl:min-h-[130px] rounded-lg border p-1.5 flex flex-col items-center justify-center transition-all ${bgClass} ${
+                className={`min-h-[65px] md:min-h-[90px] lg:min-h-[110px] 2xl:min-h-[130px] rounded-md md:rounded-lg border p-0.5 md:p-1.5 flex flex-col items-center justify-center transition-all ${bgClass} ${
                   isCurrentDay ? "!border-chamber-orange !border-2 shadow-[0_0_8px_rgba(232,101,26,0.4)]" : ""
                 } ${hasTradesDay || journal ? "cursor-pointer hover:bg-chamber-orange/10 hover:border-chamber-orange/40" : ""}`}
               >
-                <span className={`text-[0.7rem] ${isCurrentDay ? "text-white" : "text-chamber-text-muted"}`}>
+                <span className={`text-[0.6rem] md:text-[0.7rem] ${isCurrentDay ? "text-white" : "text-chamber-text-muted"}`}>
                   {format(day, "d")}
                 </span>
                 {hasTradesDay && (
                   <>
-                    <span className={`text-sm font-bold ${textColor}`}>
+                    {/* Mobile: show pips only (short); Desktop: show dollar/pips */}
+                    <span className={`text-[0.6rem] font-bold leading-tight md:hidden ${textColor}`}>
+                      {`${dp.pips > 0 ? "+" : ""}${dp.pips.toFixed(0)}p`}
+                    </span>
+                    <span className={`hidden md:block text-sm font-bold ${textColor}`}>
                       {dp.dollar ? formatDollar(dp.dollar) : `${dp.pips > 0 ? "+" : ""}${dp.pips.toFixed(0)}p`}
                     </span>
-                    <span className="text-[0.65rem] text-chamber-text-muted">Trades: {dp.count}</span>
+                    <span className="hidden md:block text-[0.65rem] text-chamber-text-muted">Trades: {dp.count}</span>
                   </>
                 )}
-                {/* Mental score + journal indicators */}
+                {/* Mental score dot — always visible; score text desktop-only */}
                 {journal && (
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: journal.readiness_score >= 7 ? "#22c55e" : journal.readiness_score >= 4 ? "#e8651a" : "#ef4444" }} />
-                    <span className="text-[0.5rem]" style={{ color: journal.readiness_score >= 7 ? "#22c55e" : journal.readiness_score >= 4 ? "#e8651a" : "#ef4444" }}>
+                  <div className="flex items-center gap-0.5 md:gap-1 mt-0.5">
+                    <span className="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full flex-shrink-0" style={{ background: journal.readiness_score >= 7 ? "#22c55e" : journal.readiness_score >= 4 ? "#e8651a" : "#ef4444" }} />
+                    <span className="hidden md:inline text-[0.5rem]" style={{ color: journal.readiness_score >= 7 ? "#22c55e" : journal.readiness_score >= 4 ? "#e8651a" : "#ef4444" }}>
                       {journal.readiness_score}/10
                     </span>
                   </div>
                 )}
                 {journal && !hasTradesDay && (
-                  <span className="text-[0.5rem] text-chamber-text-dim mt-0.5">✎ Journal</span>
+                  <span className="hidden md:block text-[0.5rem] text-chamber-text-dim mt-0.5">✎ Journal</span>
                 )}
               </div>
             );

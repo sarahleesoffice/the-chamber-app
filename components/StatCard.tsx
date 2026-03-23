@@ -11,7 +11,7 @@ export default function StatCard({ label, value, color = "#f5f5f5", subText }: S
       <div className="text-chamber-text-muted text-[0.7rem] uppercase tracking-wider mb-1">
         {label}
       </div>
-      <div className="text-2xl font-bold" style={{ color }}>
+      <div className="text-xl md:text-2xl font-bold" style={{ color }}>
         {value}
       </div>
       {subText && (
