@@ -7,9 +7,9 @@ interface StatCardProps {
 }
 
 export default function StatCard({ label, value, color = "#f5f5f5", subText, size = "md" }: StatCardProps) {
-  const valueSize = size === "lg" ? "text-3xl md:text-4xl" : size === "sm" ? "text-base md:text-lg" : "text-xl md:text-2xl";
-  const padding = size === "lg" ? "p-4 md:p-6" : size === "sm" ? "p-2 md:p-2.5" : "p-3 md:p-3.5";
-  const labelSize = size === "lg" ? "text-[0.7rem]" : size === "sm" ? "text-[0.55rem]" : "text-[0.65rem]";
+  const valueSize = size === "lg" ? "text-2xl md:text-3xl" : size === "sm" ? "text-sm md:text-base" : "text-lg md:text-xl";
+  const padding = size === "lg" ? "p-3 md:p-4" : size === "sm" ? "p-1.5 md:p-2" : "p-2 md:p-3";
+  const labelSize = size === "lg" ? "text-[0.6rem]" : size === "sm" ? "text-[0.5rem]" : "text-[0.55rem]";
   const glow = size === "lg" ? `0 0 20px ${color}33` : "none";
 
   return (
