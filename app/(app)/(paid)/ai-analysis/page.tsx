@@ -43,7 +43,7 @@ export default function AIAnalysisPage() {
     id: string;
     pair: string;
     direction: "long" | "short";
-    entryPrice: string;
+    entryPrices: string[]; // supports scale-in entries
     exitPrice: string;
     tradeDate: string;
     reasoning: string;
@@ -60,7 +60,7 @@ export default function AIAnalysisPage() {
   const [extraPreview, setExtraPreview] = useState<string | null>(null);
   const [pair, setPair] = useState("");
   const [direction, setDirection] = useState<"long" | "short">("long");
-  const [entryPrice, setEntryPrice] = useState("");
+  const [entryPrices, setEntryPrices] = useState<string[]>([""]);
   const [exitPrice, setExitPrice] = useState("");
   const [tradeDate, setTradeDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [reasoning, setReasoning] = useState("");
@@ -71,11 +71,11 @@ export default function AIAnalysisPage() {
     if (!pair) return;
     setSavedTrades((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), pair, direction, entryPrice, exitPrice, tradeDate, reasoning },
+      { id: crypto.randomUUID(), pair, direction, entryPrices: entryPrices.filter(p => p !== ""), exitPrice, tradeDate, reasoning },
     ]);
     // Reset form for next trade (keep date and pair)
     setDirection("long");
-    setEntryPrice("");
+    setEntryPrices([""]);
     setExitPrice("");
     setReasoning("");
   }
@@ -117,7 +117,7 @@ export default function AIAnalysisPage() {
         id: crypto.randomUUID(),
         pair: p,
         direction: (d === "long" || d === "short") ? d : "long",
-        entryPrice: ep || "",
+        entryPrices: ep ? [ep] : [""],
         exitPrice: xp || "",
         tradeDate: td || format(new Date(), "yyyy-MM-dd"),
         reasoning: r || "",
@@ -240,8 +240,8 @@ export default function AIAnalysisPage() {
 
       // Collect all trades — saved ones + current form if filled
       const allTrades = [...savedTrades];
-      if (pair && entryPrice) {
-        allTrades.push({ id: "current", pair, direction, entryPrice, exitPrice, tradeDate, reasoning });
+      if (pair && entryPrices.some(p => p !== "")) {
+        allTrades.push({ id: "current", pair, direction, entryPrices: entryPrices.filter(p => p !== ""), exitPrice, tradeDate, reasoning });
       }
 
       const res = await fetch("/api/ai-analysis", {
@@ -250,15 +250,15 @@ export default function AIAnalysisPage() {
         body: JSON.stringify({
           pair: allTrades[0]?.pair || pair,
           direction: allTrades[0]?.direction || direction,
-          entry_price: allTrades[0]?.entryPrice || entryPrice,
+          entry_price: allTrades[0]?.entryPrices?.join(", ") || entryPrices.filter(p => p).join(", "),
           exit_price: allTrades[0]?.exitPrice || exitPrice,
           trade_date: allTrades[0]?.tradeDate || tradeDate,
-          reasoning: allTrades.map((t, i) => `Trade ${i + 1} (${t.pair} ${t.direction}): Entry ${t.entryPrice}, Exit ${t.exitPrice}${t.reasoning ? ` — ${t.reasoning}` : ""}`).join("\n"),
+          reasoning: allTrades.map((t, i) => `Trade ${i + 1} (${t.pair} ${t.direction}): Entries [${t.entryPrices.join(", ")}], Exit ${t.exitPrice}${t.reasoning ? ` — ${t.reasoning}` : ""}`).join("\n"),
           focus,
           chart_descriptions: chartDescriptions,
           trades: allTrades.map((t) => ({
             pair: t.pair, direction: t.direction,
-            entry_price: t.entryPrice, exit_price: t.exitPrice,
+            entry_prices: t.entryPrices, exit_price: t.exitPrice,
             trade_date: t.tradeDate, reasoning: t.reasoning,
           })),
         }),
@@ -586,17 +586,44 @@ export default function AIAnalysisPage() {
                 </div>
               </div>
 
-              {/* Entry Price */}
+              {/* Entry Price(s) — scale-in support */}
               <div>
-                <label className="block text-xs text-chamber-text-muted mb-1.5">Entry Price</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={entryPrice}
-                  onChange={(e) => setEntryPrice(e.target.value)}
-                  placeholder="0.00000"
-                  className="w-full bg-chamber-surface border border-chamber-border rounded-lg px-3 py-2.5 text-white text-sm focus:border-chamber-orange focus:outline-none transition-colors placeholder:text-chamber-text-dim"
-                />
+                <label className="block text-xs text-chamber-text-muted mb-1.5">
+                  Entry Price{entryPrices.length > 1 ? "s" : ""}
+                </label>
+                {entryPrices.map((ep, i) => (
+                  <div key={i} className="flex items-center gap-1 mb-1">
+                    <span className="text-[10px] text-chamber-text-dim w-3 shrink-0">{i + 1}.</span>
+                    <input
+                      type="number"
+                      step="any"
+                      value={ep}
+                      onChange={(e) => {
+                        const updated = [...entryPrices];
+                        updated[i] = e.target.value;
+                        setEntryPrices(updated);
+                      }}
+                      placeholder="0.00000"
+                      className="w-full bg-chamber-surface border border-chamber-border rounded-lg px-3 py-2 text-white text-sm focus:border-chamber-orange focus:outline-none transition-colors placeholder:text-chamber-text-dim"
+                    />
+                    {entryPrices.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setEntryPrices(entryPrices.filter((_, j) => j !== i))}
+                        className="text-chamber-text-dim hover:text-red-400 text-xs shrink-0"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setEntryPrices([...entryPrices, ""])}
+                  className="text-[10px] text-chamber-orange/70 hover:text-chamber-orange mt-0.5 transition-colors"
+                >
+                  + Scale In
+                </button>
               </div>
 
               {/* Exit Price */}
@@ -633,10 +660,13 @@ export default function AIAnalysisPage() {
           {savedTrades.length > 0 && (
             <div className="space-y-1.5">
               {savedTrades.map((t, i) => {
-                const pnl = t.exitPrice && t.entryPrice
+                const avgEntry = t.entryPrices.length > 0
+                  ? t.entryPrices.reduce((s, p) => s + parseFloat(p || "0"), 0) / t.entryPrices.length
+                  : 0;
+                const pnl = t.exitPrice && avgEntry
                   ? t.direction === "long"
-                    ? parseFloat(t.exitPrice) - parseFloat(t.entryPrice)
-                    : parseFloat(t.entryPrice) - parseFloat(t.exitPrice)
+                    ? parseFloat(t.exitPrice) - avgEntry
+                    : avgEntry - parseFloat(t.exitPrice)
                   : 0;
                 return (
                   <div key={t.id} className="flex items-center justify-between rounded-lg bg-[#141414] border border-chamber-border px-3 py-2 text-sm">
@@ -646,7 +676,14 @@ export default function AIAnalysisPage() {
                         {t.direction.toUpperCase()}
                       </span>
                       <span className="text-white font-medium">{t.pair}</span>
-                      <span className="text-chamber-text-muted text-xs">@ {t.entryPrice}</span>
+                      <span className="text-chamber-text-muted text-xs">
+                        @ {t.entryPrices.length > 1
+                          ? t.entryPrices.join(" / ")
+                          : t.entryPrices[0]}
+                        {t.entryPrices.length > 1 && (
+                          <span className="text-chamber-orange/60 ml-1">({t.entryPrices.length} entries)</span>
+                        )}
+                      </span>
                       <span className="text-chamber-text-dim text-xs">→ {t.exitPrice}</span>
                       {pnl !== 0 && (
                         <span className={`text-xs font-bold ${pnl > 0 ? "text-green-400" : "text-red-400"}`}>
