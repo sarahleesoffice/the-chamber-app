@@ -8,6 +8,7 @@ export const COMMON_PAIRS = [
   "XAU/USD", "XAG/USD",
   "US100", "US30", "US500", "US100.SIM",
   "NAS100", "SPX500", "DJ30",
+  "NQ", "ES", "YM",
   "BTC/USD", "ETH/USD",
 ];
 
