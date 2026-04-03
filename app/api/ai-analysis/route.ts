@@ -67,7 +67,7 @@ FORMATTING RULES — VERY IMPORTANT:
 - Use plain text only with line breaks
 - Keep it concise — aim for 300-400 words max
 - Use a conversational, mentor-like tone
-- Use emojis to make it visually engaging (🔥 ✅ ⚠️ 📊 🎯 💡 etc.)
+- Use emojis to make it visually engaging (🔥 ✅ ⚠️ 📊 🎯 💡 etc.) but NEVER use the 💯 emoji
 
 Format your response EXACTLY like this:
 

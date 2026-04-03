@@ -323,7 +323,7 @@ export default function AIAnalysisPage() {
 
       if (res.ok) {
         const data = await res.json();
-        const cleanReply = (data.reply || "No response.").replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "");
+        const cleanReply = (data.reply || "No response.").replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "").replace(/💯/g, "🔥");
         setChatMessages((prev) => [...prev, { role: "assistant", text: cleanReply }]);
       } else {
         const data = await res.json().catch(() => ({}));
@@ -881,7 +881,7 @@ export default function AIAnalysisPage() {
           {/* Analysis Result */}
           {analysisResult && (() => {
             // Strip any markdown that sneaks through
-            const clean = analysisResult.replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "").replace(/__/g, "");
+            const clean = analysisResult.replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "").replace(/__/g, "").replace(/💯/g, "🔥");
             // Extract rating
             const ratingMatch = clean.match(/ICT\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
             const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
