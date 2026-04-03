@@ -519,79 +519,89 @@ export default function DailyJournalPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <h1
-        className="text-3xl font-bold tracking-[3px] text-chamber-orange"
-        style={{ textShadow: "0 0 20px rgba(232,101,26,0.4), 0 0 40px rgba(232,101,26,0.15)" }}
+      {/* Header Card */}
+      <div
+        className="rounded-xl p-5"
+        style={{
+          background: "linear-gradient(135deg, rgba(232,101,26,0.08) 0%, rgba(10,10,10,0.95) 60%)",
+          border: "1px solid rgba(232,101,26,0.15)",
+        }}
       >
-        DAILY JOURNAL
-      </h1>
-
-      {/* ── Date Navigation ── */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <button
-          onClick={() => goToDate(subDays(currentDate, 1))}
-          className="px-4 py-2 rounded-lg bg-chamber-surface border border-chamber-border text-sm text-chamber-text-muted hover:text-chamber-orange transition-colors"
-        >
-          &lt; Prev
-        </button>
-        <button
-          onClick={() => goToDate(new Date())}
-          className="px-4 py-2 rounded-lg bg-chamber-orange/20 border border-chamber-orange text-sm text-chamber-orange font-medium hover:bg-chamber-orange/30 transition-colors"
-        >
-          Today
-        </button>
-        <input
-          type="date"
-          value={dateStr}
-          onChange={(e) => {
-            if (e.target.value) goToDate(new Date(e.target.value + "T12:00:00"));
-          }}
-          className="px-3 py-2 rounded-lg bg-chamber-surface border border-chamber-border text-sm text-white [color-scheme:dark] cursor-pointer"
-        />
-        <button
-          onClick={() => goToDate(addDays(currentDate, 1))}
-          className="px-4 py-2 rounded-lg bg-chamber-surface border border-chamber-border text-sm text-chamber-text-muted hover:text-chamber-orange transition-colors"
-        >
-          Next &gt;
-        </button>
-      </div>
-      <p className="text-chamber-text-muted text-sm -mt-3">{displayDate}</p>
-
-      {/* ── Daily P&L Summary ── */}
-      {pnlSummary ? (
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-chamber-surface border border-chamber-border rounded-lg p-4 text-center">
-            <p className="text-[0.7rem] text-chamber-text-muted uppercase tracking-wider mb-1">Today&apos;s P&amp;L</p>
-            <p
-              className="text-xl font-bold"
-              style={{ color: pnlSummary.totalPips > 0 ? "#22c55e" : pnlSummary.totalPips < 0 ? "#ef4444" : "#888" }}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1
+              className="text-2xl font-bold tracking-[3px] text-chamber-orange"
+              style={{ textShadow: "0 0 20px rgba(232,101,26,0.4)" }}
             >
-              {pnlSummary.totalPips > 0 ? "+" : ""}
-              {pnlSummary.totalPips.toFixed(1)} pips
-            </p>
-            {pnlSummary.totalDollar !== 0 && (
-              <p className="text-[0.7rem] text-chamber-text-muted">
-                ${pnlSummary.totalDollar.toFixed(2)}
-              </p>
-            )}
+              DAILY JOURNAL
+            </h1>
+            <p className="text-chamber-text-muted text-sm mt-1">📝 {displayDate}</p>
           </div>
-          <div className="bg-chamber-surface border border-chamber-border rounded-lg p-4 text-center">
-            <p className="text-[0.7rem] text-chamber-text-muted uppercase tracking-wider mb-1">Trades</p>
-            <p className="text-xl font-bold text-white">{pnlSummary.count}</p>
-          </div>
-          <div className="bg-chamber-surface border border-chamber-border rounded-lg p-4 text-center">
-            <p className="text-[0.7rem] text-chamber-text-muted uppercase tracking-wider mb-1">W / L</p>
-            <p className="text-xl font-bold text-white">
-              <span className="text-green-400">{pnlSummary.wins}</span>
-              {" / "}
-              <span className="text-red-400">{pnlSummary.losses}</span>
-            </p>
+
+          {/* Date Nav */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => goToDate(subDays(currentDate, 1))}
+              className="w-8 h-8 rounded-lg bg-chamber-surface border border-chamber-border text-sm text-chamber-text-muted hover:text-chamber-orange hover:border-chamber-orange/30 transition-colors flex items-center justify-center"
+            >
+              ‹
+            </button>
+            <button
+              onClick={() => goToDate(new Date())}
+              className="px-3 h-8 rounded-lg bg-chamber-orange/15 border border-chamber-orange/40 text-xs text-chamber-orange font-semibold hover:bg-chamber-orange/25 transition-colors"
+            >
+              Today
+            </button>
+            <input
+              type="date"
+              value={dateStr}
+              onChange={(e) => {
+                if (e.target.value) goToDate(new Date(e.target.value + "T12:00:00"));
+              }}
+              className="h-8 px-2 rounded-lg bg-chamber-surface border border-chamber-border text-xs text-white [color-scheme:dark] cursor-pointer"
+            />
+            <button
+              onClick={() => goToDate(addDays(currentDate, 1))}
+              className="w-8 h-8 rounded-lg bg-chamber-surface border border-chamber-border text-sm text-chamber-text-muted hover:text-chamber-orange hover:border-chamber-orange/30 transition-colors flex items-center justify-center"
+            >
+              ›
+            </button>
           </div>
         </div>
-      ) : (
-        <p className="text-chamber-text-muted text-sm">No trades logged for this date.</p>
-      )}
+
+        {/* Daily P&L Summary */}
+        {pnlSummary ? (
+          <div className="flex items-center gap-4 mt-4 pt-3" style={{ borderTop: "1px solid rgba(232,101,26,0.1)" }}>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-chamber-text-dim uppercase tracking-wider">P&L</span>
+              <span
+                className="text-lg font-bold"
+                style={{ color: pnlSummary.totalPips > 0 ? "#22c55e" : pnlSummary.totalPips < 0 ? "#ef4444" : "#888" }}
+              >
+                {pnlSummary.totalPips > 0 ? "+" : ""}{pnlSummary.totalPips.toFixed(1)}p
+              </span>
+              {pnlSummary.totalDollar !== 0 && (
+                <span className="text-xs text-chamber-text-muted">(${pnlSummary.totalDollar.toFixed(2)})</span>
+              )}
+            </div>
+            <span className="text-chamber-border">|</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-chamber-text-dim uppercase tracking-wider">Trades</span>
+              <span className="text-sm font-bold text-white">{pnlSummary.count}</span>
+            </div>
+            <span className="text-chamber-border">|</span>
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-bold text-green-400">{pnlSummary.wins}W</span>
+              <span className="text-chamber-text-dim">/</span>
+              <span className="text-sm font-bold text-red-400">{pnlSummary.losses}L</span>
+            </div>
+          </div>
+        ) : (
+          <p className="text-chamber-text-dim text-xs mt-3 pt-3" style={{ borderTop: "1px solid rgba(232,101,26,0.1)" }}>
+            No trades logged for this date
+          </p>
+        )}
+      </div>
 
       <hr className="border-chamber-border" />
 
