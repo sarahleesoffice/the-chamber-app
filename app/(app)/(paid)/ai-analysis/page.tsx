@@ -951,62 +951,75 @@ export default function AIAnalysisPage() {
                   {bodyText}
                 </div>
 
-                {/* Chat follow-up */}
-                <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(232,101,26,0.2)" }}>
-                  {chatMessages.length > 0 && (
-                    <div className="space-y-3 mb-4 max-h-[400px] overflow-y-auto pr-1">
-                      {chatMessages.map((msg, i) => (
-                        <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                          <div
-                            className="rounded-xl px-4 py-2.5 text-sm max-w-[85%] whitespace-pre-wrap"
-                            style={{
-                              background: msg.role === "user" ? "rgba(232,101,26,0.15)" : "rgba(255,255,255,0.05)",
-                              border: msg.role === "user" ? "1px solid rgba(232,101,26,0.3)" : "1px solid rgba(255,255,255,0.08)",
-                              color: msg.role === "user" ? "#f0f0f0" : "#d0d0d0",
-                            }}
-                          >
-                            {msg.role === "assistant" && <span className="text-xs text-chamber-orange mr-1">🔥</span>}
-                            {msg.text}
-                          </div>
-                        </div>
-                      ))}
-                      {chatSending && (
-                        <div className="flex justify-start">
-                          <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                            <span className="text-chamber-text-muted animate-pulse">thinking... 🧠</span>
-                          </div>
-                        </div>
-                      )}
-                      <div ref={chatEndRef} />
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
-                      placeholder="Ask a follow-up... 💬"
-                      className="flex-1 bg-[#1a1a1a] border border-chamber-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-chamber-text-dim focus:border-chamber-orange focus:outline-none transition-colors"
-                    />
-                    <button
-                      onClick={sendChat}
-                      disabled={chatSending || !chatInput.trim()}
-                      className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
-                      style={{
-                        background: chatInput.trim() ? "rgba(232,101,26,0.2)" : "rgba(255,255,255,0.05)",
-                        border: chatInput.trim() ? "1px solid rgba(232,101,26,0.4)" : "1px solid rgba(255,255,255,0.08)",
-                        color: chatInput.trim() ? "#e8651a" : "#555",
-                      }}
-                    >
-                      🚀
-                    </button>
-                  </div>
-                </div>
               </div>
             );
           })()}
+
+          {/* Chat follow-up — separate section below analysis */}
+          <div
+            className="rounded-lg"
+            style={{
+              background: "#111",
+              border: "1px solid rgba(232,101,26,0.2)",
+              padding: "16px",
+            }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-sm font-semibold" style={{ color: "#e8651a" }}>💬 Continue the conversation</span>
+              <span className="text-xs text-chamber-text-dim">— ask follow-up questions about your trade</span>
+            </div>
+
+            {chatMessages.length > 0 && (
+              <div className="space-y-3 mb-4 max-h-[400px] overflow-y-auto pr-1">
+                {chatMessages.map((msg, i) => (
+                  <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className="rounded-xl px-4 py-2.5 text-sm max-w-[85%] whitespace-pre-wrap"
+                      style={{
+                        background: msg.role === "user" ? "rgba(232,101,26,0.15)" : "rgba(255,255,255,0.05)",
+                        border: msg.role === "user" ? "1px solid rgba(232,101,26,0.3)" : "1px solid rgba(255,255,255,0.08)",
+                        color: msg.role === "user" ? "#f0f0f0" : "#d0d0d0",
+                      }}
+                    >
+                      {msg.role === "assistant" && <span className="text-xs text-chamber-orange mr-1">🔥</span>}
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+                {chatSending && (
+                  <div className="flex justify-start">
+                    <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                      <span className="text-chamber-text-muted animate-pulse">thinking... 🧠</span>
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+                placeholder="Was my OB valid? Should I have waited for displacement? 💬"
+                className="flex-1 bg-[#1a1a1a] border border-chamber-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-chamber-text-dim focus:border-chamber-orange focus:outline-none transition-colors"
+              />
+              <button
+                onClick={sendChat}
+                disabled={chatSending || !chatInput.trim()}
+                className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                style={{
+                  background: chatInput.trim() ? "rgba(232,101,26,0.2)" : "rgba(255,255,255,0.05)",
+                  border: chatInput.trim() ? "1px solid rgba(232,101,26,0.4)" : "1px solid rgba(255,255,255,0.08)",
+                  color: chatInput.trim() ? "#e8651a" : "#555",
+                }}
+              >
+                🚀
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
