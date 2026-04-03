@@ -369,15 +369,15 @@ export default function DashboardPage() {
                 )}
                 {/* Mental score dot — always visible; score text desktop-only */}
                 {journal && (
-                  <div className="flex items-center gap-0.5 md:gap-1 mt-0.5">
-                    <span className="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full flex-shrink-0" style={{ background: journal.readiness_score >= 7 ? "#22c55e" : journal.readiness_score >= 4 ? "#e8651a" : "#ef4444" }} />
-                    <span className="hidden md:inline text-[0.5rem]" style={{ color: journal.readiness_score >= 7 ? "#22c55e" : journal.readiness_score >= 4 ? "#e8651a" : "#ef4444" }}>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full flex-shrink-0" style={{ background: journal.readiness_score >= 7 ? "#22c55e" : journal.readiness_score >= 4 ? "#e8651a" : "#ef4444" }} />
+                    <span className="hidden md:inline text-xs" style={{ color: journal.readiness_score >= 7 ? "#22c55e" : journal.readiness_score >= 4 ? "#e8651a" : "#ef4444" }}>
                       {journal.readiness_score}/10
                     </span>
                   </div>
                 )}
                 {journal && !hasTradesDay && (
-                  <span className="hidden md:block text-[0.5rem] text-chamber-text-dim mt-0.5">✎ Journal</span>
+                  <span className="hidden md:block text-xs text-chamber-text-dim mt-0.5">✎ Journal</span>
                 )}
               </div>
             );
