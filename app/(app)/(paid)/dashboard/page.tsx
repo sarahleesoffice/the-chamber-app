@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Trade, JournalEntry } from "@/lib/types";
 import { formatDollar } from "@/lib/trade-math";
@@ -42,6 +43,7 @@ const ICT_CONCEPTS = [
 
 export default function DashboardPage() {
   const supabase = createClient();
+  const router = useRouter();
   const [trades, setTrades] = useState<Trade[]>([]);
   const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [calMonth, setCalMonth] = useState(new Date());
@@ -422,6 +424,23 @@ export default function DashboardPage() {
                         <span className="text-chamber-text-muted text-xs">
                           {t.pnl_pips > 0 ? "+" : ""}{t.pnl_pips.toFixed(1)}p
                         </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const params = new URLSearchParams({
+                              pair: t.pair || "",
+                              direction: t.direction || "",
+                              entry_price: String(t.entry_price || ""),
+                              exit_price: String(t.exit_price || ""),
+                              trade_date: t.trade_date || "",
+                              reasoning: t.reasoning || "",
+                            });
+                            router.push(`/ai-analysis?${params.toString()}`);
+                          }}
+                          className="px-2 py-0.5 rounded text-xs font-medium bg-chamber-orange/20 text-chamber-orange hover:bg-chamber-orange/40 transition-colors"
+                        >
+                          Analyze
+                        </button>
                       </div>
                     </div>
                   ))}

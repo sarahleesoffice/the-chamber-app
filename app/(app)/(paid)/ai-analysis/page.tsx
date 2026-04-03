@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadChart } from "@/lib/storage";
 import type { Analysis } from "@/lib/types";
@@ -70,6 +71,23 @@ export default function AIAnalysisPage() {
   const htfRef = useRef<HTMLInputElement>(null);
   const entryRef = useRef<HTMLInputElement>(null);
   const extraRef = useRef<HTMLInputElement>(null);
+
+  // Pre-fill from query params (linked from dashboard/trade history)
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const p = searchParams.get("pair");
+    const d = searchParams.get("direction");
+    const ep = searchParams.get("entry_price");
+    const xp = searchParams.get("exit_price");
+    const td = searchParams.get("trade_date");
+    const r = searchParams.get("reasoning");
+    if (p) setPair(p);
+    if (d === "long" || d === "short") setDirection(d);
+    if (ep) setEntryPrice(ep);
+    if (xp) setExitPrice(xp);
+    if (td) setTradeDate(td);
+    if (r) setReasoning(r);
+  }, [searchParams]);
 
   // ============================================================
   // Load analyses
