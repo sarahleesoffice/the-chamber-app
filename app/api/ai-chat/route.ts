@@ -231,6 +231,7 @@ export async function POST(req: NextRequest) {
         studyMaterials.sources = names.map(v => ({
           video: v,
           url: `https://www.youtube.com/results?search_query=ICT+${encodeURIComponent(v)}`,
+          isSearch: true,
         }));
       }
     }

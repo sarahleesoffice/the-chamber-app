@@ -655,15 +655,51 @@ export default function DailyJournalPage() {
               onClick={() => toggleSetup(setup)}
             />
           ))}
+          {/* Show previously saved custom setups as removable chips */}
+          {selectedSetups
+            .filter((s) => !ICT_SETUPS.includes(s))
+            .map((custom) => (
+              <button
+                key={custom}
+                type="button"
+                onClick={() => setSelectedSetups((prev) => prev.filter((s) => s !== custom))}
+                className="px-3 py-1.5 rounded-full text-xs font-medium transition-all border bg-chamber-orange/20 border-chamber-orange/50 text-chamber-orange"
+              >
+                {custom} ✕
+              </button>
+            ))}
         </div>
 
-        <input
-          type="text"
-          value={customSetup}
-          onChange={(e) => setCustomSetup(e.target.value)}
-          placeholder="Custom setups (comma separated) e.g. Turtle Soup, Judas Swing..."
-          className="w-full px-3 py-2 rounded-lg bg-chamber-surface border border-chamber-border text-sm text-white placeholder:text-chamber-text-dim focus:outline-none focus:border-chamber-orange/50 transition-colors"
-        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={customSetup}
+            onChange={(e) => setCustomSetup(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && customSetup.trim()) {
+                e.preventDefault();
+                const newSetups = customSetup.split(",").map((s) => s.trim()).filter(Boolean);
+                setSelectedSetups((prev) => [...prev, ...newSetups.filter((s) => !prev.includes(s))]);
+                setCustomSetup("");
+              }
+            }}
+            placeholder="Type a custom setup and press Enter..."
+            className="flex-1 px-3 py-2 rounded-lg bg-chamber-surface border border-chamber-border text-sm text-white placeholder:text-chamber-text-dim focus:outline-none focus:border-chamber-orange/50 transition-colors"
+          />
+          {customSetup.trim() && (
+            <button
+              type="button"
+              onClick={() => {
+                const newSetups = customSetup.split(",").map((s) => s.trim()).filter(Boolean);
+                setSelectedSetups((prev) => [...prev, ...newSetups.filter((s) => !prev.includes(s))]);
+                setCustomSetup("");
+              }}
+              className="px-3 py-2 rounded-lg text-xs font-semibold bg-chamber-orange/20 border border-chamber-orange/40 text-chamber-orange hover:bg-chamber-orange/30 transition-colors"
+            >
+              + Add
+            </button>
+          )}
+        </div>
       </section>
 
       <hr className="border-chamber-border" />
