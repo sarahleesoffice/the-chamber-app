@@ -441,61 +441,66 @@ export default function PerformancePage() {
         ))}
       </div>
 
-      {/* Row 1: Key metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3.5">
-        <StatCard label="Net P&L" value={trades.length ? formatDollar(stats.totalDollar) : "—"} color={pnlColor} />
+      {/* Row 1: Key metrics — large */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+        <StatCard label="Net P&L" value={trades.length ? formatDollar(stats.totalDollar) : "—"} color={pnlColor} size="lg" />
         <StatCard
           label="Win Rate"
           value={trades.length ? `${stats.winRate.toFixed(1)}%` : "—"}
           color={wrColor}
+          size="lg"
           subText={trades.length ? `${stats.winners}W / ${stats.losers}L${stats.breakeven > 0 ? ` / ${stats.breakeven}BE` : ""}` : "No trades yet"}
         />
-        <StatCard label="Profit Factor" value={stats.profitFactor > 0 ? stats.profitFactor.toFixed(2) : "—"} color={pfColor} />
-        <StatCard label="R:R Ratio" value={stats.rrRatio > 0 ? stats.rrRatio.toFixed(2) : "—"} color={rrColor} />
+        <StatCard label="Profit Factor" value={stats.profitFactor > 0 ? stats.profitFactor.toFixed(2) : "—"} color={pfColor} size="lg" />
+        <StatCard label="R:R Ratio" value={stats.rrRatio > 0 ? stats.rrRatio.toFixed(2) : "—"} color={rrColor} size="lg" />
       </div>
 
-      {/* Row 2: Detailed metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-3.5">
-        <StatCard label="Trades" value={String(trades.length)} subText={trades.length ? `${stats.tradingDays} days` : ""} />
-        <StatCard label="Avg Win" value={stats.winners > 0 ? formatDollar(stats.avgWinDollar) : "—"} color="#22c55e" />
-        <StatCard label="Avg Loss" value={stats.losers > 0 ? formatDollar(stats.avgLossDollar) : "—"} color="#ef4444" />
+      {/* Row 2: Detailed metrics — compact */}
+      <div className="grid grid-cols-3 md:grid-cols-5 gap-2.5 mb-4">
+        <StatCard label="Trades" value={String(trades.length)} subText={trades.length ? `${stats.tradingDays} days` : ""} size="sm" />
+        <StatCard label="Avg Win" value={stats.winners > 0 ? formatDollar(stats.avgWinDollar) : "—"} color="#22c55e" size="sm" />
+        <StatCard label="Avg Loss" value={stats.losers > 0 ? formatDollar(stats.avgLossDollar) : "—"} color="#ef4444" size="sm" />
         <StatCard
           label="Best Trade"
           value={stats.bestTrade && stats.bestTrade.pnl_dollar ? formatDollar(stats.bestTrade.pnl_dollar) : "—"}
           color="#22c55e"
+          size="sm"
           subText={stats.bestTrade?.pair || ""}
         />
         <StatCard
           label="Worst Trade"
           value={stats.worstTrade && stats.worstTrade.pnl_dollar ? formatDollar(stats.worstTrade.pnl_dollar) : "—"}
           color="#ef4444"
+          size="sm"
           subText={stats.worstTrade?.pair || ""}
         />
       </div>
 
       {/* Donut + Day Performance */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-6">
-        <div className="md:col-span-1">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 my-5">
+        <div className="md:col-span-1 flex items-center justify-center">
           <WinRateDonut winRate={stats.winRate} winners={stats.winners} losers={stats.losers} breakeven={stats.breakeven} />
         </div>
         <div className="md:col-span-2">
-          <p className="font-bold mb-3 text-sm">Day Performance</p>
-          <div className="grid grid-cols-3 gap-4">
-            <StatCard label="Winning Days" value={String(stats.winningDays)} color="#22c55e" />
-            <StatCard label="Losing Days" value={String(stats.losingDays)} color="#ef4444" />
-            <StatCard label="Total Days" value={String(stats.tradingDays)} />
+          <p className="font-bold mb-3 text-sm text-chamber-orange tracking-wide">Day Performance</p>
+          <div className="grid grid-cols-3 gap-2.5">
+            <StatCard label="Winning Days" value={String(stats.winningDays)} color="#22c55e" size="sm" />
+            <StatCard label="Losing Days" value={String(stats.losingDays)} color="#ef4444" size="sm" />
+            <StatCard label="Total Days" value={String(stats.tradingDays)} size="sm" />
           </div>
-          <div className="grid grid-cols-3 gap-4 mt-3.5">
-            <StatCard label="Avg Trades/Day" value={avgTradesPerDay > 0 ? avgTradesPerDay.toFixed(1) : "—"} color="#e8651a" />
+          <div className="grid grid-cols-3 gap-2.5 mt-2.5">
+            <StatCard label="Avg Trades/Day" value={avgTradesPerDay > 0 ? avgTradesPerDay.toFixed(1) : "—"} color="#e8651a" size="sm" />
             <StatCard
               label="Avg $/Day"
               value={trades.length ? formatDollar(avgDollarPerDay) : "—"}
               color={avgDollarPerDay > 0 ? "#22c55e" : "#ef4444"}
+              size="sm"
             />
             <StatCard
               label="Day Win Rate"
               value={trades.length ? `${dayWinRate.toFixed(0)}%` : "—"}
               color={dayWinRate >= 55 ? "#22c55e" : dayWinRate >= 45 ? "#e8651a" : "#ef4444"}
+              size="sm"
             />
           </div>
         </div>
