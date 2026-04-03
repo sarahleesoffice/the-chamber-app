@@ -955,8 +955,8 @@ export default function AIAnalysisPage() {
             );
           })()}
 
-          {/* Chat follow-up — separate section below analysis */}
-          <div
+          {/* Chat follow-up — only shows after analysis */}
+          {analysisResult && <div
             className="rounded-lg"
             style={{
               background: "#111",
@@ -1019,7 +1019,7 @@ export default function AIAnalysisPage() {
                 🚀
               </button>
             </div>
-          </div>
+          </div>}
         </div>
       )}
 
