@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [journals, setJournals] = useState<JournalEntry[]>([]);
   const [calMonth, setCalMonth] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -131,12 +132,13 @@ export default function DashboardPage() {
   }, [trades, calMonth]);
 
   const dailyPnl = useMemo(() => {
-    const map: Record<string, { pips: number; dollar: number; count: number }> = {};
+    const map: Record<string, { pips: number; dollar: number; count: number; trades: Trade[] }> = {};
     for (const t of monthTrades) {
-      if (!map[t.trade_date]) map[t.trade_date] = { pips: 0, dollar: 0, count: 0 };
+      if (!map[t.trade_date]) map[t.trade_date] = { pips: 0, dollar: 0, count: 0, trades: [] };
       map[t.trade_date].pips += t.pnl_pips;
       map[t.trade_date].dollar += t.pnl_dollar || 0;
       map[t.trade_date].count++;
+      map[t.trade_date].trades.push(t);
     }
     return map;
   }, [monthTrades]);
@@ -331,6 +333,7 @@ export default function DashboardPage() {
             const journal = journalMap.get(dateStr);
             const hasTradesDay = !!dp;
             const isCurrentDay = isToday(day);
+            const isSelected = selectedDay === dateStr;
 
             let bgClass = "bg-[#0e0e0e] border-chamber-border";
             let textColor = "text-chamber-text-dim";
@@ -342,9 +345,10 @@ export default function DashboardPage() {
             return (
               <div
                 key={dateStr}
+                onClick={() => (hasTradesDay || journal) && setSelectedDay(isSelected ? null : dateStr)}
                 className={`min-h-[65px] md:min-h-[90px] lg:min-h-[110px] 2xl:min-h-[130px] rounded-md md:rounded-lg border p-0.5 md:p-1.5 flex flex-col items-center justify-center transition-all ${bgClass} ${
                   isCurrentDay ? "!border-chamber-orange !border-2 shadow-[0_0_8px_rgba(232,101,26,0.4)]" : ""
-                } ${hasTradesDay || journal ? "cursor-pointer hover:bg-chamber-orange/10 hover:border-chamber-orange/40" : ""}`}
+                } ${isSelected ? "!border-chamber-orange ring-1 ring-chamber-orange" : ""} ${hasTradesDay || journal ? "cursor-pointer hover:bg-chamber-orange/10 hover:border-chamber-orange/40" : ""}`}
               >
                 <span className={`text-[0.6rem] md:text-[0.7rem] ${isCurrentDay ? "text-white" : "text-chamber-text-muted"}`}>
                   {format(day, "d")}
@@ -377,6 +381,62 @@ export default function DashboardPage() {
             );
           })}
         </div>
+
+        {/* Selected Day Detail */}
+        {selectedDay && (dailyPnl[selectedDay] || journalMap.get(selectedDay)) && (
+          <div className="mt-4 rounded-lg border border-chamber-orange/30 bg-[#0e0e0e] p-4 space-y-3 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-chamber-orange font-bold tracking-wide text-sm">
+                {format(new Date(selectedDay + "T12:00:00"), "EEEE, MMMM d, yyyy")}
+              </h3>
+              <button onClick={() => setSelectedDay(null)} className="text-chamber-text-muted hover:text-white text-xs">✕ Close</button>
+            </div>
+
+            {dailyPnl[selectedDay] && (
+              <>
+                <div className="flex gap-4 text-sm">
+                  <span className={dailyPnl[selectedDay].dollar >= 0 ? "text-green-400" : "text-red-400"}>
+                    P&L: {formatDollar(dailyPnl[selectedDay].dollar)}
+                  </span>
+                  <span className="text-chamber-text-muted">
+                    {dailyPnl[selectedDay].pips > 0 ? "+" : ""}{dailyPnl[selectedDay].pips.toFixed(1)} pips
+                  </span>
+                  <span className="text-chamber-text-muted">{dailyPnl[selectedDay].count} trade{dailyPnl[selectedDay].count !== 1 ? "s" : ""}</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {dailyPnl[selectedDay].trades.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between rounded bg-[#141414] border border-chamber-border px-3 py-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <span className={`font-mono text-xs px-1.5 py-0.5 rounded ${t.direction === "long" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                          {t.direction?.toUpperCase()}
+                        </span>
+                        <span className="text-white font-medium">{t.pair}</span>
+                        <span className="text-chamber-text-muted text-xs">@ {t.entry_price}</span>
+                        <span className="text-chamber-text-dim text-xs">→ {t.exit_price}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`font-bold ${(t.pnl_dollar || 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                          {formatDollar(t.pnl_dollar || 0)}
+                        </span>
+                        <span className="text-chamber-text-muted text-xs">
+                          {t.pnl_pips > 0 ? "+" : ""}{t.pnl_pips.toFixed(1)}p
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {journalMap.get(selectedDay) && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="w-2 h-2 rounded-full" style={{ background: (journalMap.get(selectedDay)?.readiness_score || 0) >= 7 ? "#22c55e" : (journalMap.get(selectedDay)?.readiness_score || 0) >= 4 ? "#e8651a" : "#ef4444" }} />
+                <span className="text-chamber-text-muted">Mental Readiness: {journalMap.get(selectedDay)?.readiness_score}/10</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Legend */}
         <div className="flex gap-5 justify-center mt-3 flex-wrap">
