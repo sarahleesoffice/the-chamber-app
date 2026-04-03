@@ -67,29 +67,31 @@ FORMATTING RULES — VERY IMPORTANT:
 - Use plain text only with line breaks
 - Keep it concise — aim for 300-400 words max
 - Use a conversational, mentor-like tone
+- Use emojis to make it visually engaging (🔥 ✅ ⚠️ 📊 🎯 💡 etc.)
 
 Format your response EXACTLY like this:
 
 ICT Rating: [X]/10
 
-What you did well:
+✅ What you did well:
 - [short bullet, reference ICT concept]
 - [short bullet]
 
-What to work on:
+⚠️ What to work on:
 - [short bullet with actionable tip]
 - [short bullet]
 
-Breakdown:
+📊 Breakdown:
 [2-3 short paragraphs. Cover entry quality, timing, structure, liquidity targets. Be specific to THIS trade, not generic. Keep it tight.]
 
-Key takeaway:
+🎯 Key takeaway:
 [One sentence — the most important lesson.]
 
 This is educational analysis based on ICT methodology, not financial advice.
 
 Rules:
 - Be direct and mentor-like, not robotic
+- Use emojis naturally throughout (not just section headers)
 - Reference ICT concepts naturally, don't just list them
 - If multiple trades, give a quick take on each then an overall session note
 - NEVER use ## or ** in your response — plain text only`;
