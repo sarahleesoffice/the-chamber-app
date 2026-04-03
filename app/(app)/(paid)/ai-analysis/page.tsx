@@ -307,56 +307,27 @@ export default function AIAnalysisPage() {
     setChatSending(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: keys } = await supabase.from("user_api_keys").select("provider, encrypted_key").eq("user_id", user.id);
-      const anthropicKey = keys?.find((k) => k.provider === "anthropic");
-      const geminiKey = keys?.find((k) => k.provider === "gemini");
-
-      // Build conversation history
-      const history = [
-        { role: "user" as const, content: "Here is my trade analysis:\n" + analysisResult },
-        ...chatMessages.map((m) => ({ role: m.role as "user" | "assistant", content: m.text })),
-        { role: "user" as const, content: userMsg },
+      // Build conversation history — include the analysis as context
+      const messages = [
+        { role: "user", content: "Here is my trade analysis. Use this as context for follow-up questions. Be conversational, use emojis 🔥, keep answers concise (2-4 sentences). No markdown headers or bold. Plain text only.\n\n" + analysisResult },
+        { role: "assistant", content: "Got it! I've reviewed your analysis. What would you like to discuss? 🔥" },
+        ...chatMessages.map((m) => ({ role: m.role, content: m.text })),
+        { role: "user", content: userMsg },
       ];
 
-      const systemPrompt = `You are an ICT trading mentor inside "The Chamber" app. The trader just received an analysis of their trade and wants to discuss it further. Be conversational, use emojis occasionally 🔥, keep answers concise (2-4 sentences unless they ask for detail). Reference ICT concepts naturally. Never use markdown headers (##) or bold (**). Plain text only.`;
+      const res = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+      });
 
-      let reply = "";
-
-      if (anthropicKey) {
-        const modelsToTry = ["claude-sonnet-4-5-20250929", "claude-3-5-sonnet-20241022", "claude-3-haiku-20240307"];
-        for (const tryModel of modelsToTry) {
-          const res = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "x-api-key": anthropicKey.encrypted_key, "anthropic-version": "2023-06-01" },
-            body: JSON.stringify({ model: tryModel, max_tokens: 1024, system: systemPrompt, messages: history }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            reply = data.content?.[0]?.text || "No response.";
-            break;
-          }
-          if (res.status !== 404 && res.status !== 400) break;
-        }
-      } else if (geminiKey) {
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey.encrypted_key}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents: history.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
-        }
-      }
-
-      if (reply) {
-        const cleanReply = reply.replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "");
+      if (res.ok) {
+        const data = await res.json();
+        const cleanReply = (data.reply || "No response.").replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "");
         setChatMessages((prev) => [...prev, { role: "assistant", text: cleanReply }]);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setChatMessages((prev) => [...prev, { role: "assistant", text: `Error: ${data.error || "Something went wrong"} 😕` }]);
       }
     } catch {
       setChatMessages((prev) => [...prev, { role: "assistant", text: "Couldn't connect right now. Try again 🔁" }]);

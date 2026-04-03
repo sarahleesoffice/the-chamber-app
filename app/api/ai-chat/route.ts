@@ -280,36 +280,50 @@ export async function POST(req: NextRequest) {
     const geminiKey = keys.find((k) => k.provider === "gemini");
 
     if (anthropicKey) {
-      // Call Claude API
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": anthropicKey.encrypted_key,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1024,
-          system: systemPromptWithRAG,
-          messages: messages.map((m: { role: string; content: string }) => ({
-            role: m.role,
-            content: m.content,
-          })),
-        }),
-      });
+      // Try models in order of preference
+      const modelsToTry = [
+        "claude-sonnet-4-5-20250929",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-5-sonnet-20240620",
+        "claude-3-haiku-20240307",
+      ];
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        return NextResponse.json(
-          { error: err?.error?.message || "Claude API error" },
-          { status: response.status }
-        );
+      for (const tryModel of modelsToTry) {
+        const response = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": anthropicKey.encrypted_key,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: tryModel,
+            max_tokens: 1024,
+            system: systemPromptWithRAG,
+            messages: messages.map((m: { role: string; content: string }) => ({
+              role: m.role,
+              content: m.content,
+            })),
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const reply = data.content?.[0]?.text || "No response from Claude.";
+          return NextResponse.json({ reply, provider: "claude", model: tryModel, studyMaterials });
+        }
+
+        // Only retry on model-not-found errors
+        if (response.status !== 404 && response.status !== 400) {
+          const err = await response.json().catch(() => ({}));
+          return NextResponse.json(
+            { error: err?.error?.message || "Claude API error" },
+            { status: response.status }
+          );
+        }
       }
 
-      const data = await response.json();
-      const reply = data.content?.[0]?.text || "No response from Claude.";
-      return NextResponse.json({ reply, provider: "claude", studyMaterials });
+      return NextResponse.json({ error: "No compatible Claude model found" }, { status: 400 });
 
     } else if (geminiKey) {
       // Call Gemini API
