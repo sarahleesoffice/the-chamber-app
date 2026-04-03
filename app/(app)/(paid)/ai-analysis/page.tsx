@@ -44,7 +44,7 @@ export default function AIAnalysisPage() {
     pair: string;
     direction: "long" | "short";
     entryPrices: string[]; // supports scale-in entries
-    exitPrice: string;
+    exitPrices: string[]; // supports scale-out exits
     tradeDate: string;
     reasoning: string;
   }
@@ -61,7 +61,7 @@ export default function AIAnalysisPage() {
   const [pair, setPair] = useState("");
   const [direction, setDirection] = useState<"long" | "short">("long");
   const [entryPrices, setEntryPrices] = useState<string[]>([""]);
-  const [exitPrice, setExitPrice] = useState("");
+  const [exitPrices, setExitPrices] = useState<string[]>([""]);
   const [tradeDate, setTradeDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [reasoning, setReasoning] = useState("");
   const [focus, setFocus] = useState("");
@@ -71,12 +71,13 @@ export default function AIAnalysisPage() {
     if (!pair) return;
     setSavedTrades((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), pair, direction, entryPrices: entryPrices.filter(p => p !== ""), exitPrice, tradeDate, reasoning },
+      { id: crypto.randomUUID(), pair, direction, entryPrices: entryPrices.filter(p => p !== ""), exitPrices: exitPrices.filter(p => p !== ""), tradeDate, reasoning },
     ]);
     // Reset form for next trade (keep date and pair)
     setDirection("long");
     setEntryPrices([""]);
-    setExitPrice("");
+    setExitPrices([""]);
+
     setReasoning("");
   }
 
@@ -118,7 +119,7 @@ export default function AIAnalysisPage() {
         pair: p,
         direction: (d === "long" || d === "short") ? d : "long",
         entryPrices: ep ? [ep] : [""],
-        exitPrice: xp || "",
+        exitPrices: xp ? [xp] : [""],
         tradeDate: td || format(new Date(), "yyyy-MM-dd"),
         reasoning: r || "",
       }]);
@@ -241,7 +242,7 @@ export default function AIAnalysisPage() {
       // Collect all trades — saved ones + current form if filled
       const allTrades = [...savedTrades];
       if (pair && entryPrices.some(p => p !== "")) {
-        allTrades.push({ id: "current", pair, direction, entryPrices: entryPrices.filter(p => p !== ""), exitPrice, tradeDate, reasoning });
+        allTrades.push({ id: "current", pair, direction, entryPrices: entryPrices.filter(p => p !== ""), exitPrices: exitPrices.filter(p => p !== ""), tradeDate, reasoning });
       }
 
       const res = await fetch("/api/ai-analysis", {
@@ -251,14 +252,14 @@ export default function AIAnalysisPage() {
           pair: allTrades[0]?.pair || pair,
           direction: allTrades[0]?.direction || direction,
           entry_price: allTrades[0]?.entryPrices?.join(", ") || entryPrices.filter(p => p).join(", "),
-          exit_price: allTrades[0]?.exitPrice || exitPrice,
+          exit_price: allTrades[0]?.exitPrices?.join(", ") || exitPrices.filter(p => p).join(", "),
           trade_date: allTrades[0]?.tradeDate || tradeDate,
-          reasoning: allTrades.map((t, i) => `Trade ${i + 1} (${t.pair} ${t.direction}): Entries [${t.entryPrices.join(", ")}], Exit ${t.exitPrice}${t.reasoning ? ` — ${t.reasoning}` : ""}`).join("\n"),
+          reasoning: allTrades.map((t, i) => `Trade ${i + 1} (${t.pair} ${t.direction}): Entries [${t.entryPrices.join(", ")}], Exits [${t.exitPrices.join(", ")}]${t.reasoning ? ` — ${t.reasoning}` : ""}`).join("\n"),
           focus,
           chart_descriptions: chartDescriptions,
           trades: allTrades.map((t) => ({
             pair: t.pair, direction: t.direction,
-            entry_prices: t.entryPrices, exit_price: t.exitPrice,
+            entry_prices: t.entryPrices, exit_prices: t.exitPrices,
             trade_date: t.tradeDate, reasoning: t.reasoning,
           })),
         }),
@@ -626,17 +627,44 @@ export default function AIAnalysisPage() {
                 </button>
               </div>
 
-              {/* Exit Price */}
+              {/* Exit Price(s) — scale-out support */}
               <div>
-                <label className="block text-xs text-chamber-text-muted mb-1.5">Exit Price</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={exitPrice}
-                  onChange={(e) => setExitPrice(e.target.value)}
-                  placeholder="0.00000"
-                  className="w-full bg-chamber-surface border border-chamber-border rounded-lg px-3 py-2.5 text-white text-sm focus:border-chamber-orange focus:outline-none transition-colors placeholder:text-chamber-text-dim"
-                />
+                <label className="block text-xs text-chamber-text-muted mb-1.5">
+                  Exit Price{exitPrices.length > 1 ? "s" : ""}
+                </label>
+                {exitPrices.map((xp, i) => (
+                  <div key={i} className="flex items-center gap-1 mb-1">
+                    <span className="text-[10px] text-chamber-text-dim w-3 shrink-0">{i + 1}.</span>
+                    <input
+                      type="number"
+                      step="any"
+                      value={xp}
+                      onChange={(e) => {
+                        const updated = [...exitPrices];
+                        updated[i] = e.target.value;
+                        setExitPrices(updated);
+                      }}
+                      placeholder="0.00000"
+                      className="w-full bg-chamber-surface border border-chamber-border rounded-lg px-3 py-2 text-white text-sm focus:border-chamber-orange focus:outline-none transition-colors placeholder:text-chamber-text-dim"
+                    />
+                    {exitPrices.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setExitPrices(exitPrices.filter((_, j) => j !== i))}
+                        className="text-chamber-text-dim hover:text-red-400 text-xs shrink-0"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setExitPrices([...exitPrices, ""])}
+                  className="text-[10px] text-chamber-orange/70 hover:text-chamber-orange mt-0.5 transition-colors"
+                >
+                  + Scale Out
+                </button>
               </div>
             </div>
           </section>
@@ -663,10 +691,13 @@ export default function AIAnalysisPage() {
                 const avgEntry = t.entryPrices.length > 0
                   ? t.entryPrices.reduce((s, p) => s + parseFloat(p || "0"), 0) / t.entryPrices.length
                   : 0;
-                const pnl = t.exitPrice && avgEntry
+                const avgExit = t.exitPrices.length > 0
+                  ? t.exitPrices.reduce((s, p) => s + parseFloat(p || "0"), 0) / t.exitPrices.length
+                  : 0;
+                const pnl = avgExit && avgEntry
                   ? t.direction === "long"
-                    ? parseFloat(t.exitPrice) - avgEntry
-                    : avgEntry - parseFloat(t.exitPrice)
+                    ? avgExit - avgEntry
+                    : avgEntry - avgExit
                   : 0;
                 return (
                   <div key={t.id} className="flex items-center justify-between rounded-lg bg-[#141414] border border-chamber-border px-3 py-2 text-sm">
@@ -684,7 +715,14 @@ export default function AIAnalysisPage() {
                           <span className="text-chamber-orange/60 ml-1">({t.entryPrices.length} entries)</span>
                         )}
                       </span>
-                      <span className="text-chamber-text-dim text-xs">→ {t.exitPrice}</span>
+                      <span className="text-chamber-text-dim text-xs">
+                        → {t.exitPrices.length > 1
+                          ? t.exitPrices.join(" / ")
+                          : t.exitPrices[0]}
+                        {t.exitPrices.length > 1 && (
+                          <span className="text-chamber-orange/60 ml-1">({t.exitPrices.length} exits)</span>
+                        )}
+                      </span>
                       {pnl !== 0 && (
                         <span className={`text-xs font-bold ${pnl > 0 ? "text-green-400" : "text-red-400"}`}>
                           {pnl > 0 ? "W" : "L"}
