@@ -38,7 +38,19 @@ export default function AIAnalysisPage() {
   const supabase = createClient();
   const [activeTab, setActiveTab] = useState<"analyze" | "past">("analyze");
 
-  // Analyze tab state
+  // Multi-trade state
+  interface TradeEntry {
+    id: string;
+    pair: string;
+    direction: "long" | "short";
+    entryPrice: string;
+    exitPrice: string;
+    tradeDate: string;
+    reasoning: string;
+  }
+  const [savedTrades, setSavedTrades] = useState<TradeEntry[]>([]);
+
+  // Analyze tab state (current trade being edited)
   const [htfFile, setHtfFile] = useState<File | null>(null);
   const [entryFile, setEntryFile] = useState<File | null>(null);
   const [extraFile, setExtraFile] = useState<File | null>(null);
@@ -53,6 +65,24 @@ export default function AIAnalysisPage() {
   const [tradeDate, setTradeDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [reasoning, setReasoning] = useState("");
   const [focus, setFocus] = useState("");
+
+  // Add current trade to the list
+  function addTrade() {
+    if (!pair) return;
+    setSavedTrades((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), pair, direction, entryPrice, exitPrice, tradeDate, reasoning },
+    ]);
+    // Reset form for next trade (keep date and pair)
+    setDirection("long");
+    setEntryPrice("");
+    setExitPrice("");
+    setReasoning("");
+  }
+
+  function removeTrade(id: string) {
+    setSavedTrades((prev) => prev.filter((t) => t.id !== id));
+  }
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [noApiKey, setNoApiKey] = useState(false);
@@ -81,12 +111,20 @@ export default function AIAnalysisPage() {
     const xp = searchParams.get("exit_price");
     const td = searchParams.get("trade_date");
     const r = searchParams.get("reasoning");
-    if (p) setPair(p);
-    if (d === "long" || d === "short") setDirection(d);
-    if (ep) setEntryPrice(ep);
-    if (xp) setExitPrice(xp);
-    if (td) setTradeDate(td);
-    if (r) setReasoning(r);
+    if (p) {
+      // Auto-add prefilled trade to the list
+      setSavedTrades([{
+        id: crypto.randomUUID(),
+        pair: p,
+        direction: (d === "long" || d === "short") ? d : "long",
+        entryPrice: ep || "",
+        exitPrice: xp || "",
+        tradeDate: td || format(new Date(), "yyyy-MM-dd"),
+        reasoning: r || "",
+      }]);
+      setPair(p);
+      if (td) setTradeDate(td);
+    }
   }, [searchParams]);
 
   // ============================================================
@@ -200,18 +238,29 @@ export default function AIAnalysisPage() {
       if (entryFile) chartDescriptions.push(`Entry Timeframe chart uploaded: ${entryFile.name}${urls[1] ? ` (URL: ${urls[1]})` : ""}`);
       if (extraFile) chartDescriptions.push(`Additional chart uploaded: ${extraFile.name}${urls[2] ? ` (URL: ${urls[2]})` : ""}`);
 
+      // Collect all trades — saved ones + current form if filled
+      const allTrades = [...savedTrades];
+      if (pair && entryPrice) {
+        allTrades.push({ id: "current", pair, direction, entryPrice, exitPrice, tradeDate, reasoning });
+      }
+
       const res = await fetch("/api/ai-analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          pair,
-          direction,
-          entry_price: entryPrice,
-          exit_price: exitPrice,
-          trade_date: tradeDate,
-          reasoning,
+          pair: allTrades[0]?.pair || pair,
+          direction: allTrades[0]?.direction || direction,
+          entry_price: allTrades[0]?.entryPrice || entryPrice,
+          exit_price: allTrades[0]?.exitPrice || exitPrice,
+          trade_date: allTrades[0]?.tradeDate || tradeDate,
+          reasoning: allTrades.map((t, i) => `Trade ${i + 1} (${t.pair} ${t.direction}): Entry ${t.entryPrice}, Exit ${t.exitPrice}${t.reasoning ? ` — ${t.reasoning}` : ""}`).join("\n"),
           focus,
           chart_descriptions: chartDescriptions,
+          trades: allTrades.map((t) => ({
+            pair: t.pair, direction: t.direction,
+            entry_price: t.entryPrice, exit_price: t.exitPrice,
+            trade_date: t.tradeDate, reasoning: t.reasoning,
+          })),
         }),
       });
 
@@ -565,6 +614,53 @@ export default function AIAnalysisPage() {
             </div>
           </section>
 
+          {/* Add Trade Button */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={addTrade}
+              disabled={!pair}
+              className="px-4 py-2 rounded-lg text-xs font-semibold tracking-wider border border-chamber-orange/40 text-chamber-orange hover:bg-chamber-orange/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              + Add Trade
+            </button>
+            {savedTrades.length > 0 && (
+              <span className="text-chamber-text-muted text-xs">{savedTrades.length} trade{savedTrades.length !== 1 ? "s" : ""} added</span>
+            )}
+          </div>
+
+          {/* Saved Trades List */}
+          {savedTrades.length > 0 && (
+            <div className="space-y-1.5">
+              {savedTrades.map((t, i) => {
+                const pnl = t.exitPrice && t.entryPrice
+                  ? t.direction === "long"
+                    ? parseFloat(t.exitPrice) - parseFloat(t.entryPrice)
+                    : parseFloat(t.entryPrice) - parseFloat(t.exitPrice)
+                  : 0;
+                return (
+                  <div key={t.id} className="flex items-center justify-between rounded-lg bg-[#141414] border border-chamber-border px-3 py-2 text-sm">
+                    <div className="flex items-center gap-3">
+                      <span className="text-chamber-text-dim text-xs font-mono">#{i + 1}</span>
+                      <span className={`font-mono text-xs px-1.5 py-0.5 rounded ${t.direction === "long" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                        {t.direction.toUpperCase()}
+                      </span>
+                      <span className="text-white font-medium">{t.pair}</span>
+                      <span className="text-chamber-text-muted text-xs">@ {t.entryPrice}</span>
+                      <span className="text-chamber-text-dim text-xs">→ {t.exitPrice}</span>
+                      {pnl !== 0 && (
+                        <span className={`text-xs font-bold ${pnl > 0 ? "text-green-400" : "text-red-400"}`}>
+                          {pnl > 0 ? "W" : "L"}
+                        </span>
+                      )}
+                    </div>
+                    <button onClick={() => removeTrade(t.id)} className="text-chamber-text-dim hover:text-red-400 text-xs transition-colors">✕</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Reasoning */}
           <section>
             <label className="block text-sm font-semibold text-white mb-2">
@@ -603,7 +699,7 @@ export default function AIAnalysisPage() {
               color: hasCharts ? "#000" : "#666",
             }}
           >
-            {analyzing ? "Analyzing..." : "Analyze Trade"}
+            {analyzing ? "Analyzing..." : savedTrades.length > 1 ? `Analyze ${savedTrades.length} Trades` : "Analyze Trade"}
           </button>
 
           {!hasCharts && (
