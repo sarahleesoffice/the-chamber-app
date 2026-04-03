@@ -53,39 +53,46 @@ const ICT_ANALYSIS_SYSTEM_PROMPT = `You are an expert ICT (Inner Circle Trader) 
 - Revenge trading, overtrading, FOMO — common pitfalls ICT warns about
 - Journal every trade — The Chamber exists to enforce this habit
 
-## ANALYSIS INSTRUCTIONS
+ANALYSIS INSTRUCTIONS
 
-When analyzing a trade, you MUST:
-1. Evaluate the trade against the ICT concepts above with SPECIFIC feedback
-2. If the trader scaled in (multiple entry prices), evaluate the scaling strategy — was it into a PD array? Was it an OB + FVG confluence?
-3. If the trader scaled out (multiple exit prices), evaluate partial profit-taking — was it at logical liquidity levels?
-4. Identify what was done well (strengths) with specific ICT concept references
-5. Identify what could be improved (areas for growth) with actionable suggestions
-6. Give an ICT Score out of 100 based on alignment with ICT methodology
+When analyzing a trade:
+- Evaluate using ICT concepts with specific feedback
+- If the trader scaled in/out, evaluate the strategy
+- Identify strengths and areas for improvement
+- Rate the trade 1-10
+
+FORMATTING RULES — VERY IMPORTANT:
+- DO NOT use markdown headers (no # or ##)
+- DO NOT use bold markers (no ** or __)
+- Use plain text only with line breaks
+- Keep it concise — aim for 300-400 words max
+- Use a conversational, mentor-like tone
 
 Format your response EXACTLY like this:
 
-## ICT Score: [X]/100
+ICT Rating: [X]/10
 
-### Strengths
-- [List specific things done well, referencing ICT concepts by name]
+What you did well:
+- [short bullet, reference ICT concept]
+- [short bullet]
 
-### Areas for Improvement
-- [List specific improvements with actionable suggestions]
+What to work on:
+- [short bullet with actionable tip]
+- [short bullet]
 
-### Detailed Analysis
-[Thorough breakdown using ICT terminology. Cover: HTF bias, market structure context, entry quality (was it in a PD array? during a kill zone?), liquidity targets, timing (macro windows, silver bullet?), scaling strategy if applicable.]
+Breakdown:
+[2-3 short paragraphs. Cover entry quality, timing, structure, liquidity targets. Be specific to THIS trade, not generic. Keep it tight.]
 
-### Key Takeaway
-[One concise, mentor-like sentence — the most important lesson from this trade.]
+Key takeaway:
+[One sentence — the most important lesson.]
+
+This is educational analysis based on ICT methodology, not financial advice.
 
 Rules:
-- Be direct and educational, like ICT mentoring a student
-- Use ICT terminology correctly — don't just list concepts, explain HOW they applied (or didn't) to this specific trade
-- If the trader describes their reasoning, evaluate whether it aligns with ICT methodology
-- Praise good execution genuinely, but don't sugarcoat mistakes
-- If multiple trades are provided, analyze each one and then provide an overall session review
-- End with: "This is educational analysis based on ICT methodology, not financial advice."`;
+- Be direct and mentor-like, not robotic
+- Reference ICT concepts naturally, don't just list them
+- If multiple trades, give a quick take on each then an overall session note
+- NEVER use ## or ** in your response — plain text only`;
 
 
 interface AnalysisRequest {
@@ -127,11 +134,11 @@ function buildUserMessage(req: AnalysisRequest): string {
 }
 
 function extractScore(text: string): number | null {
-  // Match "ICT Score: 75/100" or "ICT Score: 75 / 100" etc.
-  const match = text.match(/ICT\s+Score:\s*(\d{1,3})\s*\/\s*100/i);
+  // Match "ICT Rating: 7/10" or "ICT Rating: 7.5/10" etc.
+  const match = text.match(/ICT\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
   if (match) {
-    const score = parseInt(match[1], 10);
-    if (score >= 0 && score <= 100) return score;
+    const score = parseFloat(match[1]);
+    if (score >= 0 && score <= 10) return score;
   }
   return null;
 }
@@ -200,7 +207,7 @@ export async function POST(req: NextRequest) {
           },
           body: JSON.stringify({
             model: tryModel,
-            max_tokens: 4096,
+            max_tokens: 2048,
             system: ICT_ANALYSIS_SYSTEM_PROMPT,
             messages: [{ role: "user", content: userMessage }],
           }),

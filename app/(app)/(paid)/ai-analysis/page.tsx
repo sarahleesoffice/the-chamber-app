@@ -831,32 +831,51 @@ export default function AIAnalysisPage() {
           )}
 
           {/* Analysis Result */}
-          {analysisResult && (
-            <div
-              className="rounded-lg mt-2"
-              style={{
-                background: "#111",
-                borderLeft: "3px solid #e8651a",
-                padding: "24px",
-              }}
-            >
-              <h3
-                className="text-lg font-bold mb-3 pb-2"
+          {analysisResult && (() => {
+            // Strip any markdown that sneaks through
+            const clean = analysisResult.replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "").replace(/__/g, "");
+            // Extract rating
+            const ratingMatch = clean.match(/ICT\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
+            const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
+            const bodyText = rating !== null ? clean.replace(/ICT\s+Rating:\s*[\d.]+\s*\/\s*10/i, "").trim() : clean;
+
+            return (
+              <div
+                className="rounded-lg mt-2"
                 style={{
-                  color: "#e8651a",
-                  borderBottom: "1px solid rgba(232,101,26,0.3)",
+                  background: "#111",
+                  borderLeft: "3px solid #e8651a",
+                  padding: "24px",
                 }}
               >
-                ICT Analysis
-              </h3>
-              <div
-                className="text-sm leading-relaxed whitespace-pre-wrap"
-                style={{ color: "#d0d0d0" }}
-              >
-                {analysisResult}
+                <div className="flex items-center justify-between mb-3 pb-2" style={{ borderBottom: "1px solid rgba(232,101,26,0.3)" }}>
+                  <h3 className="text-lg font-bold" style={{ color: "#e8651a" }}>
+                    ICT Analysis
+                  </h3>
+                  {rating !== null && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-chamber-text-muted">ICT Rating</span>
+                      <span
+                        className="text-2xl font-black"
+                        style={{
+                          color: rating >= 7 ? "#4ade80" : rating >= 5 ? "#e8651a" : "#ef4444",
+                          textShadow: `0 0 12px ${rating >= 7 ? "rgba(74,222,128,0.4)" : rating >= 5 ? "rgba(232,101,26,0.4)" : "rgba(239,68,68,0.4)"}`,
+                        }}
+                      >
+                        {rating}/10
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div
+                  className="text-sm leading-relaxed whitespace-pre-wrap"
+                  style={{ color: "#d0d0d0" }}
+                >
+                  {bodyText}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
