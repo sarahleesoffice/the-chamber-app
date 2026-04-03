@@ -147,7 +147,7 @@ export default function Sidebar() {
         <div className="px-3 pb-4 border-t border-chamber-border pt-3 space-y-3">
           {/* Discord */}
           <a
-            href="https://discord.gg/yTK3Jqk7"
+            href="https://discord.gg/EPn5MAJh"
             target="_blank"
             rel="noopener noreferrer"
             className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-all hover:brightness-125"
