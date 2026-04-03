@@ -85,7 +85,7 @@ function WinRateDonut({ winRate, winners, losers, breakeven }: {
 
   return (
     <div className="text-center py-3">
-      <svg viewBox="0 0 120 120" width="200" height="200">
+      <svg viewBox="0 0 120 120" width="150" height="150">
         <circle cx="60" cy="60" r="45" fill="none" stroke="#1e1a17" strokeWidth="12" />
         {hasTrades && (
           <>
