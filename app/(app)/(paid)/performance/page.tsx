@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Trade, JournalEntry } from "@/lib/types";
 import { formatDollar } from "@/lib/trade-math";
@@ -113,6 +114,7 @@ function WinRateDonut({ winRate, winners, losers, breakeven }: {
 // ============================================================
 export default function PerformancePage() {
   const supabase = createClient();
+  const router = useRouter();
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [allJournals, setAllJournals] = useState<JournalEntry[]>([]);
   const [selectedRange, setSelectedRange] = useState<RangeKey>("This Month");
@@ -122,6 +124,7 @@ export default function PerformancePage() {
 
   // Calendar state
   const [calMonth, setCalMonth] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -383,15 +386,16 @@ export default function PerformancePage() {
     const totalDays = lastDay.getDate();
 
     // Build day map from ALL trades (not filtered)
-    const dayMap = new Map<string, { pnl: number; count: number }>();
+    const dayMap = new Map<string, { pnl: number; count: number; trades: Trade[] }>();
     for (const t of allTrades) {
-      const existing = dayMap.get(t.trade_date) || { pnl: 0, count: 0 };
+      const existing = dayMap.get(t.trade_date) || { pnl: 0, count: 0, trades: [] };
       existing.pnl += t.pnl_dollar || 0;
       existing.count++;
+      existing.trades.push(t);
       dayMap.set(t.trade_date, existing);
     }
 
-    const days: Array<{ date: string; day: number; pnl: number; count: number; isToday: boolean } | null> = [];
+    const days: Array<{ date: string; day: number; pnl: number; count: number; trades: Trade[]; isToday: boolean } | null> = [];
     // Padding
     for (let i = 0; i < startPad; i++) days.push(null);
     for (let d = 1; d <= totalDays; d++) {
@@ -399,7 +403,7 @@ export default function PerformancePage() {
       const info = dayMap.get(dateStr);
       const today = new Date();
       const isToday = year === today.getFullYear() && month === today.getMonth() && d === today.getDate();
-      days.push({ date: dateStr, day: d, pnl: info?.pnl || 0, count: info?.count || 0, isToday });
+      days.push({ date: dateStr, day: d, pnl: info?.pnl || 0, count: info?.count || 0, trades: info?.trades || [], isToday });
     }
     return days;
   }, [calMonth, allTrades]);
@@ -441,67 +445,30 @@ export default function PerformancePage() {
         ))}
       </div>
 
-      {/* Row 1: Key metrics — large */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-        <StatCard label="Net P&L" value={trades.length ? formatDollar(stats.totalDollar) : "—"} color={pnlColor} size="lg" />
-        <StatCard
-          label="Win Rate"
-          value={trades.length ? `${stats.winRate.toFixed(1)}%` : "—"}
-          color={wrColor}
-          size="lg"
-          subText={trades.length ? `${stats.winners}W / ${stats.losers}L${stats.breakeven > 0 ? ` / ${stats.breakeven}BE` : ""}` : "No trades yet"}
-        />
-        <StatCard label="Profit Factor" value={stats.profitFactor > 0 ? stats.profitFactor.toFixed(2) : "—"} color={pfColor} size="lg" />
-        <StatCard label="R:R Ratio" value={stats.rrRatio > 0 ? stats.rrRatio.toFixed(2) : "—"} color={rrColor} size="lg" />
+      {/* Stats — Dashboard style compact summary */}
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-3">
+        <StatCard label="Net P&L" value={trades.length ? formatDollar(stats.totalDollar) : "—"} color={pnlColor} />
+        <StatCard label="Win Rate" value={trades.length ? `${stats.winRate.toFixed(1)}%` : "—"} color={wrColor} subText={trades.length ? `${stats.winners}W / ${stats.losers}L` : ""} />
+        <StatCard label="Profit Factor" value={stats.profitFactor > 0 ? stats.profitFactor.toFixed(2) : "—"} color={pfColor} />
+        <StatCard label="Trades" value={String(trades.length)} subText={trades.length ? `${stats.tradingDays} days` : ""} />
+        <StatCard label="Avg Win" value={stats.winners > 0 ? formatDollar(stats.avgWinDollar) : "—"} color="#22c55e" />
+        <StatCard label="Avg Loss" value={stats.losers > 0 ? formatDollar(stats.avgLossDollar) : "—"} color="#ef4444" />
       </div>
 
-      {/* Row 2: Detailed metrics — compact */}
-      <div className="grid grid-cols-3 md:grid-cols-5 gap-2.5 mb-4">
-        <StatCard label="Trades" value={String(trades.length)} subText={trades.length ? `${stats.tradingDays} days` : ""} size="sm" />
-        <StatCard label="Avg Win" value={stats.winners > 0 ? formatDollar(stats.avgWinDollar) : "—"} color="#22c55e" size="sm" />
-        <StatCard label="Avg Loss" value={stats.losers > 0 ? formatDollar(stats.avgLossDollar) : "—"} color="#ef4444" size="sm" />
-        <StatCard
-          label="Best Trade"
-          value={stats.bestTrade && stats.bestTrade.pnl_dollar ? formatDollar(stats.bestTrade.pnl_dollar) : "—"}
-          color="#22c55e"
-          size="sm"
-          subText={stats.bestTrade?.pair || ""}
-        />
-        <StatCard
-          label="Worst Trade"
-          value={stats.worstTrade && stats.worstTrade.pnl_dollar ? formatDollar(stats.worstTrade.pnl_dollar) : "—"}
-          color="#ef4444"
-          size="sm"
-          subText={stats.worstTrade?.pair || ""}
-        />
-      </div>
-
-      {/* Donut + Day Performance */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 my-5">
-        <div className="md:col-span-1 flex items-center justify-center">
+      {/* Donut + Day Performance — compact */}
+      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-4 my-4">
+        <div className="flex items-center justify-center">
           <WinRateDonut winRate={stats.winRate} winners={stats.winners} losers={stats.losers} breakeven={stats.breakeven} />
         </div>
-        <div className="md:col-span-2">
-          <p className="font-bold mb-3 text-sm text-chamber-orange tracking-wide">Day Performance</p>
-          <div className="grid grid-cols-3 gap-2.5">
-            <StatCard label="Winning Days" value={String(stats.winningDays)} color="#22c55e" size="sm" />
-            <StatCard label="Losing Days" value={String(stats.losingDays)} color="#ef4444" size="sm" />
-            <StatCard label="Total Days" value={String(stats.tradingDays)} size="sm" />
-          </div>
-          <div className="grid grid-cols-3 gap-2.5 mt-2.5">
-            <StatCard label="Avg Trades/Day" value={avgTradesPerDay > 0 ? avgTradesPerDay.toFixed(1) : "—"} color="#e8651a" size="sm" />
-            <StatCard
-              label="Avg $/Day"
-              value={trades.length ? formatDollar(avgDollarPerDay) : "—"}
-              color={avgDollarPerDay > 0 ? "#22c55e" : "#ef4444"}
-              size="sm"
-            />
-            <StatCard
-              label="Day Win Rate"
-              value={trades.length ? `${dayWinRate.toFixed(0)}%` : "—"}
-              color={dayWinRate >= 55 ? "#22c55e" : dayWinRate >= 45 ? "#e8651a" : "#ef4444"}
-              size="sm"
-            />
+        <div>
+          <p className="font-bold mb-2 text-sm text-chamber-orange tracking-wide">Day Performance</p>
+          <div className="grid grid-cols-3 gap-2">
+            <StatCard label="Winning Days" value={String(stats.winningDays)} color="#22c55e" />
+            <StatCard label="Losing Days" value={String(stats.losingDays)} color="#ef4444" />
+            <StatCard label="Total Days" value={String(stats.tradingDays)} />
+            <StatCard label="Avg Trades/Day" value={avgTradesPerDay > 0 ? avgTradesPerDay.toFixed(1) : "—"} color="#e8651a" />
+            <StatCard label="Avg $/Day" value={trades.length ? formatDollar(avgDollarPerDay) : "—"} color={avgDollarPerDay > 0 ? "#22c55e" : "#ef4444"} />
+            <StatCard label="Day Win Rate" value={trades.length ? `${dayWinRate.toFixed(0)}%` : "—"} color={dayWinRate >= 55 ? "#22c55e" : dayWinRate >= 45 ? "#e8651a" : "#ef4444"} />
           </div>
         </div>
       </div>
@@ -560,35 +527,103 @@ export default function PerformancePage() {
               <div key={d} className="py-1">{d}</div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-0.5 md:gap-1">
             {calendarData.map((cell, i) => {
-              if (!cell) return <div key={i} className="aspect-square" />;
-              const bg = cell.count > 0
-                ? cell.pnl > 0 ? "rgba(34,197,94,0.15)" : cell.pnl < 0 ? "rgba(239,68,68,0.15)" : "#141414"
-                : "#0e0e0e";
-              const border = cell.isToday ? "2px solid #e8651a" : "1px solid #1e1a17";
+              if (!cell) return <div key={i} className="min-h-[65px] md:min-h-[90px] lg:min-h-[110px]" />;
+              const isSelected = selectedDay === cell.date;
+              const hasTrades = cell.count > 0;
+              let bgClass = "bg-[#0e0e0e] border-chamber-border";
+              let textColor = "text-chamber-text-dim";
+              if (hasTrades) {
+                if (cell.pnl > 0) { bgClass = "bg-green-500/10 border-green-500/25"; textColor = "text-green-400"; }
+                else if (cell.pnl < 0) { bgClass = "bg-red-500/10 border-red-500/25"; textColor = "text-red-400"; }
+              }
               return (
-                <div key={i} className="aspect-square rounded-md flex flex-col items-center justify-center text-xs relative"
-                  style={{ background: bg, border }}>
-                  <span className={cell.isToday ? "text-chamber-orange font-bold" : "text-chamber-text-muted"}>{cell.day}</span>
-                  {cell.count > 0 && (
+                <div key={i}
+                  onClick={() => hasTrades && setSelectedDay(isSelected ? null : cell.date)}
+                  className={`min-h-[65px] md:min-h-[90px] lg:min-h-[110px] rounded-md md:rounded-lg border p-0.5 md:p-1.5 flex flex-col items-center justify-center transition-all ${bgClass} ${
+                    cell.isToday ? "!border-chamber-orange !border-2 shadow-[0_0_8px_rgba(232,101,26,0.4)]" : ""
+                  } ${isSelected ? "!border-chamber-orange ring-1 ring-chamber-orange" : ""} ${hasTrades ? "cursor-pointer hover:bg-chamber-orange/10 hover:border-chamber-orange/40" : ""}`}
+                >
+                  <span className={`text-[0.6rem] md:text-[0.7rem] ${cell.isToday ? "text-white font-bold" : "text-chamber-text-muted"}`}>
+                    {cell.day}
+                  </span>
+                  {hasTrades && (
                     <>
-                      <span className="font-bold text-[0.65rem]" style={{ color: cell.pnl > 0 ? "#22c55e" : "#ef4444" }}>
+                      <span className={`text-sm md:text-base font-bold ${textColor}`}>
                         {formatDollar(cell.pnl)}
                       </span>
-                      <span className="text-[0.55rem] text-chamber-text-dim">
-                        {cell.count === 1 ? "1 Trade" : `${cell.count} Trades`}
-                      </span>
+                      <span className="text-[0.6rem] md:text-[0.65rem] text-chamber-text-muted">Trades: {cell.count}</span>
                     </>
                   )}
                 </div>
               );
             })}
           </div>
+
+          {/* Selected Day Detail Panel */}
+          {selectedDay && (() => {
+            const dayInfo = calendarData.find((c) => c && c.date === selectedDay);
+            if (!dayInfo || !dayInfo.count) return null;
+            const dayDate = new Date(selectedDay + "T12:00:00");
+            return (
+              <div className="mt-4 rounded-lg border border-chamber-orange/30 bg-[#0e0e0e] p-4 space-y-3 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-chamber-orange font-bold tracking-wide text-sm">
+                    {dayDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+                  </h3>
+                  <button onClick={() => setSelectedDay(null)} className="text-chamber-text-muted hover:text-white text-xs">✕ Close</button>
+                </div>
+                <div className="flex gap-4 text-sm">
+                  <span className={dayInfo.pnl >= 0 ? "text-green-400" : "text-red-400"}>
+                    P&L: {formatDollar(dayInfo.pnl)}
+                  </span>
+                  <span className="text-chamber-text-muted">{dayInfo.count} trade{dayInfo.count !== 1 ? "s" : ""}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {dayInfo.trades.map((t) => (
+                    <div key={t.id} className="flex items-center justify-between rounded bg-[#141414] border border-chamber-border px-3 py-2 text-sm">
+                      <div className="flex items-center gap-3">
+                        <span className={`font-mono text-xs px-1.5 py-0.5 rounded ${t.direction === "long" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                          {t.direction?.toUpperCase()}
+                        </span>
+                        <span className="text-white font-medium">{t.pair}</span>
+                        <span className="text-chamber-text-muted text-xs">@ {t.entry_price}</span>
+                        <span className="text-chamber-text-dim text-xs">→ {t.exit_price}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`font-bold ${(t.pnl_dollar || 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                          {formatDollar(t.pnl_dollar || 0)}
+                        </span>
+                        <span className="text-chamber-text-muted text-xs">
+                          {t.pnl_pips > 0 ? "+" : ""}{t.pnl_pips.toFixed(1)}p
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const params = new URLSearchParams({
+                              pair: t.pair || "", direction: t.direction || "",
+                              entry_price: String(t.entry_price || ""), exit_price: String(t.exit_price || ""),
+                              trade_date: t.trade_date || "", reasoning: t.reasoning || "",
+                            });
+                            router.push(`/ai-analysis?${params.toString()}`);
+                          }}
+                          className="px-2 py-0.5 rounded text-xs font-medium bg-chamber-orange/20 text-chamber-orange hover:bg-chamber-orange/40 transition-colors"
+                        >
+                          Analyze
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="flex justify-center gap-6 mt-3 text-xs">
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-chamber-green inline-block" /> Profit</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-chamber-red inline-block" /> Loss</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ border: "2px solid #e8651a" }} /> Today</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-green-500/30 border border-green-500 inline-block" /> Profit</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-500/30 border border-red-500 inline-block" /> Loss</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block border-2 border-chamber-orange shadow-[0_0_6px_rgba(232,101,26,0.5)]" /> Today</span>
           </div>
         </div>
       )}
