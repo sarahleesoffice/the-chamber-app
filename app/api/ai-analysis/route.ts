@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
 
     if (anthropicKey) {
       provider = "claude";
-      model = "claude-3-5-sonnet-latest";
+      model = "claude-3-haiku-20240307";
 
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
