@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import Sidebar from "@/components/Sidebar";
 import Ticker from "@/components/Ticker";
 
