@@ -111,7 +111,13 @@ export default function AIAnalysisPage() {
   const [calMonth, setCalMonth] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
+
+  // Modal state for viewing a past analysis
+  const [modalAnalysis, setModalAnalysis] = useState<AnalysisRow | null>(null);
+  const [modalChat, setModalChat] = useState<ChatMsg[]>([]);
+  const [modalChatInput, setModalChatInput] = useState("");
+  const [modalChatSending, setModalChatSending] = useState(false);
+  const modalChatEndRef = useRef<HTMLDivElement>(null);
 
   // Refs for file inputs
   const htfRef = useRef<HTMLInputElement>(null);
@@ -421,6 +427,58 @@ export default function AIAnalysisPage() {
       setChatSending(false);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     }
+  }
+
+  // ============================================================
+  // Modal chat handler (for past analyses)
+  // ============================================================
+  async function sendModalChat() {
+    if (!modalChatInput.trim() || modalChatSending || !modalAnalysis) return;
+    const userMsg = modalChatInput.trim();
+    setModalChatInput("");
+    setModalChat((prev) => [...prev, { role: "user", text: userMsg }]);
+    setModalChatSending(true);
+
+    try {
+      const messages = [
+        { role: "user", content: "Here is my trade analysis. Use this as context for follow-up questions. Be conversational, use emojis 🔥, keep answers concise (2-4 sentences). No markdown headers or bold. Plain text only.\n\n" + modalAnalysis.analysis_text },
+        { role: "assistant", content: "Got it! I've reviewed your analysis. What would you like to discuss? 🔥" },
+        ...modalChat.map((m) => ({ role: m.role, content: m.text })),
+        { role: "user", content: userMsg },
+      ];
+
+      const res = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const cleanReply = (data.reply || "No response.").replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "").replace(/💯/g, "🔥");
+        setModalChat((prev) => [...prev, { role: "assistant", text: cleanReply }]);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setModalChat((prev) => [...prev, { role: "assistant", text: `Error: ${data.error || "Something went wrong"} 😕` }]);
+      }
+    } catch {
+      setModalChat((prev) => [...prev, { role: "assistant", text: "Couldn't connect right now. Try again 🔁" }]);
+    } finally {
+      setModalChatSending(false);
+      setTimeout(() => modalChatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    }
+  }
+
+  function openAnalysisModal(a: AnalysisRow) {
+    setModalAnalysis(a);
+    setModalChat([]);
+    setModalChatInput("");
+  }
+
+  function closeAnalysisModal() {
+    setModalAnalysis(null);
+    setModalChat([]);
+    setModalChatInput("");
   }
 
   // ============================================================
@@ -1267,7 +1325,6 @@ export default function AIAnalysisPage() {
                 </div>
                 <div className="space-y-3">
                   {displayAnalyses.map((a) => {
-                    const isExpanded = expandedAnalysis === a.id;
                     const ratingMatch = a.analysis_text?.match(/ICT\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
                     const rating = ratingMatch ? parseFloat(ratingMatch[1]) : a.ict_score;
                     const cleanText = a.analysis_text
@@ -1278,35 +1335,28 @@ export default function AIAnalysisPage() {
                     return (
                       <div
                         key={a.id}
-                        className="rounded-lg cursor-pointer hover:opacity-95 transition-opacity"
+                        className="rounded-lg cursor-pointer hover:bg-[#161616] transition-colors"
                         style={{
                           background: "#111",
                           borderLeft: "3px solid #e8651a",
                           padding: "16px 20px",
                         }}
-                        onClick={() => setExpandedAnalysis(isExpanded ? null : a.id)}
+                        onClick={() => openAnalysisModal(a)}
                       >
-                        {/* Header row */}
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-3">
                             {rating != null && (
                               <span
                                 className="text-xs font-bold px-2 py-0.5 rounded"
                                 style={{
-                                  background: rating >= 7
-                                    ? "rgba(34,197,94,0.15)"
-                                    : rating >= 4
-                                    ? "rgba(232,101,26,0.15)"
-                                    : "rgba(239,68,68,0.15)",
+                                  background: rating >= 7 ? "rgba(34,197,94,0.15)" : rating >= 4 ? "rgba(232,101,26,0.15)" : "rgba(239,68,68,0.15)",
                                   color: rating >= 7 ? "#22c55e" : rating >= 4 ? "#e8651a" : "#ef4444",
                                 }}
                               >
                                 {rating}/10
                               </span>
                             )}
-                            {a.pair && (
-                              <span className="font-bold text-white text-sm">{a.pair}</span>
-                            )}
+                            {a.pair && <span className="font-bold text-white text-sm">{a.pair}</span>}
                             {a.direction && (
                               <span
                                 className="text-xs font-semibold uppercase px-2 py-0.5 rounded"
@@ -1318,92 +1368,15 @@ export default function AIAnalysisPage() {
                                 {a.direction}
                               </span>
                             )}
-                            {a.entry_price && (
-                              <span className="text-xs text-chamber-text-muted">
-                                @ {a.entry_price}
-                              </span>
-                            )}
-                            {a.exit_price && (
-                              <span className="text-xs text-chamber-text-dim">
-                                → {a.exit_price}
-                              </span>
-                            )}
-                            <span className="text-xs text-chamber-text-dim">
-                              {a.provider} / {a.model}
-                            </span>
+                            {a.entry_price && <span className="text-xs text-chamber-text-muted">@ {a.entry_price}</span>}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-chamber-text-muted">
-                              {a.created_at ? format(new Date(a.created_at), "MMM d, yyyy") : ""}
-                            </span>
-                            <span className="text-chamber-text-dim text-xs">{isExpanded ? "▲" : "▼"}</span>
-                          </div>
+                          <span className="text-xs text-chamber-text-muted">
+                            {a.created_at ? format(new Date(a.created_at), "MMM d, yyyy") : ""}
+                          </span>
                         </div>
-
-                        {/* Collapsed preview */}
-                        {!isExpanded && (
-                          <p className="text-sm leading-relaxed line-clamp-3" style={{ color: "#d0d0d0" }}>
-                            {cleanText}
-                          </p>
-                        )}
-
-                        {/* Expanded full view */}
-                        {isExpanded && (
-                          <div className="space-y-4 mt-3">
-                            {/* Chart screenshots */}
-                            {a.chart_urls && a.chart_urls.length > 0 && (
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                {a.chart_urls.map((url, i) => (
-                                  <div key={i} className="rounded-lg overflow-hidden border border-chamber-border">
-                                    <img
-                                      src={url}
-                                      alt={`Chart ${i + 1}`}
-                                      className="w-full h-auto"
-                                      loading="lazy"
-                                    />
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {/* Trade details */}
-                            {(a.entry_price || a.exit_price || a.trade_date) && (
-                              <div className="flex flex-wrap gap-3 text-xs">
-                                {a.trade_date && (
-                                  <span className="px-2 py-1 rounded bg-chamber-surface border border-chamber-border text-chamber-text-muted">
-                                    Date: {a.trade_date}
-                                  </span>
-                                )}
-                                {a.entry_price && (
-                                  <span className="px-2 py-1 rounded bg-chamber-surface border border-chamber-border text-chamber-text-muted">
-                                    Entry: {a.entry_price}
-                                  </span>
-                                )}
-                                {a.exit_price && (
-                                  <span className="px-2 py-1 rounded bg-chamber-surface border border-chamber-border text-chamber-text-muted">
-                                    Exit: {a.exit_price}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Full analysis text */}
-                            <div
-                              className="text-sm leading-relaxed whitespace-pre-wrap"
-                              style={{ color: "#d0d0d0" }}
-                            >
-                              {cleanText}
-                            </div>
-
-                            {/* Reasoning if stored */}
-                            {a.reasoning && (
-                              <div className="pt-3 border-t border-chamber-border">
-                                <p className="text-xs text-chamber-text-dim mb-1 font-semibold">YOUR REASONING:</p>
-                                <p className="text-sm text-chamber-text-muted">{a.reasoning}</p>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        <p className="text-sm leading-relaxed line-clamp-2" style={{ color: "#d0d0d0" }}>
+                          {cleanText}
+                        </p>
                       </div>
                     );
                   })}
@@ -1427,6 +1400,206 @@ export default function AIAnalysisPage() {
         </p>
         <p className="text-[#292929] text-[0.58rem] mt-1">THIS IS NOT FINANCIAL ADVICE</p>
       </div>
+
+      {/* ============================================================ */}
+      {/* ANALYSIS DETAIL MODAL */}
+      {/* ============================================================ */}
+      {modalAnalysis && (() => {
+        const ratingMatch = modalAnalysis.analysis_text?.match(/ICT\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
+        const rating = ratingMatch ? parseFloat(ratingMatch[1]) : modalAnalysis.ict_score;
+        const cleanText = modalAnalysis.analysis_text
+          ?.replace(/#{1,3}\s*/g, "")
+          .replace(/\*\*/g, "")
+          .replace(/__/g, "") || "";
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+            onClick={(e) => { if (e.target === e.currentTarget) closeAnalysisModal(); }}
+            onKeyDown={(e) => { if (e.key === "Escape") closeAnalysisModal(); }}
+            tabIndex={-1}
+            ref={(el) => el?.focus()}
+          >
+            <div
+              className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl"
+              style={{
+                background: "#0e0e0e",
+                border: "1px solid rgba(232,101,26,0.3)",
+                boxShadow: "0 25px 60px rgba(0,0,0,0.8)",
+              }}
+            >
+              {/* Modal Header */}
+              <div
+                className="sticky top-0 z-10 flex items-center justify-between px-6 py-4"
+                style={{
+                  background: "#0e0e0e",
+                  borderBottom: "1px solid rgba(232,101,26,0.2)",
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  {rating != null && (
+                    <span
+                      className="text-sm font-bold px-3 py-1 rounded-lg"
+                      style={{
+                        background: rating >= 7 ? "rgba(34,197,94,0.15)" : rating >= 4 ? "rgba(232,101,26,0.15)" : "rgba(239,68,68,0.15)",
+                        color: rating >= 7 ? "#22c55e" : rating >= 4 ? "#e8651a" : "#ef4444",
+                        border: `1px solid ${rating >= 7 ? "rgba(34,197,94,0.3)" : rating >= 4 ? "rgba(232,101,26,0.3)" : "rgba(239,68,68,0.3)"}`,
+                      }}
+                    >
+                      ICT Rating: {rating}/10
+                    </span>
+                  )}
+                  {modalAnalysis.pair && <span className="font-bold text-white text-lg">{modalAnalysis.pair}</span>}
+                  {modalAnalysis.direction && (
+                    <span
+                      className="text-xs font-semibold uppercase px-2 py-1 rounded"
+                      style={{
+                        background: modalAnalysis.direction === "long" ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
+                        color: modalAnalysis.direction === "long" ? "#22c55e" : "#ef4444",
+                      }}
+                    >
+                      {modalAnalysis.direction}
+                    </span>
+                  )}
+                  <span className="text-xs text-chamber-text-muted">
+                    {modalAnalysis.created_at ? format(new Date(modalAnalysis.created_at), "MMM d, yyyy") : ""}
+                  </span>
+                </div>
+                <button
+                  onClick={closeAnalysisModal}
+                  className="w-8 h-8 rounded-lg bg-chamber-surface border border-chamber-border text-chamber-text-muted hover:text-white hover:border-chamber-orange/30 transition-colors flex items-center justify-center text-lg"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="px-6 py-5 space-y-6">
+                {/* Chart Screenshots */}
+                {modalAnalysis.chart_urls && modalAnalysis.chart_urls.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-chamber-text-dim tracking-wider mb-3">CHARTS</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {modalAnalysis.chart_urls.map((url, i) => (
+                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden border border-chamber-border hover:border-chamber-orange/40 transition-colors">
+                          <img src={url} alt={`Chart ${i + 1}`} className="w-full h-auto" loading="lazy" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Trade Details */}
+                {(modalAnalysis.entry_price || modalAnalysis.exit_price || modalAnalysis.trade_date) && (
+                  <div className="flex flex-wrap gap-3">
+                    {modalAnalysis.trade_date && (
+                      <span className="px-3 py-1.5 rounded-lg bg-chamber-surface border border-chamber-border text-xs text-chamber-text-muted">
+                        Trade Date: {modalAnalysis.trade_date}
+                      </span>
+                    )}
+                    {modalAnalysis.entry_price && (
+                      <span className="px-3 py-1.5 rounded-lg bg-chamber-surface border border-chamber-border text-xs text-chamber-text-muted">
+                        Entry: {modalAnalysis.entry_price}
+                      </span>
+                    )}
+                    {modalAnalysis.exit_price && (
+                      <span className="px-3 py-1.5 rounded-lg bg-chamber-surface border border-chamber-border text-xs text-chamber-text-muted">
+                        Exit: {modalAnalysis.exit_price}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Full ICT Analysis */}
+                <div>
+                  <h3 className="text-xs font-semibold text-chamber-text-dim tracking-wider mb-3">ICT ANALYSIS</h3>
+                  <div
+                    className="text-sm leading-relaxed whitespace-pre-wrap rounded-lg p-4"
+                    style={{ color: "#d0d0d0", background: "#141414", border: "1px solid #1e1e1e" }}
+                  >
+                    {cleanText}
+                  </div>
+                </div>
+
+                {/* Your Reasoning */}
+                {modalAnalysis.reasoning && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-chamber-text-dim tracking-wider mb-3">YOUR REASONING</h3>
+                    <p className="text-sm text-chamber-text-muted leading-relaxed">{modalAnalysis.reasoning}</p>
+                  </div>
+                )}
+
+                {/* Chat Section */}
+                <div
+                  className="rounded-lg p-4"
+                  style={{ background: "#141414", border: "1px solid #1e1e1e" }}
+                >
+                  <h3 className="text-xs font-semibold text-chamber-orange tracking-wider mb-3">CONTINUE THE CONVERSATION</h3>
+
+                  {modalChat.length > 0 && (
+                    <div className="space-y-3 mb-4 max-h-[300px] overflow-y-auto">
+                      {modalChat.map((msg, i) => (
+                        <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                          <div
+                            className="max-w-[80%] rounded-xl px-4 py-2.5 text-sm"
+                            style={{
+                              background: msg.role === "user" ? "rgba(232,101,26,0.15)" : "rgba(255,255,255,0.05)",
+                              border: msg.role === "user" ? "1px solid rgba(232,101,26,0.3)" : "1px solid rgba(255,255,255,0.08)",
+                              color: msg.role === "user" ? "#f0f0f0" : "#d0d0d0",
+                            }}
+                          >
+                            {msg.role === "assistant" && <span className="text-xs text-chamber-orange mr-1">🔥</span>}
+                            {msg.text}
+                          </div>
+                        </div>
+                      ))}
+                      {modalChatSending && (
+                        <div className="flex justify-start">
+                          <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                            <span className="text-chamber-text-muted animate-pulse">thinking... 🧠</span>
+                          </div>
+                        </div>
+                      )}
+                      <div ref={modalChatEndRef} />
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={modalChatInput}
+                      onChange={(e) => setModalChatInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendModalChat(); } }}
+                      placeholder="Ask about this trade... Was my OB valid? Should I have waited?"
+                      className="flex-1 bg-[#1a1a1a] border border-chamber-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-chamber-text-dim focus:border-chamber-orange focus:outline-none transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); sendModalChat(); }}
+                      disabled={modalChatSending || !modalChatInput.trim()}
+                      className="px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                      style={{
+                        background: modalChatInput.trim() ? "rgba(232,101,26,0.2)" : "rgba(255,255,255,0.05)",
+                        border: modalChatInput.trim() ? "1px solid rgba(232,101,26,0.4)" : "1px solid rgba(255,255,255,0.08)",
+                        color: modalChatInput.trim() ? "#e8651a" : "#555",
+                      }}
+                    >
+                      🚀
+                    </button>
+                  </div>
+                </div>
+
+                {/* Provider info */}
+                <div className="text-center">
+                  <span className="text-[0.65rem] text-chamber-text-dim">
+                    {modalAnalysis.provider} / {modalAnalysis.model}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
