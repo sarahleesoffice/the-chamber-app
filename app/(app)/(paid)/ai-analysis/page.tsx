@@ -481,6 +481,14 @@ export default function AIAnalysisPage() {
     setModalChatInput("");
   }
 
+  async function deleteAnalysis(id: string) {
+    const { error } = await supabase.from("analyses").delete().eq("id", id);
+    if (!error) {
+      setAnalyses((prev) => prev.filter((a) => a.id !== id));
+      closeAnalysisModal();
+    }
+  }
+
   // ============================================================
   // Past analyses: calendar data
   // ============================================================
@@ -1466,12 +1474,20 @@ export default function AIAnalysisPage() {
                     {modalAnalysis.created_at ? format(new Date(modalAnalysis.created_at), "MMM d, yyyy") : ""}
                   </span>
                 </div>
-                <button
-                  onClick={closeAnalysisModal}
-                  className="w-8 h-8 rounded-lg bg-chamber-surface border border-chamber-border text-chamber-text-muted hover:text-white hover:border-chamber-orange/30 transition-colors flex items-center justify-center text-lg"
-                >
-                  ✕
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (confirm("Delete this analysis? This cannot be undone.")) deleteAnalysis(modalAnalysis.id); }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-500/20 bg-red-500/5 text-red-400/70 hover:bg-red-500/15 hover:text-red-400 hover:border-red-500/40 transition-all"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={closeAnalysisModal}
+                    className="w-8 h-8 rounded-lg bg-chamber-surface border border-chamber-border text-chamber-text-muted hover:text-white hover:border-chamber-orange/30 transition-colors flex items-center justify-center text-lg"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
 
               <div className="px-6 py-5 space-y-6">
