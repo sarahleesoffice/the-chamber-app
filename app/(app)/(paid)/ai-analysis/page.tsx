@@ -29,6 +29,7 @@ interface AnalysisRow {
   reasoning?: string;
   focus?: string;
   ict_score?: number;
+  chart_urls?: string[];
 }
 
 // ============================================================
@@ -88,6 +89,11 @@ export default function AIAnalysisPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [noApiKey, setNoApiKey] = useState(false);
 
+  // Auto-detect state
+  const [detecting, setDetecting] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
+  const [detectConfidence, setDetectConfidence] = useState<Record<string, string> | null>(null);
+
   // Chat follow-up state
   interface ChatMsg { role: "user" | "assistant"; text: string }
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
@@ -104,6 +110,8 @@ export default function AIAnalysisPage() {
   const [analyses, setAnalyses] = useState<AnalysisRow[]>([]);
   const [calMonth, setCalMonth] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
 
   // Refs for file inputs
   const htfRef = useRef<HTMLInputElement>(null);
@@ -195,6 +203,83 @@ export default function AIAnalysisPage() {
   const hasCharts = !!htfFile || !!entryFile;
 
   // ============================================================
+  // Auto-detect trade details from charts
+  // ============================================================
+  function parseDataUrl(dataUrl: string): { base64: string; mediaType: string } | null {
+    const match = dataUrl.match(/^data:(image\/[\w+]+);base64,(.+)$/);
+    if (!match) return null;
+    return { mediaType: match[1], base64: match[2] };
+  }
+
+  async function handleDetect() {
+    setDetecting(true);
+    setDetectError(null);
+    setDetectConfidence(null);
+
+    const images: Array<{ base64: string; mediaType: string; label: string }> = [];
+
+    // Prioritize entry chart, but include all available
+    if (entryPreview) {
+      const parsed = parseDataUrl(entryPreview);
+      if (parsed) images.push({ ...parsed, label: "entry" });
+    }
+    if (htfPreview) {
+      const parsed = parseDataUrl(htfPreview);
+      if (parsed) images.push({ ...parsed, label: "htf" });
+    }
+    if (extraPreview) {
+      const parsed = parseDataUrl(extraPreview);
+      if (parsed) images.push({ ...parsed, label: "extra" });
+    }
+
+    if (images.length === 0) {
+      setDetectError("No charts to analyze");
+      setDetecting(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/detect-trade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.detected) {
+        setDetectError(data.error || "Detection failed");
+        setDetecting(false);
+        return;
+      }
+
+      // Auto-fill form fields — only overwrite if currently empty/default
+      if (data.pair && !pair) {
+        const normalized = data.pair.replace(/[\s/]/g, "").toUpperCase();
+        const matched = COMMON_PAIRS.find(
+          (p) => p.replace(/[\s/]/g, "").toUpperCase() === normalized
+        );
+        if (matched) setPair(matched);
+      }
+      if (data.direction) {
+        setDirection(data.direction);
+      }
+      if (data.entryPrices?.length > 0 && entryPrices.every((p) => p === "")) {
+        setEntryPrices(data.entryPrices);
+      }
+      if (data.exitPrices?.length > 0 && exitPrices.every((p) => p === "")) {
+        setExitPrices(data.exitPrices);
+      }
+
+      setDetectConfidence(data.confidence);
+    } catch {
+      setDetectError("Failed to connect to detection service");
+    } finally {
+      setDetecting(false);
+    }
+  }
+
+  // ============================================================
   // Analyze handler
   // ============================================================
   async function handleAnalyze() {
@@ -264,6 +349,7 @@ export default function AIAnalysisPage() {
           reasoning: allTrades.map((t, i) => `Trade ${i + 1} (${t.pair} ${t.direction}): Entries [${t.entryPrices.join(", ")}], Exits [${t.exitPrices.join(", ")}]${t.reasoning ? ` — ${t.reasoning}` : ""}`).join("\n"),
           focus,
           chart_descriptions: chartDescriptions,
+          chart_urls: urls,
           trades: allTrades.map((t) => ({
             pair: t.pair, direction: t.direction,
             entry_prices: t.entryPrices, exit_prices: t.exitPrices,
@@ -572,6 +658,33 @@ export default function AIAnalysisPage() {
               )}
             </div>
           </section>
+
+          {/* Auto-detect button */}
+          {hasCharts && (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleDetect}
+                disabled={detecting || noApiKey}
+                className="px-4 py-2.5 rounded-lg text-xs font-semibold tracking-wider border border-chamber-orange/40 bg-chamber-orange/10 text-chamber-orange hover:bg-chamber-orange/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {detecting ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-chamber-orange border-t-transparent rounded-full animate-spin" />
+                    Detecting...
+                  </>
+                ) : (
+                  "Detect Trade Details from Charts"
+                )}
+              </button>
+              {detectError && (
+                <span className="text-red-400 text-xs">{detectError}</span>
+              )}
+              {detectConfidence && !detectError && (
+                <span className="text-chamber-text-muted text-xs">AI detected values — verify and correct if needed</span>
+              )}
+            </div>
+          )}
 
           {/* Trade Details */}
           <section>
@@ -1076,21 +1189,25 @@ export default function AIAnalysisPage() {
                 ? "1px solid rgba(232,101,26,0.25)"
                 : "1px solid #1e1a17";
 
+              const isSelected = selectedDate === cell.date;
+
               return (
                 <div
                   key={cell.date}
-                  className="aspect-square rounded-md flex flex-col items-center justify-center text-xs relative"
-                  style={{ background: bg, border }}
+                  onClick={() => hasAnalysis ? setSelectedDate(isSelected ? null : cell.date) : undefined}
+                  className={`aspect-square rounded-md flex flex-col items-center justify-center text-xs relative ${hasAnalysis ? "cursor-pointer hover:opacity-80" : ""}`}
+                  style={{
+                    background: isSelected ? "rgba(232,101,26,0.25)" : bg,
+                    border: isSelected ? "2px solid #e8651a" : border,
+                  }}
                 >
-                  <span className={cell.isToday ? "text-chamber-orange font-bold" : "text-chamber-text-muted"}>
+                  <span className={cell.isToday || isSelected ? "text-chamber-orange font-bold" : "text-chamber-text-muted"}>
                     {cell.day}
                   </span>
                   {hasAnalysis && (
-                    <>
-                      <span className="font-bold text-[0.65rem] text-chamber-orange">
-                        {cell.count} {cell.count === 1 ? "analysis" : "analyses"}
-                      </span>
-                    </>
+                    <span className="font-bold text-[0.65rem] text-chamber-orange">
+                      {cell.count} {cell.count === 1 ? "analysis" : "analyses"}
+                    </span>
                   )}
                 </div>
               );
@@ -1109,67 +1226,191 @@ export default function AIAnalysisPage() {
             </span>
           </div>
 
-          {/* Recent Analyses List */}
-          {analyses.length > 0 && (
-            <section className="mt-6">
-              <h3
-                className="text-base font-bold tracking-wider text-chamber-orange mb-3"
-                style={{ textShadow: "0 0 20px rgba(232,101,26,0.4)" }}
-              >
-                RECENT ANALYSES
-              </h3>
-              <div className="space-y-3">
-                {analyses.slice(0, 10).map((a) => (
-                  <div
-                    key={a.id}
-                    className="rounded-lg"
-                    style={{
-                      background: "#111",
-                      borderLeft: "3px solid #e8651a",
-                      padding: "16px 20px",
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        {a.pair && (
-                          <span className="font-bold text-white text-sm">{a.pair}</span>
-                        )}
-                        {a.direction && (
-                          <span
-                            className="text-xs font-semibold uppercase px-2 py-0.5 rounded"
-                            style={{
-                              background: a.direction === "long" ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
-                              color: a.direction === "long" ? "#22c55e" : "#ef4444",
-                            }}
-                          >
-                            {a.direction}
-                          </span>
-                        )}
-                        <span className="text-xs text-chamber-text-dim">
-                          {a.provider} / {a.model}
-                        </span>
-                      </div>
-                      <span className="text-xs text-chamber-text-muted">
-                        {a.created_at ? format(new Date(a.created_at), "MMM d, yyyy") : ""}
-                      </span>
-                    </div>
-                    <p
-                      className="text-sm leading-relaxed line-clamp-3"
-                      style={{ color: "#d0d0d0" }}
-                    >
-                      {a.analysis_text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
+          {/* Analyses List — filtered by selected date or recent */}
+          {(() => {
+            const displayAnalyses = selectedDate
+              ? analyses.filter((a) => a.created_at?.slice(0, 10) === selectedDate)
+              : analyses.slice(0, 10);
+            const sectionTitle = selectedDate
+              ? `ANALYSES FOR ${format(new Date(selectedDate + "T12:00:00"), "MMMM d, yyyy").toUpperCase()}`
+              : "RECENT ANALYSES";
 
-          {analyses.length === 0 && !loading && (
-            <div className="bg-chamber-surface border border-chamber-border rounded-lg p-10 text-center text-chamber-text-muted text-sm">
-              No analyses yet. Upload chart screenshots in the Analyze Charts tab to get started.
-            </div>
-          )}
+            if (displayAnalyses.length === 0 && !loading) {
+              return (
+                <div className="bg-chamber-surface border border-chamber-border rounded-lg p-10 text-center text-chamber-text-muted text-sm">
+                  {selectedDate
+                    ? "No analyses for this date."
+                    : "No analyses yet. Upload chart screenshots in the Analyze Charts tab to get started."}
+                </div>
+              );
+            }
+
+            if (displayAnalyses.length === 0) return null;
+
+            return (
+              <section className="mt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h3
+                    className="text-base font-bold tracking-wider text-chamber-orange"
+                    style={{ textShadow: "0 0 20px rgba(232,101,26,0.4)" }}
+                  >
+                    {sectionTitle}
+                  </h3>
+                  {selectedDate && (
+                    <button
+                      onClick={() => setSelectedDate(null)}
+                      className="text-xs text-chamber-text-muted hover:text-chamber-orange transition-colors"
+                    >
+                      Show all recent
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  {displayAnalyses.map((a) => {
+                    const isExpanded = expandedAnalysis === a.id;
+                    const ratingMatch = a.analysis_text?.match(/ICT\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
+                    const rating = ratingMatch ? parseFloat(ratingMatch[1]) : a.ict_score;
+                    const cleanText = a.analysis_text
+                      ?.replace(/#{1,3}\s*/g, "")
+                      .replace(/\*\*/g, "")
+                      .replace(/__/g, "") || "";
+
+                    return (
+                      <div
+                        key={a.id}
+                        className="rounded-lg cursor-pointer hover:opacity-95 transition-opacity"
+                        style={{
+                          background: "#111",
+                          borderLeft: "3px solid #e8651a",
+                          padding: "16px 20px",
+                        }}
+                        onClick={() => setExpandedAnalysis(isExpanded ? null : a.id)}
+                      >
+                        {/* Header row */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            {rating != null && (
+                              <span
+                                className="text-xs font-bold px-2 py-0.5 rounded"
+                                style={{
+                                  background: rating >= 7
+                                    ? "rgba(34,197,94,0.15)"
+                                    : rating >= 4
+                                    ? "rgba(232,101,26,0.15)"
+                                    : "rgba(239,68,68,0.15)",
+                                  color: rating >= 7 ? "#22c55e" : rating >= 4 ? "#e8651a" : "#ef4444",
+                                }}
+                              >
+                                {rating}/10
+                              </span>
+                            )}
+                            {a.pair && (
+                              <span className="font-bold text-white text-sm">{a.pair}</span>
+                            )}
+                            {a.direction && (
+                              <span
+                                className="text-xs font-semibold uppercase px-2 py-0.5 rounded"
+                                style={{
+                                  background: a.direction === "long" ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
+                                  color: a.direction === "long" ? "#22c55e" : "#ef4444",
+                                }}
+                              >
+                                {a.direction}
+                              </span>
+                            )}
+                            {a.entry_price && (
+                              <span className="text-xs text-chamber-text-muted">
+                                @ {a.entry_price}
+                              </span>
+                            )}
+                            {a.exit_price && (
+                              <span className="text-xs text-chamber-text-dim">
+                                → {a.exit_price}
+                              </span>
+                            )}
+                            <span className="text-xs text-chamber-text-dim">
+                              {a.provider} / {a.model}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-chamber-text-muted">
+                              {a.created_at ? format(new Date(a.created_at), "MMM d, yyyy") : ""}
+                            </span>
+                            <span className="text-chamber-text-dim text-xs">{isExpanded ? "▲" : "▼"}</span>
+                          </div>
+                        </div>
+
+                        {/* Collapsed preview */}
+                        {!isExpanded && (
+                          <p className="text-sm leading-relaxed line-clamp-3" style={{ color: "#d0d0d0" }}>
+                            {cleanText}
+                          </p>
+                        )}
+
+                        {/* Expanded full view */}
+                        {isExpanded && (
+                          <div className="space-y-4 mt-3">
+                            {/* Chart screenshots */}
+                            {a.chart_urls && a.chart_urls.length > 0 && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {a.chart_urls.map((url, i) => (
+                                  <div key={i} className="rounded-lg overflow-hidden border border-chamber-border">
+                                    <img
+                                      src={url}
+                                      alt={`Chart ${i + 1}`}
+                                      className="w-full h-auto"
+                                      loading="lazy"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Trade details */}
+                            {(a.entry_price || a.exit_price || a.trade_date) && (
+                              <div className="flex flex-wrap gap-3 text-xs">
+                                {a.trade_date && (
+                                  <span className="px-2 py-1 rounded bg-chamber-surface border border-chamber-border text-chamber-text-muted">
+                                    Date: {a.trade_date}
+                                  </span>
+                                )}
+                                {a.entry_price && (
+                                  <span className="px-2 py-1 rounded bg-chamber-surface border border-chamber-border text-chamber-text-muted">
+                                    Entry: {a.entry_price}
+                                  </span>
+                                )}
+                                {a.exit_price && (
+                                  <span className="px-2 py-1 rounded bg-chamber-surface border border-chamber-border text-chamber-text-muted">
+                                    Exit: {a.exit_price}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Full analysis text */}
+                            <div
+                              className="text-sm leading-relaxed whitespace-pre-wrap"
+                              style={{ color: "#d0d0d0" }}
+                            >
+                              {cleanText}
+                            </div>
+
+                            {/* Reasoning if stored */}
+                            {a.reasoning && (
+                              <div className="pt-3 border-t border-chamber-border">
+                                <p className="text-xs text-chamber-text-dim mb-1 font-semibold">YOUR REASONING:</p>
+                                <p className="text-sm text-chamber-text-muted">{a.reasoning}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })()}
 
           {loading && (
             <div className="flex items-center justify-center h-32">

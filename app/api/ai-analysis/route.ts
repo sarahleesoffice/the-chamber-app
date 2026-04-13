@@ -106,6 +106,7 @@ interface AnalysisRequest {
   reasoning?: string;
   focus?: string;
   chart_descriptions?: string[];
+  chart_urls?: string[];
 }
 
 function buildUserMessage(req: AnalysisRequest): string {
@@ -292,6 +293,15 @@ export async function POST(req: NextRequest) {
       provider,
       model,
       analysis_text: analysisText,
+      pair: body.pair || null,
+      direction: body.direction || null,
+      entry_price: body.entry_price || null,
+      exit_price: body.exit_price || null,
+      trade_date: body.trade_date || null,
+      reasoning: body.reasoning || null,
+      focus: body.focus || null,
+      ict_score: ictScore,
+      chart_urls: body.chart_urls || null,
     });
 
     if (insertError) {

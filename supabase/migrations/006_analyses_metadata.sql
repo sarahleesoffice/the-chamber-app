@@ -1,0 +1,10 @@
+-- Add trade metadata and chart URLs to analyses table
+ALTER TABLE public.analyses ADD COLUMN IF NOT EXISTS pair TEXT;
+ALTER TABLE public.analyses ADD COLUMN IF NOT EXISTS direction TEXT;
+ALTER TABLE public.analyses ADD COLUMN IF NOT EXISTS entry_price TEXT;
+ALTER TABLE public.analyses ADD COLUMN IF NOT EXISTS exit_price TEXT;
+ALTER TABLE public.analyses ADD COLUMN IF NOT EXISTS trade_date DATE;
+ALTER TABLE public.analyses ADD COLUMN IF NOT EXISTS reasoning TEXT;
+ALTER TABLE public.analyses ADD COLUMN IF NOT EXISTS focus TEXT;
+ALTER TABLE public.analyses ADD COLUMN IF NOT EXISTS ict_score REAL;
+ALTER TABLE public.analyses ADD COLUMN IF NOT EXISTS chart_urls TEXT[];
