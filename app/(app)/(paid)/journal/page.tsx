@@ -12,7 +12,7 @@ import { format, addDays, subDays } from "date-fns";
 
 const MENTAL_STATE_CATEGORIES: Record<
   string,
-  { label: string; description: string; lowWarning: string }
+  { label: string; description: string; lowWarning: string; inverted?: boolean }
 > = {
   sleep: {
     label: "Sleep Quality",
@@ -40,9 +40,10 @@ const MENTAL_STATE_CATEGORIES: Record<
   },
   stress: {
     label: "Stress Level",
-    description: "How stressed are you? (10 = no stress, 1 = extremely stressed)",
+    description: "How stressed are you? (1 = relaxed, 10 = extremely stressed)",
     lowWarning:
       "High stress outside of trading bleeds into your execution.",
+    inverted: true,
   },
   confidence: {
     label: "Confidence",
@@ -155,8 +156,14 @@ function assessReadiness(scores: Record<string, number>): {
     return { score: 5, label: "Incomplete", reasoning: "Complete your mental state assessment first." };
   }
 
-  const avg = keys.reduce((sum, k) => sum + scores[k], 0) / keys.length;
-  const criticalLow = keys.filter((k) => scores[k] <= 3);
+  // For inverted metrics (like stress), flip the value so high = bad becomes low in the average
+  const effectiveValue = (k: string) => {
+    const info = MENTAL_STATE_CATEGORIES[k];
+    return info?.inverted ? (11 - scores[k]) : scores[k];
+  };
+
+  const avg = keys.reduce((sum, k) => sum + effectiveValue(k), 0) / keys.length;
+  const criticalLow = keys.filter((k) => effectiveValue(k) <= 3);
 
   if (avg >= 8 && criticalLow.length === 0) {
     return {
@@ -208,14 +215,18 @@ function Slider({
   description,
   value,
   onChange,
+  inverted,
 }: {
   label: string;
   description: string;
   value: number;
   onChange: (v: number) => void;
+  inverted?: boolean;
 }) {
   const pct = ((value - 1) / 9) * 100;
-  const color = value >= 7 ? "#22c55e" : value >= 4 ? "#e8651a" : "#ef4444";
+  const color = inverted
+    ? (value <= 3 ? "#22c55e" : value <= 6 ? "#e8651a" : "#ef4444")
+    : (value >= 7 ? "#22c55e" : value >= 4 ? "#e8651a" : "#ef4444");
 
   return (
     <div className="space-y-1.5">
@@ -624,6 +635,7 @@ export default function DailyJournalPage() {
               description={info.description}
               value={mentalScores[key] ?? 5}
               onChange={(v) => setMentalScores((prev) => ({ ...prev, [key]: v }))}
+              inverted={info.inverted}
             />
           ))}
         </div>

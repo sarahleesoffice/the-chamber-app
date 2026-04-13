@@ -37,7 +37,7 @@ function assessReadiness(scores: Record<string, number>): {
 } {
   const { sleep, energy, focus, mood, stress, confidence } = scores;
   const avg =
-    (sleep + energy + focus + mood + (10 - stress) + confidence) / 6;
+    (sleep + energy + focus + mood + (11 - stress) + confidence) / 6;
   const score = Math.round(avg * 10) / 10;
 
   let label: string;
