@@ -65,6 +65,21 @@ export default function TradeHistoryPage() {
     setTrades((prev) => prev.filter((t) => t.id !== id));
   };
 
+  const handleDeleteAll = async () => {
+    if (!trades.length) return;
+    if (!confirm(`Delete ALL ${trades.length} trades? This cannot be undone.`)) return;
+    if (!confirm("Are you absolutely sure? Every trade in your history will be permanently removed.")) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { error } = await supabase.from("trades").delete().eq("user_id", user.id);
+    if (error) {
+      alert(`Failed to delete trades: ${error.message}`);
+      return;
+    }
+    setTrades([]);
+    setPage(0);
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-[50vh]"><div className="text-chamber-text-muted">Loading...</div></div>;
   }
@@ -90,7 +105,7 @@ export default function TradeHistoryPage() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <select
           value={pairFilter}
           onChange={(e) => { setPairFilter(e.target.value); setPage(0); }}
@@ -117,6 +132,14 @@ export default function TradeHistoryPage() {
           <option value="win">Winners</option>
           <option value="loss">Losers</option>
         </select>
+        {trades.length > 0 && (
+          <button
+            onClick={handleDeleteAll}
+            className="ml-auto px-3 py-2 text-sm rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 hover:border-red-500/60 transition-colors"
+          >
+            Delete all trades
+          </button>
+        )}
       </div>
 
       {/* Trade list */}
