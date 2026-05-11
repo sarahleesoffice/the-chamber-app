@@ -93,6 +93,61 @@ function normalizeDate(raw: string): string {
   return raw; // return as-is; Supabase will reject if invalid
 }
 
+/**
+ * FTMO/MT5 export uses fixed columns and has TWO "Price" columns (open and close),
+ * which the generic alias parser can't disambiguate. Detect by header shape and
+ * map columns by index instead.
+ *
+ * Header: Ticket, Open, Type, Volume, Symbol, Price, SL, TP, Close, Price, Swap,
+ *         Commissions, Profit, Pips, "Trade duration in seconds"
+ */
+function isFTMOFormat(headers: string[]): boolean {
+  return (
+    headers.length >= 14 &&
+    headers[0] === "ticket" &&
+    headers[1] === "open" &&
+    headers[2] === "type" &&
+    headers[4] === "symbol" &&
+    headers[5] === "price" &&
+    headers[8] === "close" &&
+    headers[9] === "price"
+  );
+}
+
+function parseFTMORows(
+  lines: string[],
+  delimiter: "," | "\t",
+): { trades: ParsedTrade[]; errors: string[] } {
+  const trades: ParsedTrade[] = [];
+  const errors: string[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitRow(lines[i], delimiter);
+    const pair = (cols[4] || "").trim();
+    if (!pair) {
+      errors.push(`Row ${i + 1}: missing symbol`);
+      continue;
+    }
+    const dirRaw = (cols[2] || "").toLowerCase().trim();
+    const direction: "long" | "short" =
+      dirRaw === "sell" || dirRaw === "short" || dirRaw === "s" ? "short" : "long";
+    const entry_price = parseFloat(cols[5]);
+    const exit_price = parseFloat(cols[9]);
+    const pnl_dollar_raw = parseFloat((cols[12] || "").replace(/[$,]/g, ""));
+    const pnl_pips = parseFloat(cols[13]);
+    trades.push({
+      pair,
+      direction,
+      entry_price: isNaN(entry_price) ? 0 : entry_price,
+      exit_price: isNaN(exit_price) ? 0 : exit_price,
+      pnl_pips: isNaN(pnl_pips) ? 0 : pnl_pips,
+      pnl_dollar: isNaN(pnl_dollar_raw) ? null : pnl_dollar_raw,
+      trade_date: normalizeDate(cols[1] || ""),
+      reasoning: "",
+    });
+  }
+  return { trades, errors };
+}
+
 function parseCSV(text: string): { trades: ParsedTrade[]; errors: string[] } {
   const lines = text
     .split(/\r?\n/)
@@ -102,6 +157,10 @@ function parseCSV(text: string): { trades: ParsedTrade[]; errors: string[] } {
 
   const delimiter = detectDelimiter(lines[0]);
   const headers = splitRow(lines[0], delimiter).map((h) => h.toLowerCase());
+
+  if (isFTMOFormat(headers)) {
+    return parseFTMORows(lines, delimiter);
+  }
 
   // Build mapping: canonical key -> column index using aliases
   const idx: Record<string, number> = {};
