@@ -1,7 +1,27 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
+
+/**
+ * Build a deterministic key for a trade so we can detect duplicates between
+ * the CSV being imported and trades already in the database. Same date + pair
+ * + direction + entry/exit price + dollar P&L is overwhelmingly likely to be
+ * the same trade (FTMO/MT5 don't repeat these all on the same day).
+ */
+function tradeDedupKey(t: {
+  trade_date: string;
+  pair: string;
+  direction: string;
+  entry_price: number | string;
+  exit_price: number | string;
+  pnl_dollar: number | null;
+}): string {
+  const e = typeof t.entry_price === "number" ? t.entry_price : parseFloat(String(t.entry_price));
+  const x = typeof t.exit_price === "number" ? t.exit_price : parseFloat(String(t.exit_price));
+  const d = t.pnl_dollar ?? 0;
+  return `${t.trade_date}|${t.pair}|${t.direction}|${e.toFixed(5)}|${x.toFixed(5)}|${d.toFixed(2)}`;
+}
 
 const TEMPLATE_CSV = `pair,direction,entry_price,exit_price,pnl_pips,pnl_dollar,trade_date,reasoning
 EUR/USD,long,1.08500,1.08750,25.0,250.00,2025-01-15,OB entry at London open
@@ -244,21 +264,54 @@ export default function ImportTradesPage() {
     message: string;
   } | null>(null);
   const [error, setError] = useState("");
+  // Dedup keys for trades already in the database — used to skip duplicates
+  // automatically when the user re-uploads the same FTMO CSV daily.
+  const [existingKeys, setExistingKeys] = useState<Set<string>>(new Set());
 
-  // Fetch current trade count
+  // Fetch current trade count + dedup keys for existing trades
+  const refreshExisting = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    const { count } = await supabase
+      .from("trades")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id);
+    setTradeCount(count ?? 0);
+    const { data: existing } = await supabase
+      .from("trades")
+      .select("trade_date, pair, direction, entry_price, exit_price, pnl_dollar")
+      .eq("user_id", user.id);
+    setExistingKeys(new Set((existing || []).map(tradeDedupKey)));
+  };
+
   useEffect(() => {
-    (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      const { count } = await supabase
-        .from("trades")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id);
-      setTradeCount(count ?? 0);
-    })();
+    refreshExisting();
   }, []);
+
+  // Compute which parsed trades are already in the database (by date + pair +
+  // direction + entry/exit + dollar P&L). Also dedup within the CSV itself —
+  // if the file repeats the same trade, only the first instance is "new".
+  const { newTrades, duplicateCount, duplicateIndices } = useMemo(() => {
+    const seenKeys = new Set(existingKeys);
+    const newOnes: ParsedTrade[] = [];
+    const dupeIdx = new Set<number>();
+    parsedTrades.forEach((t, i) => {
+      const key = tradeDedupKey(t);
+      if (seenKeys.has(key)) {
+        dupeIdx.add(i);
+      } else {
+        seenKeys.add(key);
+        newOnes.push(t);
+      }
+    });
+    return {
+      newTrades: newOnes,
+      duplicateCount: dupeIdx.size,
+      duplicateIndices: dupeIdx,
+    };
+  }, [parsedTrades, existingKeys]);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     setImportResult(null);
@@ -294,7 +347,17 @@ export default function ImportTradesPage() {
       return;
     }
 
-    const rows = parsedTrades.map((t) => ({
+    if (newTrades.length === 0) {
+      setImporting(false);
+      setImportResult({
+        success: true,
+        count: 0,
+        message: `No new trades to import — all ${parsedTrades.length} from this file are already in your history.`,
+      });
+      return;
+    }
+
+    const rows = newTrades.map((t) => ({
       user_id: user.id,
       pair: t.pair,
       direction: t.direction,
@@ -312,20 +375,19 @@ export default function ImportTradesPage() {
     if (dbError) {
       setError(dbError.message);
     } else {
+      const skippedNote =
+        duplicateCount > 0
+          ? ` (${duplicateCount} duplicate${duplicateCount !== 1 ? "s" : ""} skipped)`
+          : "";
       setImportResult({
         success: true,
         count: rows.length,
-        message: `Successfully imported ${rows.length} trade${rows.length !== 1 ? "s" : ""}.`,
+        message: `Imported ${rows.length} new trade${rows.length !== 1 ? "s" : ""}${skippedNote}.`,
       });
       setParsedTrades([]);
       setFileName("");
       if (fileRef.current) fileRef.current.value = "";
-      // Refresh count
-      const { count } = await supabase
-        .from("trades")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id);
-      setTradeCount(count ?? 0);
+      await refreshExisting();
     }
   };
 
@@ -348,12 +410,11 @@ export default function ImportTradesPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Stats
-  const wins = parsedTrades.filter((t) => t.pnl_pips > 0).length;
-  const losses = parsedTrades.filter((t) => t.pnl_pips < 0).length;
-  const totalPips = parsedTrades.reduce((s, t) => s + t.pnl_pips, 0);
-  const totalPnl = parsedTrades.reduce((s, t) => s + (t.pnl_dollar ?? 0), 0);
-  const previewTrades = parsedTrades.slice(0, 20);
+  // Stats reflect what will actually be imported (new trades only)
+  const wins = newTrades.filter((t) => t.pnl_pips > 0).length;
+  const losses = newTrades.filter((t) => t.pnl_pips < 0).length;
+  const totalPips = newTrades.reduce((s, t) => s + t.pnl_pips, 0);
+  const totalPnl = newTrades.reduce((s, t) => s + (t.pnl_dollar ?? 0), 0);
 
   return (
     <div className="space-y-6">
@@ -457,27 +518,30 @@ export default function ImportTradesPage() {
           </div>
 
           {/* File info */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-[#888]">
-              Previewing{" "}
-              <span className="text-white font-medium">
-                {previewTrades.length}
-              </span>{" "}
-              of{" "}
-              <span className="text-white font-medium">
-                {parsedTrades.length}
-              </span>{" "}
-              trades from{" "}
-              <span className="text-[#e8651a]">{fileName}</span>
+              Found{" "}
+              <span className="text-white font-medium">{parsedTrades.length}</span>{" "}
+              trades in <span className="text-[#e8651a]">{fileName}</span> —{" "}
+              <span className="text-green-400 font-medium">{newTrades.length} new</span>
+              {duplicateCount > 0 && (
+                <>
+                  ,{" "}
+                  <span className="text-[#888] font-medium">
+                    {duplicateCount} already in your history
+                  </span>
+                </>
+              )}
             </p>
           </div>
 
-          {/* Table */}
+          {/* Table — shows all parsed rows; duplicates are dimmed and labelled */}
           <div className="rounded-lg border border-[#1e1a17] overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr className="bg-[#141414] text-[#888] text-xs uppercase tracking-wider">
+                    <th className="text-left p-3">Status</th>
                     <th className="text-left p-3">Date</th>
                     <th className="text-left p-3">Pair</th>
                     <th className="text-left p-3">Dir</th>
@@ -488,14 +552,30 @@ export default function ImportTradesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {previewTrades.map((t, i) => {
+                  {parsedTrades.map((t, i) => {
                     const isWin = t.pnl_pips > 0;
                     const isLoss = t.pnl_pips < 0;
+                    const isDup = duplicateIndices.has(i);
                     return (
                       <tr
                         key={i}
-                        className="border-t border-[#1e1a17] hover:bg-[#1a1714] transition-colors"
+                        className={`border-t border-[#1e1a17] transition-colors ${
+                          isDup
+                            ? "opacity-40 bg-[#0d0d0d]"
+                            : "hover:bg-[#1a1714]"
+                        }`}
                       >
+                        <td className="p-3">
+                          {isDup ? (
+                            <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-[#888] bg-[#1e1a17] px-2 py-0.5 rounded">
+                              Duplicate
+                            </span>
+                          ) : (
+                            <span className="text-[0.65rem] font-semibold uppercase tracking-wider text-green-400 bg-green-500/10 px-2 py-0.5 rounded">
+                              New
+                            </span>
+                          )}
+                        </td>
                         <td className="p-3 text-white">{t.trade_date}</td>
                         <td className="p-3 text-white font-medium">{t.pair}</td>
                         <td className="p-3">
@@ -552,12 +632,14 @@ export default function ImportTradesPage() {
           <div className="flex gap-3">
             <button
               onClick={handleImport}
-              disabled={importing}
+              disabled={importing || newTrades.length === 0}
               className="px-6 py-2.5 rounded-lg bg-[#e8651a] hover:bg-[#ff7e33] text-white font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {importing
                 ? "Importing..."
-                : `Import All ${parsedTrades.length} Trade${parsedTrades.length !== 1 ? "s" : ""}`}
+                : newTrades.length === 0
+                ? "Nothing new to import"
+                : `Import ${newTrades.length} New Trade${newTrades.length !== 1 ? "s" : ""}`}
             </button>
             <button
               onClick={handleCancel}
