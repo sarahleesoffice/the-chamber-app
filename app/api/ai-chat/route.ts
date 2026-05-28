@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
         const { data: titleCards } = await supabase
           .from("gamma_cards")
           .select("title, category, gamma_url, content, tags")
+          .neq("category", "Auto-indexed videos")
           .or(titleFilters)
           .limit(15);
 
@@ -122,6 +123,7 @@ export async function POST(req: NextRequest) {
         const { data: tagCards } = await supabase
           .from("gamma_cards")
           .select("title, category, gamma_url, content, tags")
+          .neq("category", "Auto-indexed videos")
           .or(tagFilters)
           .limit(15);
 
