@@ -27,6 +27,7 @@ interface CalendarEvent {
   impact: string;
   forecast: string;
   previous: string;
+  actual: string;
 }
 
 function parseXML(xml: string): CalendarEvent[] {
@@ -51,6 +52,7 @@ function parseXML(xml: string): CalendarEvent[] {
       impact: get("impact"),
       forecast: get("forecast"),
       previous: get("previous"),
+      actual: get("actual"),
     });
   }
 
@@ -107,9 +109,13 @@ function convertUTCtoEST(dateStr: string, timeStr: string): string {
   return estTime; // e.g. "9:45 AM"
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  // `?nocache=1` bypasses the cache so the bias call gets freshly-released
+  // "actual" values the moment a news event drops.
+  const noCache = new URL(request.url).searchParams.get("nocache") === "1";
+
   // Check cache
-  if (cachedData && Date.now() - cachedAt < CACHE_TTL) {
+  if (!noCache && cachedData && Date.now() - cachedAt < CACHE_TTL) {
     return NextResponse.json(cachedData);
   }
 

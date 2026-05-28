@@ -47,6 +47,113 @@ interface ChartMeta {
   changePct: number;
 }
 
+// Render a line of AI bias text to safe HTML: neutralize raw tags, then
+// linkify http(s) URLs and apply **bold** markup.
+function formatBiasLine(text: string): string {
+  const escaped = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const linked = escaped.replace(/(https?:\/\/[^\s<]+)/g, (url) => {
+    const clean = url.replace(/[.,;:)\]]+$/, "");
+    const trail = url.slice(clean.length);
+    return `<a href="${clean}" target="_blank" rel="noopener noreferrer" style="color:#e8651a;text-decoration:underline;word-break:break-all;">${clean}</a>${trail}`;
+  });
+  return linked.replace(/\*\*(.*?)\*\*/g, '<span class="text-white font-medium">$1</span>');
+}
+
+// Decimals scale with price magnitude (FX pairs need more precision than indices).
+function fmtPrice(n: number): string {
+  if (n < 10) return n.toFixed(4);
+  if (n < 100) return n.toFixed(3);
+  return n.toFixed(2);
+}
+
+// Format the most-recent `count` candles, newest first, one per line.
+function fmtCandles(candles: CandleData[], count: number): string {
+  return candles
+    .slice(-count)
+    .reverse()
+    .map((c) => `${c.time} | O:${fmtPrice(c.open)} H:${fmtPrice(c.high)} L:${fmtPrice(c.low)} C:${fmtPrice(c.close)}`)
+    .join("\n");
+}
+
+// Roll monthly candles up into yearly OHLC so the yearly bias rests on real
+// data instead of being extrapolated from a shorter timeframe.
+function aggregateYearly(candles: CandleData[]): CandleData[] {
+  const byYear = new Map<string, CandleData>();
+  for (const c of candles) {
+    const year = c.time.slice(0, 4);
+    const existing = byYear.get(year);
+    if (!existing) {
+      byYear.set(year, { time: year, open: c.open, high: c.high, low: c.low, close: c.close });
+    } else {
+      existing.high = Math.max(existing.high, c.high);
+      existing.low = Math.min(existing.low, c.low);
+      existing.close = c.close; // candles are chronological, so last wins
+    }
+  }
+  return Array.from(byYear.values());
+}
+
+// Currencies whose news matters for this instrument. FX pairs → both legs;
+// everything else is USD-denominated US markets, so → USD.
+function getRelevantCurrencies(pairName: string): string[] {
+  if (pairName.includes("/")) {
+    return pairName.split("/").map((s) => s.trim().toUpperCase()).filter(Boolean);
+  }
+  return ["USD"];
+}
+
+interface CalendarEvent {
+  title: string;
+  country: string;
+  date: string;
+  time: string;
+  impact: string;
+  forecast: string;
+  previous: string;
+  actual: string;
+}
+
+// Today's date as the FF feed formats it (MM-DD-YYYY) in US Eastern.
+function todayEST(): string {
+  return new Date()
+    .toLocaleDateString("en-US", { timeZone: "America/New_York", month: "2-digit", day: "2-digit", year: "numeric" })
+    .replace(/\//g, "-");
+}
+
+// Pull today's high/medium-impact news for the relevant currencies and format
+// it for the prompt. Released events include their actual vs forecast/previous.
+async function fetchTodayNews(pairName: string): Promise<string> {
+  try {
+    const res = await fetch("/api/forex-calendar?nocache=1");
+    if (!res.ok) return "";
+    const data = await res.json();
+    const events: CalendarEvent[] = data.events || [];
+    const currencies = getRelevantCurrencies(pairName);
+    const today = todayEST();
+
+    const relevant = events.filter(
+      (e) =>
+        e.date === today &&
+        currencies.includes(e.country.toUpperCase()) &&
+        (e.impact === "High" || e.impact === "Medium")
+    );
+    if (relevant.length === 0) return "";
+
+    return relevant
+      .map((e) => {
+        const released = e.actual && e.actual.trim() !== "";
+        const tag = e.impact === "High" ? "🔴 HIGH" : "🟠 MED";
+        const detail = released
+          ? `RELEASED — actual ${e.actual}${e.forecast ? `, forecast ${e.forecast}` : ""}${e.previous ? `, previous ${e.previous}` : ""}`
+          : `UPCOMING ${e.time || ""}${e.forecast ? ` — forecast ${e.forecast}` : ""}${e.previous ? `, previous ${e.previous}` : ""}`;
+        return `- [${tag}] ${e.country} ${e.title} — ${detail}`;
+      })
+      .join("\n");
+  } catch {
+    return "";
+  }
+}
+
 // ============================================================
 // TradingView Lightweight Chart Component
 // ============================================================
@@ -323,39 +430,69 @@ function InstrumentCard({
           if (biasResult) { setBiasResult(null); return; }
           setBiasResult("Analyzing " + pairName + "...");
           try {
-            // Format candle data for the AI
-            const last20 = candles.slice(-20).reverse();
-            const dailyData = last20.map((c: CandleData) =>
-              `${c.time} | O:${c.open.toFixed(2)} H:${c.high.toFixed(2)} L:${c.low.toFixed(2)} C:${c.close.toFixed(2)}`
-            ).join("\n");
-            const currentPrice = candles.length ? candles[candles.length - 1].close.toFixed(2) : "N/A";
-            const prevClose = candles.length > 1 ? candles[candles.length - 2].close : 0;
-            const change = candles.length ? candles[candles.length - 1].close - prevClose : 0;
+            // Each timeframe's bias must rest on that timeframe's OWN candles,
+            // so fetch D/W/M/Y in parallel (plus today's news) instead of
+            // extrapolating every bias from one selected timeframe.
+            const tfFetch = (tf: Timeframe) => {
+              const { interval, range } = TF_INTERVALS[tf];
+              return fetch(`/api/yahoo-candles?symbol=${encodeURIComponent(yfSymbol)}&interval=${interval}&range=${range}`)
+                .then((r) => (r.ok ? r.json() : null))
+                .then((d) => (d?.candles as CandleData[]) || [])
+                .catch(() => [] as CandleData[]);
+            };
+
+            const [dailyC, weeklyC, monthlyC, yearlyMonthlyC, news] = await Promise.all([
+              tfFetch("D"),
+              tfFetch("W"),
+              tfFetch("M"),
+              tfFetch("Y"),
+              fetchTodayNews(pairName),
+            ]);
+
+            const yearlyC = aggregateYearly(yearlyMonthlyC);
+
+            const latest = dailyC.length ? dailyC[dailyC.length - 1] : candles[candles.length - 1];
+            const prevClose = dailyC.length > 1 ? dailyC[dailyC.length - 2].close : 0;
+            const currentPrice = latest ? fmtPrice(latest.close) : "N/A";
+            const change = latest ? latest.close - prevClose : 0;
             const changePct = prevClose ? ((change / prevClose) * 100).toFixed(2) : "0";
 
-            const biasPrompt = `Analyze ${pairName} using SMC methodology. Here is the recent price data:
+            const newsBlock = news
+              ? `\n**TODAY'S HIGH-IMPACT NEWS (factor into the DAILY bias only):**\n${news}\n`
+              : `\n**TODAY'S HIGH-IMPACT NEWS:** None scheduled for the relevant currency today.\n`;
 
-**Last 20 Daily Candles (most recent first):**
-${dailyData}
+            const biasPrompt = `Analyze ${pairName} using SMC methodology. Each timeframe below has its OWN real candle data — ground each bias strictly in the data for that timeframe. Do not extrapolate a longer-timeframe bias from a shorter one.
 
 **Current Price:** ${currentPrice}
-**Daily Change:** ${change > 0 ? "+" : ""}${change.toFixed(2)} (${changePct}%)
+**Daily Change:** ${change > 0 ? "+" : ""}${fmtPrice(Math.abs(change))} (${changePct}%)
 
+**DAILY — last 20 daily candles (most recent first):**
+${fmtCandles(dailyC.length ? dailyC : candles, 20)}
+
+**WEEKLY — last 12 weekly candles (most recent first):**
+${fmtCandles(weeklyC, 12)}
+
+**MONTHLY — last 12 monthly candles (most recent first):**
+${fmtCandles(monthlyC, 12)}
+
+**YEARLY — yearly OHLC aggregated from monthly data (most recent first):**
+${fmtCandles(yearlyC, 8)}
+${newsBlock}
 Give your SMC bias analysis in this EXACT format:
 
 ## ${pairName} — SMC Bias Analysis
 
 **DAILY BIAS:** 🟢 BULLISH / 🔴 BEARISH (X% confidence)
-One sentence why — reference specific SMC concept.
+One sentence why — reference a specific SMC concept seen in the DAILY candles, and how today's news (if any) affects it.
 
 **WEEKLY BIAS:** 🟢 BULLISH / 🔴 BEARISH (X% confidence)
-One sentence why — reference specific SMC concept.
+One sentence why — reference a specific SMC concept seen in the WEEKLY candles.
 
 **MONTHLY BIAS:** 🟢 BULLISH / 🔴 BEARISH (X% confidence)
-One sentence why — reference specific SMC concept.
+One sentence why — reference a specific SMC concept seen in the MONTHLY candles.
 
 **YEARLY BIAS:** 🟢 BULLISH / 🔴 BEARISH (X% confidence)
-One sentence why — reference specific SMC concept.
+One sentence why — reference a specific SMC concept seen in the YEARLY data.
 
 **KEY LEVELS TO WATCH:**
 - Sell-side liquidity: $X.XX (description)
@@ -365,7 +502,7 @@ One sentence why — reference specific SMC concept.
 
 **THE PLAY:** Describe the optimal SMC setup — entry model, kill zone, and confirmation needed.
 
-Be concise and decisive. Use SMC terminology only.`;
+Be concise and decisive. Use SMC terminology only. Every bias must cite evidence from its own timeframe's candles.`;
 
             const res = await fetch("/api/ai-chat", {
               method: "POST",
@@ -407,8 +544,8 @@ Be concise and decisive. Use SMC terminology only.`;
                 }
                 if (trimmed.startsWith("**KEY LEVELS") || trimmed.startsWith("**THE PLAY")) return <p key={i} className="font-semibold mt-3 text-white">{trimmed.replace(/\*\*/g, "")}</p>;
                 if (trimmed.startsWith("**") && trimmed.endsWith("**")) return <p key={i} className="font-semibold text-white mt-2">{trimmed.replace(/\*\*/g, "")}</p>;
-                if (trimmed.startsWith("- ")) return <p key={i} className="ml-3 flex gap-2"><span style={{ color: "#e8651a" }}>•</span><span dangerouslySetInnerHTML={{ __html: trimmed.slice(2).replace(/\*\*(.*?)\*\*/g, '<span class="text-white font-medium">$1</span>') }} /></p>;
-                return <p key={i} dangerouslySetInnerHTML={{ __html: trimmed.replace(/\*\*(.*?)\*\*/g, '<span class="text-white font-medium">$1</span>') }} />;
+                if (trimmed.startsWith("- ")) return <p key={i} className="ml-3 flex gap-2"><span style={{ color: "#e8651a" }}>•</span><span dangerouslySetInnerHTML={{ __html: formatBiasLine(trimmed.slice(2)) }} /></p>;
+                return <p key={i} dangerouslySetInnerHTML={{ __html: formatBiasLine(trimmed) }} />;
               })
             )}
           </div>
