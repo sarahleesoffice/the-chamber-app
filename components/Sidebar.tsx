@@ -31,6 +31,13 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    title: "MENTORS",
+    items: [
+      { href: "/ember", label: "Ember — Technical", icon: "local_fire_department" },
+      { href: "/amber", label: "Amber — Mental Game", icon: "self_improvement" },
+    ],
+  },
+  {
     title: "TOOLS",
     items: [
       { href: "/ai-analysis", label: "AI Analysis", icon: "psychology" },
