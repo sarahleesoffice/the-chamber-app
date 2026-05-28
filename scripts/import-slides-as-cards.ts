@@ -113,7 +113,7 @@ async function main() {
 
   // Also update discord_references with slide counts
   console.log(`\nDone! ${cards.length} study cards imported.`);
-  console.log("The AI Chat will now reference these ICT concept cards when answering questions.");
+  console.log("The AI Chat will now reference these SMC concept cards when answering questions.");
 }
 
 main().catch(console.error);

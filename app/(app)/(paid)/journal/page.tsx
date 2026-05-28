@@ -62,7 +62,7 @@ const EMOTIONAL_STATES = [
   "Bored", "Distracted", "Lazy", "Impulsive",
 ];
 
-const ICT_SETUPS = [
+const SMC_SETUPS = [
   "Order Block Entry",
   "Fair Value Gap Fill",
   "Liquidity Sweep",
@@ -73,7 +73,7 @@ const ICT_SETUPS = [
   "Breaker Block",
   "Mitigation Block",
   "Power of 3 Play",
-  "ICT Macro Entry",
+  "SMC Macro Entry",
   "Propulsion Block",
   "Judas Swing",
   "CE (Consequent Encroachment)",
@@ -658,18 +658,18 @@ export default function DailyJournalPage() {
       <hr className="border-chamber-border" />
 
       {/* ============================================================ */}
-      {/* ICT SETUPS USED TODAY                                         */}
+      {/* SMC SETUPS USED TODAY                                         */}
       {/* ============================================================ */}
       <section>
         <h2
           className="text-xl font-bold tracking-wider text-chamber-orange mb-3"
           style={{ textShadow: "0 0 20px rgba(232,101,26,0.4)" }}
         >
-          ICT SETUPS USED TODAY
+          SMC SETUPS USED TODAY
         </h2>
 
         <div className="flex flex-wrap gap-2 mb-3">
-          {ICT_SETUPS.map((setup) => (
+          {SMC_SETUPS.map((setup) => (
             <ToggleChip
               key={setup}
               label={setup}
@@ -679,7 +679,7 @@ export default function DailyJournalPage() {
           ))}
           {/* Show previously saved custom setups as removable chips */}
           {selectedSetups
-            .filter((s) => !ICT_SETUPS.includes(s))
+            .filter((s) => !SMC_SETUPS.includes(s))
             .map((custom) => (
               <button
                 key={custom}
@@ -987,7 +987,7 @@ export default function DailyJournalPage() {
       {/* ── Footer Disclaimer ── */}
       <div className="text-center mt-8 pb-4">
         <p className="text-[#333] text-[0.65rem] tracking-wider leading-relaxed">
-          DAILY JOURNAL &middot; BASED ON ICT CONCEPTS &amp; JARED TENDLER&apos;S MENTAL GAME FRAMEWORK
+          DAILY JOURNAL &middot; BASED ON SMC CONCEPTS &amp; JARED TENDLER&apos;S MENTAL GAME FRAMEWORK
         </p>
         <p className="text-[#292929] text-[0.58rem] mt-1">THIS IS NOT FINANCIAL ADVICE</p>
       </div>

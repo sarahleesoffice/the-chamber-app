@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "The Chamber",
-  description: "Trading Mentor — Based on ICT Concepts",
+  description: "Trading Mentor — Based on SMC Concepts",
   icons: {
     icon: "/favicon.svg",
   },

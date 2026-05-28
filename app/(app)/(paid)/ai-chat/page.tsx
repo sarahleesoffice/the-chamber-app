@@ -206,7 +206,7 @@ function StudyMaterialsSection({ data }: { data: StudyMaterials }) {
         </div>
       )}
 
-      {/* ── ICT Video Sources (collapsible) ── */}
+      {/* ── SMC Video Sources (collapsible) ── */}
       {hasSources && (
         <div>
           <button
@@ -230,7 +230,7 @@ function StudyMaterialsSection({ data }: { data: StudyMaterials }) {
               className="text-[10px] font-semibold tracking-widest"
               style={{ color: "#888", fontVariant: "small-caps" }}
             >
-              SEARCH ICT VIDEOS ({data.sources!.length})
+              SEARCH SMC VIDEOS ({data.sources!.length})
             </p>
           </button>
           {sourcesOpen && (
@@ -238,7 +238,7 @@ function StudyMaterialsSection({ data }: { data: StudyMaterials }) {
               {data.sources!.map((s, i) => (
                 <a
                   key={i}
-                  href={`https://www.youtube.com/results?search_query=ICT+${encodeURIComponent(s.video)}`}
+                  href={`https://www.youtube.com/results?search_query=SMC+${encodeURIComponent(s.video)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs flex items-center gap-1.5 transition-colors hover:underline"
@@ -265,7 +265,7 @@ const SUGGESTED_QUESTIONS = [
   "What is an Order Block?",
   "Explain the Silver Bullet setup",
   "How does Power of 3 work?",
-  "What are ICT Macros?",
+  "What are SMC Macros?",
 ];
 
 const PLACEHOLDER_REPLY =
@@ -380,9 +380,9 @@ export default function AIChatPage() {
     <div className="flex flex-col h-[calc(100vh-64px)]">
       {/* Header */}
       <div className="shrink-0 px-6 pt-6 pb-4 border-b" style={{ borderColor: "#1e1a17" }}>
-        <h1 className="text-2xl font-bold text-white">AI ICT Chat</h1>
+        <h1 className="text-2xl font-bold text-white">AI SMC Chat</h1>
         <p className="text-sm mt-1" style={{ color: "#888" }}>
-          Ask questions about ICT concepts, get help with trade analysis
+          Ask questions about SMC concepts, get help with trade analysis
         </p>
       </div>
 
@@ -415,10 +415,10 @@ export default function AIChatPage() {
               </svg>
             </div>
             <h2 className="text-lg font-semibold text-white mb-2">
-              Welcome to AI ICT Chat
+              Welcome to AI SMC Chat
             </h2>
             <p className="text-sm mb-6" style={{ color: "#888" }}>
-              Ask anything about ICT methodology. Try one of these:
+              Ask anything about SMC methodology. Try one of these:
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
               {SUGGESTED_QUESTIONS.map((q) => (
@@ -495,7 +495,7 @@ export default function AIChatPage() {
                           </div>
                         );
                       }
-                      // Bold-only line as section header (e.g. **ICT Score: 85/100**)
+                      // Bold-only line as section header (e.g. **SMC Score: 85/100**)
                       if (/^\*\*[^*]+\*\*$/.test(block.trim())) {
                         const text = block.replace(/\*\*/g, "").trim();
                         // Score lines get special treatment
@@ -605,7 +605,7 @@ export default function AIChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about ICT concepts..."
+            placeholder="Ask about SMC concepts..."
             className="flex-1 text-sm px-4 py-3 rounded-lg outline-none transition-colors"
             style={{
               backgroundColor: "#141414",
@@ -670,7 +670,7 @@ export default function AIChatPage() {
         style={{ borderColor: "#1e1a17" }}
       >
         <p className="tracking-widest" style={{ color: "#444", fontSize: "9px" }}>
-          POWERED BY ICT METHODOLOGY &middot; TRAINED ON 675+ ICT YOUTUBE TRANSCRIPTS
+          POWERED BY SMC METHODOLOGY &middot; TRAINED ON 675+ SMC YOUTUBE TRANSCRIPTS
         </p>
       </div>
     </div>

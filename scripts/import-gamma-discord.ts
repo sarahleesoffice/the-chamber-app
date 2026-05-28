@@ -116,7 +116,7 @@ async function main() {
       // Collection has a Gamma URL but no individual slides — create one entry
       gammaRows.push({
         title: coll.label,
-        content: `${coll.label} — Gamma study deck covering ICT concepts.`,
+        content: `${coll.label} — Gamma study deck covering SMC concepts.`,
         category: coll.label,
         deck_name: coll.label,
         gamma_url: coll.gamma_url,
@@ -147,7 +147,7 @@ async function main() {
     }
   }
 
-  console.log("\nDone! The AI Chat will now reference these when answering ICT questions.");
+  console.log("\nDone! The AI Chat will now reference these when answering SMC questions.");
 }
 
 main().catch(console.error);

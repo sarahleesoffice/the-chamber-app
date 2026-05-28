@@ -184,12 +184,12 @@ export default function EnterTradePage() {
 
         {/* Reasoning */}
         <div>
-          <label className="block text-sm text-chamber-text-muted mb-1.5">Reasoning (ICT Analysis)</label>
+          <label className="block text-sm text-chamber-text-muted mb-1.5">Reasoning (SMC Analysis)</label>
           <textarea
             value={reasoning}
             onChange={(e) => setReasoning(e.target.value)}
             rows={4}
-            placeholder="What ICT concepts did you see? OB, FVG, liquidity sweep, kill zone timing..."
+            placeholder="What SMC concepts did you see? OB, FVG, liquidity sweep, kill zone timing..."
             className="w-full bg-chamber-surface border border-chamber-border rounded-lg px-3 py-2.5 text-white text-sm focus:border-chamber-orange focus:outline-none transition-colors placeholder:text-chamber-text-dim resize-none"
           />
         </div>
@@ -218,7 +218,7 @@ export default function EnterTradePage() {
 
       {/* Footer */}
       <div className="text-center mt-8">
-        <p className="text-[#333] text-[0.65rem] tracking-wider">BASED ON ICT CONCEPTS</p>
+        <p className="text-[#333] text-[0.65rem] tracking-wider">BASED ON SMC CONCEPTS</p>
         <p className="text-[#292929] text-[0.58rem] mt-1">THIS IS NOT FINANCIAL ADVICE</p>
       </div>
     </div>

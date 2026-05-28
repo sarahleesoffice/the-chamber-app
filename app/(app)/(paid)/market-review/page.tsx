@@ -333,7 +333,7 @@ function InstrumentCard({
             const change = candles.length ? candles[candles.length - 1].close - prevClose : 0;
             const changePct = prevClose ? ((change / prevClose) * 100).toFixed(2) : "0";
 
-            const biasPrompt = `Analyze ${pairName} using ICT methodology. Here is the recent price data:
+            const biasPrompt = `Analyze ${pairName} using SMC methodology. Here is the recent price data:
 
 **Last 20 Daily Candles (most recent first):**
 ${dailyData}
@@ -341,21 +341,21 @@ ${dailyData}
 **Current Price:** ${currentPrice}
 **Daily Change:** ${change > 0 ? "+" : ""}${change.toFixed(2)} (${changePct}%)
 
-Give your ICT bias analysis in this EXACT format:
+Give your SMC bias analysis in this EXACT format:
 
-## ${pairName} — ICT Bias Analysis
+## ${pairName} — SMC Bias Analysis
 
 **DAILY BIAS:** 🟢 BULLISH / 🔴 BEARISH (X% confidence)
-One sentence why — reference specific ICT concept.
+One sentence why — reference specific SMC concept.
 
 **WEEKLY BIAS:** 🟢 BULLISH / 🔴 BEARISH (X% confidence)
-One sentence why — reference specific ICT concept.
+One sentence why — reference specific SMC concept.
 
 **MONTHLY BIAS:** 🟢 BULLISH / 🔴 BEARISH (X% confidence)
-One sentence why — reference specific ICT concept.
+One sentence why — reference specific SMC concept.
 
 **YEARLY BIAS:** 🟢 BULLISH / 🔴 BEARISH (X% confidence)
-One sentence why — reference specific ICT concept.
+One sentence why — reference specific SMC concept.
 
 **KEY LEVELS TO WATCH:**
 - Sell-side liquidity: $X.XX (description)
@@ -363,9 +363,9 @@ One sentence why — reference specific ICT concept.
 - Key Order Block: $X.XX–$X.XX (description)
 - FVG to fill: $X.XX–$X.XX (description)
 
-**THE PLAY:** Describe the optimal ICT setup — entry model, kill zone, and confirmation needed.
+**THE PLAY:** Describe the optimal SMC setup — entry model, kill zone, and confirmation needed.
 
-Be concise and decisive. Use ICT terminology only.`;
+Be concise and decisive. Use SMC terminology only.`;
 
             const res = await fetch("/api/ai-chat", {
               method: "POST",
@@ -549,7 +549,7 @@ export default function MarketReviewPage() {
       <div className="text-center mt-12 mb-4">
         <p className="text-[#292929] text-[0.55rem] tracking-[1.5px] leading-relaxed">
           DATA FROM YAHOO FINANCE · DAILY CANDLES · END-OF-DAY · EMA 50 · EMA 200<br />
-          BIAS ANALYSIS POWERED BY ICT METHODOLOGY · TRAINED ON 675+ ICT YOUTUBE TRANSCRIPTS<br />
+          BIAS ANALYSIS POWERED BY SMC METHODOLOGY · TRAINED ON 675+ SMC YOUTUBE TRANSCRIPTS<br />
           THIS IS NOT FINANCIAL ADVICE
         </p>
       </div>

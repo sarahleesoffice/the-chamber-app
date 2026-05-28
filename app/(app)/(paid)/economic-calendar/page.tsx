@@ -198,7 +198,7 @@ export default function EconomicCalendarPage() {
           ECONOMIC CALENDAR
         </h1>
         <p className="text-chamber-text-muted text-sm mt-1">
-          Live data from Forex Factory
+          Live data from Forex Factory &middot; All times in EST
         </p>
       </div>
 
@@ -208,7 +208,7 @@ export default function EconomicCalendarPage() {
       ) : liveEvents ? (
         <div className="text-[0.65rem] text-chamber-text-dim">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-chamber-green mr-1" />
-          Live data from Forex Factory · {events.length} events this week
+          Live data from Forex Factory · {events.length} events this week · All times EST
         </div>
       ) : (
         <div className="bg-chamber-surface border border-chamber-border rounded-lg p-3 text-center">
@@ -313,7 +313,7 @@ export default function EconomicCalendarPage() {
                       {e.country}
                     </span>
                     <span className="text-[0.6rem] text-gray-300 truncate flex-1">{e.title.slice(0, 25)}</span>
-                    {e.time && <span className="text-[0.55rem] text-gray-500 shrink-0">{e.time}</span>}
+                    {e.time && <span className="text-[0.55rem] text-gray-500 shrink-0">{e.time} EST</span>}
                   </div>
                 );
               })}
@@ -386,7 +386,7 @@ export default function EconomicCalendarPage() {
                           </span>
                           <span className="text-chamber-text">{e.title}</span>
                           <span className="text-chamber-text-muted text-xs ml-auto shrink-0">
-                            {e.time || "All Day"}
+                            {e.time ? `${e.time} EST` : "All Day"}
                             {e.forecast && ` | Forecast: ${e.forecast}`}
                             {e.previous && ` | Previous: ${e.previous}`}
                           </span>
@@ -457,7 +457,7 @@ export default function EconomicCalendarPage() {
             </table>
             <div className="px-4 py-3">
               <p className="text-chamber-orange text-xs font-medium">
-                ICT&apos;s rule: Don&apos;t trade 30 minutes before or after high-impact news. Let the manipulation
+                The SMC rule: Don&apos;t trade 30 minutes before or after high-impact news. Let the manipulation
                 play out, then look for displacement and entries in the aftermath.
               </p>
             </div>

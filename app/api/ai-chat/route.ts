@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-const ICT_SYSTEM_PROMPT = `You are the AI mentor inside "The Chamber" — a trading app built on ICT (Inner Circle Trader) methodology, powered by 675+ ICT YouTube lecture transcripts, study cards, and Discord discussions.
+const SMC_SYSTEM_PROMPT = `You are the AI mentor inside "The Chamber" — a trading app built on SMC (Smart Money Concepts) methodology, powered by 675+ SMC YouTube lecture transcripts, study cards, and Discord discussions.
 
 RESPONSE FORMAT — You MUST follow this structure for EVERY response:
 
@@ -12,8 +12,8 @@ RESPONSE FORMAT — You MUST follow this structure for EVERY response:
    - [Card Title] — [Category]
    If a Gamma deck URL is provided, add: [View Study Deck](url)
 
-3. **🎥 ICT Sources** — If transcript excerpts are provided, you MUST cite them:
-   🎥 **From ICT Lectures:**
+3. **🎥 SMC Sources** — If transcript excerpts are provided, you MUST cite them:
+   🎥 **From SMC Lectures:**
    - "[Video Title]" — [brief what was covered]
 
 4. **💬 Discord** — If Discord thread links are provided, you MUST include at the very end:
@@ -22,7 +22,7 @@ RESPONSE FORMAT — You MUST follow this structure for EVERY response:
 Rules:
 - ALWAYS use the provided source materials to answer. Do NOT rely on general knowledge when sources are available.
 - ALWAYS include the study cards, video sources, and Discord sections when the data is provided to you.
-- Be concise but thorough. Use ICT terminology.
+- Be concise but thorough. Use SMC terminology.
 - Never give specific financial advice or trade recommendations.
 - Psychology questions use Jared Tendler's "The Mental Game of Trading" framework.`;
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
     const { messages } = await req.json();
 
-    // RAG: Search knowledge base for relevant ICT transcript chunks
+    // RAG: Search knowledge base for relevant SMC transcript chunks
     const lastUserMessage = [...messages].reverse().find((m: { role: string }) => m.role === "user");
     let ragContext = "";
 
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       if (chunks && chunks.length > 0) {
         ragContext = "\n\nSOURCES:\n" +
           chunks.map((c: { content: string; source_video: string }) =>
-            `[${c.source_video || "ICT"}]: ${c.content.slice(0, 300)}`
+            `[${c.source_video || "SMC"}]: ${c.content.slice(0, 300)}`
           ).join("\n");
       }
     }
@@ -61,16 +61,16 @@ export async function POST(req: NextRequest) {
     let studyMaterials: { cards: Array<{ title: string; category: string; gamma_url: string; content: string }>; discord: Array<{ concept: string; thread_url: string }>; sources: Array<{ video: string; url: string }> } = { cards: [], discord: [], sources: [] };
 
     if (lastUserMessage) {
-      const STOP_WORDS = new Set(["what", "how", "does", "the", "are", "is", "can", "you", "explain", "tell", "about", "ict", "trading", "trade", "market", "price", "use", "work", "mean", "definition", "define", "describe", "give", "show", "find", "help", "please", "would", "could", "should", "will", "this", "that", "with", "from", "have", "been", "being", "they", "them", "their", "which", "when", "where", "why", "who", "whom", "me", "do", "my", "for", "and", "any", "some"]);
+      const STOP_WORDS = new Set(["what", "how", "does", "the", "are", "is", "can", "you", "explain", "tell", "about", "smc", "trading", "trade", "market", "price", "use", "work", "mean", "definition", "define", "describe", "give", "show", "find", "help", "please", "would", "could", "should", "will", "this", "that", "with", "from", "have", "been", "being", "they", "them", "their", "which", "when", "where", "why", "who", "whom", "me", "do", "my", "for", "and", "any", "some"]);
       const words = lastUserMessage.content.toLowerCase()
         .replace(/[?!.,;:'"()]/g, "")
         .split(/\s+/)
         .filter((w: string) => w.length > 1 && !STOP_WORDS.has(w))
         .slice(0, 6);
 
-      // Also extract multi-word phrases that match common ICT concepts
+      // Also extract multi-word phrases that match common SMC concepts
       const queryLower = lastUserMessage.content.toLowerCase();
-      const ICT_CONCEPTS: Record<string, string[]> = {
+      const SMC_CONCEPTS: Record<string, string[]> = {
         "order block": ["order", "block"],
         "fair value gap": ["fair", "value", "gap"],
         "fvg": ["fair", "value", "gap", "fvg"],
@@ -100,9 +100,9 @@ export async function POST(req: NextRequest) {
         "sentiment": ["sentiment"],
       };
 
-      // Find which ICT concept(s) the user is asking about
+      // Find which SMC concept(s) the user is asking about
       const matchedConcepts: string[] = [];
-      for (const [concept, _keywords] of Object.entries(ICT_CONCEPTS)) {
+      for (const [concept, _keywords] of Object.entries(SMC_CONCEPTS)) {
         if (queryLower.includes(concept)) {
           matchedConcepts.push(concept);
         }
@@ -133,18 +133,18 @@ export async function POST(req: NextRequest) {
 
         // Score cards with concept-aware matching
         const queryPhrase = words.join(" ");
-        const conceptWords = matchedConcepts.flatMap(c => ICT_CONCEPTS[c] || []);
+        const conceptWords = matchedConcepts.flatMap(c => SMC_CONCEPTS[c] || []);
         const allSearchTerms = [...new Set([...words, ...conceptWords])];
 
         const scoredCards = Array.from(allCards.values()).map((card) => {
           const titleLower = card.title.toLowerCase().replace(/-/g, " ");
           let score = 0;
 
-          // Check if title matches a known ICT concept from the query
+          // Check if title matches a known SMC concept from the query
           for (const concept of matchedConcepts) {
             if (titleLower.includes(concept)) score += 80;
             // Also check if the concept keywords all appear in the title
-            const cWords = ICT_CONCEPTS[concept] || [];
+            const cWords = SMC_CONCEPTS[concept] || [];
             const allPresent = cWords.every(w => titleLower.includes(w));
             if (allPresent && cWords.length >= 2) score += 60;
           }
@@ -227,10 +227,10 @@ export async function POST(req: NextRequest) {
     if (ragContext) {
       const videoMatches = ragContext.match(/\[([^\]]+)\]:/g);
       if (videoMatches) {
-        const names = videoMatches.map(m => m.replace(/[\[\]:]/g, "").trim()).filter(v => v !== "ICT");
+        const names = videoMatches.map(m => m.replace(/[\[\]:]/g, "").trim()).filter(v => v !== "SMC");
         studyMaterials.sources = names.map(v => ({
           video: v,
-          url: `https://www.youtube.com/results?search_query=ICT+${encodeURIComponent(v)}`,
+          url: `https://www.youtube.com/results?search_query=SMC+${encodeURIComponent(v)}`,
           isSearch: true,
         }));
       }
@@ -258,13 +258,13 @@ export async function POST(req: NextRequest) {
           const unique = [...new Set(videos.map((v: { source_video: string }) => v.source_video).filter(Boolean))].slice(0, 3);
           studyMaterials.sources = unique.map(v => ({
             video: v as string,
-            url: `https://www.youtube.com/results?search_query=ICT+${encodeURIComponent(v as string)}`,
+            url: `https://www.youtube.com/results?search_query=SMC+${encodeURIComponent(v as string)}`,
           }));
         }
       }
     }
 
-    const systemPromptWithRAG = ICT_SYSTEM_PROMPT + ragContext + studyContext;
+    const systemPromptWithRAG = SMC_SYSTEM_PROMPT + ragContext + studyContext;
 
     // Get user's API key
     const { data: keys } = await supabase

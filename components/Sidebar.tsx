@@ -34,7 +34,7 @@ const navSections: NavSection[] = [
     title: "TOOLS",
     items: [
       { href: "/ai-analysis", label: "AI Analysis", icon: "psychology" },
-      { href: "/ai-chat", label: "AI ICT Chat", icon: "smart_toy" },
+      { href: "/ai-chat", label: "AI SMC Chat", icon: "smart_toy" },
       { href: "/market-review", label: "Market Review", icon: "candlestick_chart" },
     ],
   },

@@ -1,6 +1,6 @@
 # The Chamber — Trading Platform
 
-A full-stack AI-powered trading platform for ICT methodology traders. Includes an AI mentor chat, trade journal, performance analytics, market tools, and a structured learning hub — all built around Inner Circle Trader (ICT) concepts.
+A full-stack AI-powered trading platform for SMC methodology traders. Includes an AI mentor chat, trade journal, performance analytics, market tools, and a structured learning hub — all built around Smart Money Concepts (SMC) concepts.
 
 **Live:** [chamber-app-ruby.vercel.app](https://chamber-app-ruby.vercel.app)
 
@@ -20,7 +20,7 @@ Next.js 16 (App Router + Turbopack)
     +---> Supabase Auth (JWT sessions, email/password)
     |
     +---> Supabase PostgreSQL (trades, journal, knowledge base, RLS)
-    |         + pgvector extension (semantic search on ICT transcripts)
+    |         + pgvector extension (semantic search on SMC transcripts)
     |
     +---> Anthropic Claude API (AI mentor chat + trade analysis)
     |         or Google Gemini API (user's choice, key stored encrypted)
@@ -44,9 +44,9 @@ Next.js 16 (App Router + Turbopack)
 | **Language** | TypeScript | Type safety across frontend and backend |
 | **Styling** | Tailwind CSS | Custom design system with `chamber-*` color tokens |
 | **Database** | Supabase PostgreSQL | All user data, trades, journal, knowledge base |
-| **Vector Search** | pgvector (Supabase) | Semantic similarity search over ICT transcripts |
+| **Vector Search** | pgvector (Supabase) | Semantic similarity search over SMC transcripts |
 | **Auth** | Supabase Auth | JWT sessions, httpOnly cookies, email/password |
-| **AI** | Anthropic Claude / Google Gemini | Trade analysis, ICT mentor chat with RAG |
+| **AI** | Anthropic Claude / Google Gemini | Trade analysis, SMC mentor chat with RAG |
 | **Storage** | Supabase Storage | Chart image uploads (public bucket for AI access) |
 | **Deployment** | Vercel | CI/CD, edge functions, auto-deploys |
 | **Security** | Row Level Security (RLS) | Database-level per-user data isolation |
@@ -93,13 +93,13 @@ Server decrypts user's API key (AES-256-GCM) from user_api_keys table
 RAG enrichment (3 parallel sources):
     |
     +---> search_knowledge_text() RPC on knowledge_chunks
-    |         (675+ ICT YouTube transcript excerpts, full-text + ILIKE fallback)
+    |         (675+ SMC YouTube transcript excerpts, full-text + ILIKE fallback)
     |
     +---> Query gamma_cards table
-    |         (ICT study slides, matched by concept keyword)
+    |         (SMC study slides, matched by concept keyword)
     |
     +---> Query discord_references table
-    |         (Community ICT discussions, matched by concept)
+    |         (Community SMC discussions, matched by concept)
     |
     v
 Combined context injected into system prompt as RAG material
@@ -127,7 +127,7 @@ Chart images (if any) fetched from Supabase Storage public URLs
     (Base64 encoded for multimodal AI input)
     |
     v
-POST to Claude or Gemini with ICT analysis system prompt
+POST to Claude or Gemini with SMC analysis system prompt
     Evaluates across: Market Structure, Liquidity, OB/FVG, Kill Zones,
     Premium/Discount, OTE, AMD Model, Displacement, RR
     |
@@ -160,11 +160,11 @@ app/
       pre-trade/              # Pre-trade checklist
       journal/                # Daily psychology journal
       performance/            # Analytics & metrics
-      ai-chat/                # ICT AI mentor (RAG)
+      ai-chat/                # SMC AI mentor (RAG)
       ai-analysis/            # AI trade scoring
       market-review/          # Market structure bias tool
       sessions/               # Session windows
-      learning-hub/           # ICT curriculum (16 topics, 5 levels)
+      learning-hub/           # SMC curriculum (16 topics, 5 levels)
       knowledge-base/         # Knowledge chunk search
       economic-calendar/      # Forex Factory events
       live-news/              # Financial Juice headlines
@@ -320,20 +320,20 @@ discord_references
 - Manual trade entry with automatic pip & dollar P&L calculation
 - Bulk CSV trade import
 - Full trade history with filtering
-- Pre-trade ICT checklist
+- Pre-trade SMC checklist
 - Performance analytics: win rate, profit factor, max drawdown, Sharpe ratio, streak tracking
 
 ### AI (Bring Your Own API Key)
-- **ICT Mentor Chat** — RAG over 675+ ICT YouTube transcripts, Gamma study cards, and Discord references. Answers questions about any ICT concept with citations and study materials
-- **Trade Analysis** — Evaluates trades against the full ICT framework and returns a 0–100 score with section-by-section feedback
-- **Market Review** — Analyses HTF/LTF chart bias using ICT market structure principles
+- **SMC Mentor Chat** — RAG over 675+ SMC YouTube transcripts, Gamma study cards, and Discord references. Answers questions about any SMC concept with citations and study materials
+- **Trade Analysis** — Evaluates trades against the full SMC framework and returns a 0–100 score with section-by-section feedback
+- **Market Review** — Analyses HTF/LTF chart bias using SMC market structure principles
 - Supports both **Anthropic Claude** and **Google Gemini** — user pastes their own key in Settings, stored AES-256-GCM encrypted
 
 ### Knowledge Base
-- 675+ ICT YouTube lecture transcripts indexed with pgvector
+- 675+ SMC YouTube lecture transcripts indexed with pgvector
 - Semantic similarity search via sentence-transformers embeddings
 - Full-text keyword search fallback
-- **Learning Hub** — 5-level structured ICT curriculum (Foundation → Advanced → Risk & Psychology), 16 topics with detailed lesson notes
+- **Learning Hub** — 5-level structured SMC curriculum (Foundation → Advanced → Risk & Psychology), 16 topics with detailed lesson notes
 
 ### Market Tools
 - Real-time scrolling ticker: NQ, ES, YM, Gold, Silver, BTC, ETH, DXY (Yahoo Finance, 60s refresh)
@@ -390,7 +390,7 @@ Environment variables must be set in the Vercel dashboard under Settings → Env
 
 ---
 
-*THIS IS NOT FINANCIAL ADVICE. All content is for educational purposes based on publicly available ICT methodology.*
+*THIS IS NOT FINANCIAL ADVICE. All content is for educational purposes based on publicly available SMC methodology.*
 
 ## Getting Started
 

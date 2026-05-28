@@ -172,7 +172,7 @@ export default function SettingsPage() {
         </h2>
       </div>
       <p className="text-[#666] text-[0.8rem] mb-5">
-        To use AI Analysis and AI ICT Chat, you need your own API key. Your key
+        To use AI Analysis and AI SMC Chat, you need your own API key. Your key
         is stored securely and only used for your requests.
       </p>
 

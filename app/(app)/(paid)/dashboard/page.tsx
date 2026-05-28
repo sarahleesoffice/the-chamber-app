@@ -25,8 +25,8 @@ import {
   isToday,
 } from "date-fns";
 
-// ICT Concept of the Day — rotates daily
-const ICT_CONCEPTS = [
+// SMC Concept of the Day — rotates daily
+const SMC_CONCEPTS = [
   { title: "Order Blocks", color: "#e8651a", concept: "The last opposing candle before a displacement move. This is where institutional orders were placed.", tip: "Mark the OB body (open to close). The optimal entry is at the 50% level." },
   { title: "Fair Value Gaps (FVG)", color: "#3b82f6", concept: "A 3-candle pattern where candle 1's wick and candle 3's wick don't overlap, creating an imbalance.", tip: "FVGs that form during displacement are the most reliable. Use the C.E. (50%) as your entry." },
   { title: "Liquidity Sweeps", color: "#a855f7", concept: "Smart money needs liquidity to fill large orders. Equal highs/lows and obvious S/R are where retail stops cluster.", tip: "Never place stops at obvious levels. Wait for the sweep, then look for MSS + displacement." },
@@ -34,7 +34,7 @@ const ICT_CONCEPTS = [
   { title: "Optimal Trade Entry (OTE)", color: "#e8651a", concept: "After MSS, the 62-79% Fibonacci retracement zone is the sweet spot (70.5%). Combine with OB or FVG.", tip: "Draw fib from the leg that caused the MSS. Look for an OB or FVG sitting in the 62-79% zone." },
   { title: "Power of 3 (AMD)", color: "#3b82f6", concept: "Every session follows: Accumulation (Asia), Manipulation (London sweep), Distribution (NY real move).", tip: "Mark Asia range before London opens. Wait for London to sweep one side, then trade the reversal." },
   { title: "Kill Zone Timing", color: "#a855f7", concept: "London Open (2-5 AM EST), NY Open (7-10 AM EST), London Close (10 AM-12 PM EST). Silver Bullets: 10-11 AM, 2-3 PM.", tip: "Only take trades during kill zones. If your setup forms at 1 PM, it's probably not worth taking." },
-  { title: "ICT Macros", color: "#22c55e", concept: "20-minute micro windows: 9:50-10:10 AM, 10:50-11:10 AM, and 1:50-2:10 PM. Precision timing within kill zones.", tip: "Set alerts at 9:50, 10:50, and 1:50. Watch for FVG creation during these 20-minute windows." },
+  { title: "SMC Macros", color: "#22c55e", concept: "20-minute micro windows: 9:50-10:10 AM, 10:50-11:10 AM, and 1:50-2:10 PM. Precision timing within kill zones.", tip: "Set alerts at 9:50, 10:50, and 1:50. Watch for FVG creation during these 20-minute windows." },
   { title: "Displacement", color: "#e8651a", concept: "Large-bodied candles with minimal wicks showing aggressive institutional flow. Creates FVGs, validates OBs, confirms MSS.", tip: "If the candle that breaks structure is small or has long wicks, it's not displacement. Wait for the real move." },
   { title: "Premium & Discount", color: "#3b82f6", concept: "Every dealing range has a 50% equilibrium. Above = premium (sell), below = discount (buy).", tip: "Draw a fib on the current dealing range. Above 50%, only look for shorts. Below 50%, only longs." },
   { title: "Breaker Blocks", color: "#a855f7", concept: "When an Order Block fails, it becomes a Breaker Block. What was support becomes resistance, and vice versa.", tip: "If a bullish OB gets run, mark it as a bearish breaker. Price will likely return to it as resistance." },
@@ -223,9 +223,9 @@ export default function DashboardPage() {
     return map;
   }, [journals]);
 
-  // ICT Concept of the Day
+  // SMC Concept of the Day
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-  const dailyConcept = ICT_CONCEPTS[dayOfYear % ICT_CONCEPTS.length];
+  const dailyConcept = SMC_CONCEPTS[dayOfYear % SMC_CONCEPTS.length];
 
   if (loading) {
     return (
@@ -666,14 +666,14 @@ export default function DashboardPage() {
       <hr className="border-chamber-border" />
 
       {/* ============================================================ */}
-      {/* ICT CONCEPT OF THE DAY */}
+      {/* SMC CONCEPT OF THE DAY */}
       {/* ============================================================ */}
       <section>
         <h2
           className="text-lg font-bold tracking-wider text-chamber-orange mb-3"
           style={{ textShadow: "0 0 20px rgba(232,101,26,0.4)" }}
         >
-          ICT CONCEPT OF THE DAY
+          SMC CONCEPT OF THE DAY
         </h2>
         <div
           className="bg-chamber-surface border rounded-lg p-5 relative overflow-hidden"
@@ -699,7 +699,7 @@ export default function DashboardPage() {
 
       {/* Footer */}
       <div className="text-center mt-8">
-        <p className="text-[#333] text-[0.65rem] tracking-wider">BASED ON ICT CONCEPTS · TRAINED ON 675+ ICT YOUTUBE TRANSCRIPTS</p>
+        <p className="text-[#333] text-[0.65rem] tracking-wider">BASED ON SMC CONCEPTS · TRAINED ON 675+ SMC YOUTUBE TRANSCRIPTS</p>
         <p className="text-[#292929] text-[0.58rem] mt-1">THIS IS NOT FINANCIAL ADVICE</p>
       </div>
     </div>

@@ -57,7 +57,7 @@ const KILL_ZONES = [
   },
 ];
 
-const ICT_MACROS = [
+const SMC_MACROS = [
   { name: "9:50 — 10:10 AM", desc: "The 10 AM reversal macro", color: "#22c55e" },
   { name: "10:50 — 11:10 AM", desc: "Continuation or reversal", color: "#e8651a" },
   { name: "1:50 — 2:10 PM", desc: "London Close setup", color: "#a855f7" },
@@ -144,16 +144,16 @@ export default function SessionsPage() {
         ))}
       </div>
 
-      {/* ICT Macros */}
+      {/* SMC Macros */}
       <section>
         <h2
           className="text-xl font-bold tracking-wider text-chamber-orange mb-3"
           style={{ textShadow: "0 0 20px rgba(232,101,26,0.4)" }}
         >
-          ICT MACROS
+          SMC MACROS
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {ICT_MACROS.map((m) => (
+          {SMC_MACROS.map((m) => (
             <div key={m.name} className="bg-chamber-surface border border-chamber-border rounded-lg p-4 text-center">
               <div className="font-bold text-white text-lg">{m.name}</div>
               <div className="text-[0.8rem] mt-1" style={{ color: m.color }}>{m.desc}</div>
@@ -210,7 +210,7 @@ export default function SessionsPage() {
 
       {/* Footer */}
       <div className="text-center mt-8">
-        <p className="text-[#333] text-[0.65rem] tracking-wider">BASED ON ICT CONCEPTS</p>
+        <p className="text-[#333] text-[0.65rem] tracking-wider">BASED ON SMC CONCEPTS</p>
         <p className="text-[#292929] text-[0.58rem] mt-1">THIS IS NOT FINANCIAL ADVICE</p>
       </div>
     </div>

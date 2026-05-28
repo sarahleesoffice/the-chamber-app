@@ -7,11 +7,11 @@ import { KnowledgeChunk } from "@/lib/types";
 // ============================================================
 // TAB DEFINITIONS
 // ============================================================
-const TABS = ["Search Knowledge Base", "ICT Concepts", "Videos", "Playlists"] as const;
+const TABS = ["Search Knowledge Base", "SMC Concepts", "Videos", "Playlists"] as const;
 type Tab = (typeof TABS)[number];
 
 // ============================================================
-// ICT CONCEPTS DATA
+// SMC CONCEPTS DATA
 // ============================================================
 const CONCEPT_CATEGORIES = [
   {
@@ -72,71 +72,71 @@ const CONCEPT_CATEGORIES = [
 // PLACEHOLDER VIDEO DATA
 // ============================================================
 const PLACEHOLDER_VIDEOS = [
-  "ICT Mentorship 2022 - Episode 1: Market Structure Basics",
-  "ICT Mentorship 2022 - Episode 2: Liquidity Concepts",
-  "ICT Mentorship 2022 - Episode 3: Order Block Theory",
-  "ICT Mentorship 2022 - Episode 4: Fair Value Gaps Explained",
-  "ICT Mentorship 2022 - Episode 5: Power of 3 (AMD)",
-  "ICT Mentorship 2022 - Episode 6: Kill Zone Timing",
-  "ICT Mentorship 2022 - Episode 7: OTE & Fibonacci Levels",
-  "ICT Mentorship 2022 - Episode 8: Displacement & Delivery",
-  "ICT Mentorship 2022 - Episode 9: Premium & Discount Arrays",
-  "ICT Mentorship 2022 - Episode 10: Breaker Block Setups",
-  "ICT Mentorship 2023 - Episode 1: Silver Bullet Model",
-  "ICT Mentorship 2023 - Episode 2: Macros & Micro Windows",
-  "ICT Mentorship 2023 - Episode 3: NDOG & NWOG",
-  "ICT Mentorship 2023 - Episode 4: Institutional Order Entry Drill",
-  "ICT Mentorship 2023 - Episode 5: Algorithmic Theory",
-  "ICT Twitter Spaces - Live Market Breakdown (Jan 2023)",
-  "ICT Twitter Spaces - FVG Masterclass (Feb 2023)",
-  "ICT Twitter Spaces - Liquidity Engineering (Mar 2023)",
-  "ICT YouTube - 2022 Mentorship Model Review",
-  "ICT YouTube - How I Trade Index Futures",
-  "ICT YouTube - The Only Video You Need on Order Blocks",
-  "ICT YouTube - Mastering the 15-Minute Chart",
-  "ICT YouTube - ICT Concepts Simplified for Beginners",
-  "ICT YouTube - Smart Money Technique Explained",
-  "ICT YouTube - AMD Cycle Walkthrough",
-  "ICT Private Mentorship - Session 1: Foundational Concepts",
-  "ICT Private Mentorship - Session 2: Multi-Timeframe Analysis",
-  "ICT Private Mentorship - Session 3: Narrative Building",
-  "ICT Private Mentorship - Session 4: Trade Plan Development",
-  "ICT Private Mentorship - Session 5: Live Trade Execution",
-  "ICT Charter Club - Week 1: Market Review",
-  "ICT Charter Club - Week 2: Swing Trading Models",
-  "ICT Charter Club - Week 3: Scalping Techniques",
-  "ICT Charter Club - Week 4: Risk Management",
-  "ICT Charter Club - Week 5: Position Sizing",
-  "ICT Inner Circle Trader - Monthly Outlook Jan 2022",
-  "ICT Inner Circle Trader - Monthly Outlook Feb 2022",
-  "ICT Inner Circle Trader - Monthly Outlook Mar 2022",
-  "ICT Inner Circle Trader - Monthly Outlook Apr 2022",
-  "ICT Inner Circle Trader - Monthly Outlook May 2022",
-  "ICT Core Content - Institutional Price Delivery Algorithm",
-  "ICT Core Content - IPDA Data Ranges",
-  "ICT Core Content - Dealing Ranges",
-  "ICT Core Content - Turtle Soup",
-  "ICT Core Content - Judas Swing",
-  "ICT Core Content - London Swing to NY Continuation",
-  "ICT Core Content - Stop Hunts & Sweeps",
-  "ICT Core Content - Mitigation Block Theory",
-  "ICT Core Content - Propulsion Blocks",
-  "ICT Core Content - Rejection Blocks",
+  "SMC Mentorship 2022 - Episode 1: Market Structure Basics",
+  "SMC Mentorship 2022 - Episode 2: Liquidity Concepts",
+  "SMC Mentorship 2022 - Episode 3: Order Block Theory",
+  "SMC Mentorship 2022 - Episode 4: Fair Value Gaps Explained",
+  "SMC Mentorship 2022 - Episode 5: Power of 3 (AMD)",
+  "SMC Mentorship 2022 - Episode 6: Kill Zone Timing",
+  "SMC Mentorship 2022 - Episode 7: OTE & Fibonacci Levels",
+  "SMC Mentorship 2022 - Episode 8: Displacement & Delivery",
+  "SMC Mentorship 2022 - Episode 9: Premium & Discount Arrays",
+  "SMC Mentorship 2022 - Episode 10: Breaker Block Setups",
+  "SMC Mentorship 2023 - Episode 1: Silver Bullet Model",
+  "SMC Mentorship 2023 - Episode 2: Macros & Micro Windows",
+  "SMC Mentorship 2023 - Episode 3: NDOG & NWOG",
+  "SMC Mentorship 2023 - Episode 4: Institutional Order Entry Drill",
+  "SMC Mentorship 2023 - Episode 5: Algorithmic Theory",
+  "SMC Twitter Spaces - Live Market Breakdown (Jan 2023)",
+  "SMC Twitter Spaces - FVG Masterclass (Feb 2023)",
+  "SMC Twitter Spaces - Liquidity Engineering (Mar 2023)",
+  "SMC YouTube - 2022 Mentorship Model Review",
+  "SMC YouTube - How I Trade Index Futures",
+  "SMC YouTube - The Only Video You Need on Order Blocks",
+  "SMC YouTube - Mastering the 15-Minute Chart",
+  "SMC YouTube - SMC Concepts Simplified for Beginners",
+  "SMC YouTube - Smart Money Technique Explained",
+  "SMC YouTube - AMD Cycle Walkthrough",
+  "SMC Private Mentorship - Session 1: Foundational Concepts",
+  "SMC Private Mentorship - Session 2: Multi-Timeframe Analysis",
+  "SMC Private Mentorship - Session 3: Narrative Building",
+  "SMC Private Mentorship - Session 4: Trade Plan Development",
+  "SMC Private Mentorship - Session 5: Live Trade Execution",
+  "SMC Charter Club - Week 1: Market Review",
+  "SMC Charter Club - Week 2: Swing Trading Models",
+  "SMC Charter Club - Week 3: Scalping Techniques",
+  "SMC Charter Club - Week 4: Risk Management",
+  "SMC Charter Club - Week 5: Position Sizing",
+  "SMC - Monthly Outlook Jan 2022",
+  "SMC - Monthly Outlook Feb 2022",
+  "SMC - Monthly Outlook Mar 2022",
+  "SMC - Monthly Outlook Apr 2022",
+  "SMC - Monthly Outlook May 2022",
+  "SMC Core Content - Institutional Price Delivery Algorithm",
+  "SMC Core Content - IPDA Data Ranges",
+  "SMC Core Content - Dealing Ranges",
+  "SMC Core Content - Turtle Soup",
+  "SMC Core Content - Judas Swing",
+  "SMC Core Content - London Swing to NY Continuation",
+  "SMC Core Content - Stop Hunts & Sweeps",
+  "SMC Core Content - Mitigation Block Theory",
+  "SMC Core Content - Propulsion Blocks",
+  "SMC Core Content - Rejection Blocks",
 ];
 
 // ============================================================
 // PLACEHOLDER PLAYLIST DATA
 // ============================================================
 const PLACEHOLDER_PLAYLISTS = [
-  { name: "ICT Mentorship 2022", count: 247, videos: 42 },
-  { name: "ICT Mentorship 2023", count: 189, videos: 31 },
-  { name: "ICT Twitter Spaces", count: 312, videos: 56 },
-  { name: "ICT YouTube Uploads", count: 876, videos: 148 },
-  { name: "ICT Private Mentorship", count: 423, videos: 67 },
-  { name: "ICT Charter Club", count: 298, videos: 48 },
-  { name: "ICT Inner Circle Trader", count: 534, videos: 89 },
-  { name: "ICT Core Content", count: 589, videos: 94 },
-  { name: "ICT Live Streams", count: 0, videos: 100 },
+  { name: "SMC Mentorship 2022", count: 247, videos: 42 },
+  { name: "SMC Mentorship 2023", count: 189, videos: 31 },
+  { name: "SMC Twitter Spaces", count: 312, videos: 56 },
+  { name: "SMC YouTube Uploads", count: 876, videos: 148 },
+  { name: "SMC Private Mentorship", count: 423, videos: 67 },
+  { name: "SMC Charter Club", count: 298, videos: 48 },
+  { name: "SMC Monthly Outlooks", count: 534, videos: 89 },
+  { name: "SMC Core Content", count: 589, videos: 94 },
+  { name: "SMC Live Streams", count: 0, videos: 100 },
 ];
 
 // ============================================================
@@ -184,7 +184,7 @@ export default function KnowledgeBasePage() {
       <div>
         <h1 className="text-2xl font-bold text-white">Knowledge Base</h1>
         <p className="text-chamber-text-muted text-sm mt-1">
-          675 ICT teaching transcripts indexed and searchable with semantic
+          675 SMC teaching transcripts indexed and searchable with semantic
           vector search
         </p>
       </div>
@@ -230,7 +230,7 @@ export default function KnowledgeBasePage() {
         />
       )}
 
-      {activeTab === "ICT Concepts" && <ConceptsTab />}
+      {activeTab === "SMC Concepts" && <ConceptsTab />}
 
       {activeTab === "Videos" && (
         <VideosTab
@@ -429,7 +429,7 @@ function SearchTab({
         <div className="bg-chamber-surface border border-chamber-border rounded-lg p-6 text-center">
           <div className="text-chamber-text-dim text-3xl mb-3">&#x1F4DA;</div>
           <p className="text-chamber-text-muted text-sm">
-            Search ICT teachings across 675 video transcripts. Enter a concept,
+            Search SMC teachings across 675 video transcripts. Enter a concept,
             setup, or question above.
           </p>
         </div>

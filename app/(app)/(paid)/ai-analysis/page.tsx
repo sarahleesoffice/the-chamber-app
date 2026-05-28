@@ -548,7 +548,7 @@ export default function AIAnalysisPage() {
           AI ANALYSIS
         </h1>
         <p className="text-chamber-text-muted text-sm mt-1">
-          Upload your chart screenshots &mdash; AI breaks down your trade using ICT methodology.
+          Upload your chart screenshots &mdash; AI breaks down your trade using SMC methodology.
         </p>
       </div>
 
@@ -972,7 +972,7 @@ export default function AIAnalysisPage() {
               value={reasoning}
               onChange={(e) => setReasoning(e.target.value)}
               rows={4}
-              placeholder="Describe the ICT concepts you identified: OB, FVG, liquidity sweep, MSS, kill zone timing, displacement..."
+              placeholder="Describe the SMC concepts you identified: OB, FVG, liquidity sweep, MSS, kill zone timing, displacement..."
               className="w-full bg-chamber-surface border border-chamber-border rounded-lg px-3 py-2.5 text-white text-sm focus:border-chamber-orange focus:outline-none transition-colors placeholder:text-chamber-text-dim resize-none"
             />
           </section>
@@ -1062,9 +1062,9 @@ export default function AIAnalysisPage() {
             // Strip any markdown that sneaks through
             const clean = analysisResult.replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "").replace(/__/g, "").replace(/💯/g, "🔥");
             // Extract rating
-            const ratingMatch = clean.match(/ICT\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
+            const ratingMatch = clean.match(/SMC\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
             const rating = ratingMatch ? parseFloat(ratingMatch[1]) : null;
-            const bodyText = rating !== null ? clean.replace(/ICT\s+Rating:\s*[\d.]+\s*\/\s*10/i, "").trim() : clean;
+            const bodyText = rating !== null ? clean.replace(/SMC\s+Rating:\s*[\d.]+\s*\/\s*10/i, "").trim() : clean;
 
             return (
               <div
@@ -1077,11 +1077,11 @@ export default function AIAnalysisPage() {
               >
                 <div className="flex items-center justify-between mb-3 pb-2" style={{ borderBottom: "1px solid rgba(232,101,26,0.3)" }}>
                   <h3 className="text-lg font-bold" style={{ color: "#e8651a" }}>
-                    ICT Analysis
+                    SMC Analysis
                   </h3>
                   {rating !== null && (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-chamber-text-muted">ICT Rating</span>
+                      <span className="text-xs text-chamber-text-muted">SMC Rating</span>
                       <span
                         className="text-2xl font-black"
                         style={{
@@ -1198,7 +1198,7 @@ export default function AIAnalysisPage() {
               color="#e8651a"
             />
             <StatCard
-              label="Avg ICT Score"
+              label="Avg SMC Score"
               value={analysisStats.avgScore > 0 ? analysisStats.avgScore.toFixed(1) : "--"}
               color={
                 analysisStats.avgScore >= 7
@@ -1333,7 +1333,7 @@ export default function AIAnalysisPage() {
                 </div>
                 <div className="space-y-3">
                   {displayAnalyses.map((a) => {
-                    const ratingMatch = a.analysis_text?.match(/ICT\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
+                    const ratingMatch = a.analysis_text?.match(/SMC\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
                     const rating = ratingMatch ? parseFloat(ratingMatch[1]) : a.ict_score;
                     const cleanText = a.analysis_text
                       ?.replace(/#{1,3}\s*/g, "")
@@ -1404,7 +1404,7 @@ export default function AIAnalysisPage() {
       {/* Footer */}
       <div className="text-center mt-8">
         <p className="text-[#333] text-[0.65rem] tracking-wider">
-          BASED ON ICT CONCEPTS &middot; TRAINED ON 675+ ICT YOUTUBE TRANSCRIPTS
+          BASED ON SMC CONCEPTS &middot; TRAINED ON 675+ SMC YOUTUBE TRANSCRIPTS
         </p>
         <p className="text-[#292929] text-[0.58rem] mt-1">THIS IS NOT FINANCIAL ADVICE</p>
       </div>
@@ -1413,7 +1413,7 @@ export default function AIAnalysisPage() {
       {/* ANALYSIS DETAIL MODAL */}
       {/* ============================================================ */}
       {modalAnalysis && (() => {
-        const ratingMatch = modalAnalysis.analysis_text?.match(/ICT\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
+        const ratingMatch = modalAnalysis.analysis_text?.match(/SMC\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
         const rating = ratingMatch ? parseFloat(ratingMatch[1]) : modalAnalysis.ict_score;
         const cleanText = modalAnalysis.analysis_text
           ?.replace(/#{1,3}\s*/g, "")
@@ -1455,7 +1455,7 @@ export default function AIAnalysisPage() {
                         border: `1px solid ${rating >= 7 ? "rgba(34,197,94,0.3)" : rating >= 4 ? "rgba(232,101,26,0.3)" : "rgba(239,68,68,0.3)"}`,
                       }}
                     >
-                      ICT Rating: {rating}/10
+                      SMC Rating: {rating}/10
                     </span>
                   )}
                   {modalAnalysis.pair && <span className="font-bold text-white text-lg">{modalAnalysis.pair}</span>}
@@ -1526,9 +1526,9 @@ export default function AIAnalysisPage() {
                   </div>
                 )}
 
-                {/* Full ICT Analysis */}
+                {/* Full SMC Analysis */}
                 <div>
-                  <h3 className="text-xs font-semibold text-chamber-text-dim tracking-wider mb-3">ICT ANALYSIS</h3>
+                  <h3 className="text-xs font-semibold text-chamber-text-dim tracking-wider mb-3">SMC ANALYSIS</h3>
                   <div
                     className="text-sm leading-relaxed whitespace-pre-wrap rounded-lg p-4"
                     style={{ color: "#d0d0d0", background: "#141414", border: "1px solid #1e1e1e" }}
