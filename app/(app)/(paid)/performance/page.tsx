@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Trade, JournalEntry } from "@/lib/types";
-import { formatDollar } from "@/lib/trade-math";
+import { formatDollar, formatDollarCompact } from "@/lib/trade-math";
 import StatCard from "@/components/StatCard";
 import {
   LineChart,
@@ -476,8 +476,8 @@ export default function PerformancePage() {
       {/* Divider */}
       <div className="border-t border-chamber-border my-4" />
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4 overflow-x-auto">
+      {/* Tabs — scrollable strip on phones, edge-bled so the cut reads as scroll */}
+      <div className="flex gap-1 mb-4 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {([
           ["calendar", "Calendar"],
           ["equity", "Equity Curve"],
@@ -488,7 +488,7 @@ export default function PerformancePage() {
           <button
             key={key}
             onClick={() => setActiveTab(key)}
-            className="px-4 py-2 text-sm font-medium rounded-t-md whitespace-nowrap transition-colors"
+            className="px-3 md:px-4 py-2 text-[0.8rem] md:text-sm font-medium rounded-t-md whitespace-nowrap transition-colors shrink-0"
             style={{
               background: activeTab === key ? "#141414" : "transparent",
               color: activeTab === key ? "#e8651a" : "#888",
@@ -541,7 +541,7 @@ export default function PerformancePage() {
               return (
                 <div key={i}
                   onClick={() => hasTrades && setSelectedDay(isSelected ? null : cell.date)}
-                  className={`min-h-[65px] md:min-h-[90px] lg:min-h-[110px] rounded-md md:rounded-lg border p-0.5 md:p-1.5 flex flex-col items-center justify-center transition-all ${bgClass} ${
+                  className={`min-h-[65px] md:min-h-[90px] lg:min-h-[110px] rounded-md md:rounded-lg border p-0.5 md:p-1.5 flex flex-col items-center justify-center overflow-hidden transition-all ${bgClass} ${
                     cell.isToday ? "!border-chamber-orange !border-2 shadow-[0_0_8px_rgba(232,101,26,0.4)]" : ""
                   } ${isSelected ? "!border-chamber-orange ring-1 ring-chamber-orange" : ""} ${hasTrades ? "cursor-pointer hover:bg-chamber-orange/10 hover:border-chamber-orange/40" : ""}`}
                 >
@@ -550,10 +550,17 @@ export default function PerformancePage() {
                   </span>
                   {hasTrades && (
                     <>
-                      <span className={`text-sm md:text-base font-bold ${textColor}`}>
+                      {/* Mobile: compact whole dollars; Desktop: full amount */}
+                      <span className={`text-[0.62rem] font-bold leading-tight whitespace-nowrap md:hidden ${textColor}`}>
+                        {formatDollarCompact(cell.pnl)}
+                      </span>
+                      <span className={`hidden md:block text-base font-bold ${textColor}`}>
                         {formatDollar(cell.pnl)}
                       </span>
-                      <span className="text-[0.6rem] md:text-[0.65rem] text-chamber-text-muted">Trades: {cell.count}</span>
+                      <span className="text-[0.55rem] md:text-[0.65rem] text-chamber-text-muted">
+                        <span className="md:hidden">×{cell.count}</span>
+                        <span className="hidden md:inline">Trades: {cell.count}</span>
+                      </span>
                     </>
                   )}
                 </div>

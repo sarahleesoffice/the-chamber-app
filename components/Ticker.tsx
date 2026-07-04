@@ -83,6 +83,9 @@ export default function Ticker() {
           overflow: "hidden",
           height: "28px",
           fontFamily: "-apple-system, BlinkMacSystemFont, SF Mono, Menlo, monospace",
+          // Fade the tape at both edges so mid-symbol cuts look intentional
+          WebkitMaskImage: "linear-gradient(90deg, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%)",
+          maskImage: "linear-gradient(90deg, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%)",
         }}
       >
         <div

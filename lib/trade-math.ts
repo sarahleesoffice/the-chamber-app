@@ -68,3 +68,11 @@ export function formatDollar(val: number): string {
   if (val < 0) return `-$${Math.abs(val).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   return `$${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
+/**
+ * Compact dollar for tight spaces (calendar cells): whole dollars, sign kept.
+ * -447.40 → -$447 · 400.14 → $400
+ */
+export function formatDollarCompact(val: number): string {
+  return `${val < 0 ? "-" : ""}$${Math.round(Math.abs(val)).toLocaleString("en-US")}`;
+}

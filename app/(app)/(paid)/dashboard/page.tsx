@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Trade, JournalEntry } from "@/lib/types";
-import { formatDollar } from "@/lib/trade-math";
+import { formatDollar, formatDollarCompact } from "@/lib/trade-math";
 import StatCard from "@/components/StatCard";
 import {
   LineChart,
@@ -348,7 +348,7 @@ export default function DashboardPage() {
               <div
                 key={dateStr}
                 onClick={() => (hasTradesDay || journal) && setSelectedDay(isSelected ? null : dateStr)}
-                className={`min-h-[65px] md:min-h-[90px] lg:min-h-[110px] 2xl:min-h-[130px] rounded-md md:rounded-lg border p-0.5 md:p-1.5 flex flex-col items-center justify-center transition-all ${bgClass} ${
+                className={`min-h-[65px] md:min-h-[90px] lg:min-h-[110px] 2xl:min-h-[130px] rounded-md md:rounded-lg border p-0.5 md:p-1.5 flex flex-col items-center justify-center overflow-hidden transition-all ${bgClass} ${
                   isCurrentDay ? "!border-chamber-orange !border-2 shadow-[0_0_8px_rgba(232,101,26,0.4)]" : ""
                 } ${isSelected ? "!border-chamber-orange ring-1 ring-chamber-orange" : ""} ${hasTradesDay || journal ? "cursor-pointer hover:bg-chamber-orange/10 hover:border-chamber-orange/40" : ""}`}
               >
@@ -357,9 +357,9 @@ export default function DashboardPage() {
                 </span>
                 {hasTradesDay && (
                   <>
-                    {/* Mobile: show pips only (short); Desktop: show dollar/pips */}
-                    <span className={`text-[0.6rem] font-bold leading-tight md:hidden ${textColor}`}>
-                      {`${dp.pips > 0 ? "+" : ""}${dp.pips.toFixed(0)}p`}
+                    {/* Mobile: compact whole dollars; Desktop: full dollar/pips */}
+                    <span className={`text-[0.62rem] font-bold leading-tight whitespace-nowrap md:hidden ${textColor}`}>
+                      {dp.dollar ? formatDollarCompact(dp.dollar) : `${dp.pips > 0 ? "+" : ""}${dp.pips.toFixed(0)}p`}
                     </span>
                     <span className={`hidden md:block text-sm font-bold ${textColor}`}>
                       {dp.dollar ? formatDollar(dp.dollar) : `${dp.pips > 0 ? "+" : ""}${dp.pips.toFixed(0)}p`}

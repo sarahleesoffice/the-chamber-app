@@ -148,9 +148,9 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]">
-      {/* Header */}
-      <div className="shrink-0 px-6 pt-6 pb-4 border-b flex items-center gap-3" style={{ borderColor: "#1e1a17" }}>
+    <div className="flex flex-col h-[calc(100dvh-108px)] md:h-[calc(100vh-64px)]">
+      {/* Header — desktop only; the mobile app bar already names the agent */}
+      <div className="shrink-0 px-6 pt-6 pb-4 border-b hidden md:flex items-center gap-3" style={{ borderColor: "#1e1a17" }}>
         <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#1a1210", border: `2px solid ${config.accent}` }}>
           <span className="material-icons-outlined" style={{ color: config.accent, fontSize: "20px" }}>{config.icon}</span>
         </div>
@@ -161,7 +161,7 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
       </div>
 
       {/* Chat area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-4" style={{ backgroundColor: "#0a0a0a" }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-4" style={{ backgroundColor: "#0a0a0a" }}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "#1a1210", border: `2px solid ${config.accent}` }}>
@@ -188,7 +188,7 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
           messages.map((msg, i) => (
             <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
-                className={`${msg.role === "user" ? "max-w-[70%]" : "max-w-[80%]"} px-5 py-4 rounded-xl`}
+                className={`${msg.role === "user" ? "max-w-[85%] md:max-w-[70%]" : "max-w-[95%] md:max-w-[80%]"} px-4 py-3 md:px-5 md:py-4 rounded-xl`}
                 style={{
                   backgroundColor: msg.role === "user" ? "#1a1210" : "#111",
                   borderLeft: msg.role === "user"
@@ -216,8 +216,8 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
       </div>
 
       {/* Input bar */}
-      <div className="shrink-0 px-6 py-4 border-t" style={{ borderColor: "#1e1a17", backgroundColor: "#0a0a0a" }}>
-        <div className="flex items-center gap-3">
+      <div className="shrink-0 px-3 md:px-6 py-3 md:py-4 border-t" style={{ borderColor: "#1e1a17", backgroundColor: "#0a0a0a" }}>
+        <div className="flex items-center gap-2 md:gap-3">
           <input
             ref={inputRef}
             type="text"
@@ -225,7 +225,7 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={config.placeholder}
-            className="flex-1 text-sm px-4 py-3 rounded-lg outline-none transition-colors"
+            className="flex-1 min-w-0 text-sm px-3 md:px-4 py-3 rounded-lg outline-none transition-colors"
             style={{ backgroundColor: "#141414", border: "1px solid #2a2a2a", color: "#e0e0e0" }}
             onFocus={(e) => { e.currentTarget.style.borderColor = config.accent; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = "#2a2a2a"; }}
@@ -233,7 +233,7 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
           <button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || loading}
-            className="shrink-0 px-5 py-3 rounded-lg text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="shrink-0 px-4 md:px-5 py-3 rounded-lg text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ backgroundColor: input.trim() ? config.accent : "#3a2a1a", color: "#fff" }}
           >
             Send
@@ -241,19 +241,21 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
           {messages.length > 0 && (
             <button
               onClick={() => { setMessages([]); setInput(""); inputRef.current?.focus(); }}
-              className="shrink-0 text-xs px-3 py-3 rounded-lg transition-colors cursor-pointer"
+              aria-label="Clear chat"
+              className="shrink-0 text-xs px-2.5 md:px-3 py-3 rounded-lg transition-colors cursor-pointer"
               style={{ backgroundColor: "transparent", border: "1px solid #2a2a2a", color: "#666" }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#555"; e.currentTarget.style.color = "#aaa"; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#2a2a2a"; e.currentTarget.style.color = "#666"; }}
             >
-              Clear
+              <span className="md:hidden" aria-hidden>✕</span>
+              <span className="hidden md:inline">Clear</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="shrink-0 text-center py-3 border-t" style={{ borderColor: "#1e1a17" }}>
+      {/* Footer — desktop only; on phones every pixel goes to the chat */}
+      <div className="shrink-0 text-center py-3 border-t hidden md:block" style={{ borderColor: "#1e1a17" }}>
         <p className="tracking-widest" style={{ color: "#444", fontSize: "9px" }}>
           {config.bot === "ember"
             ? "EMBER · TECHNICAL SMC MENTOR · LIVE DATA, CHARTS & CONCEPTS"
