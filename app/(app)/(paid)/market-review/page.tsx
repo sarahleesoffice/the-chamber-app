@@ -375,22 +375,22 @@ function InstrumentCard({
   return (
     <div className="mb-8">
       {/* Price header bar */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-y-1.5 mb-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0">
           <span className="text-white text-lg font-bold">{pairName}</span>
           {meta && (
             <>
               <span className="text-white text-base font-medium">
                 {meta.currentPrice < 10 ? meta.currentPrice.toFixed(4) : meta.currentPrice < 100 ? meta.currentPrice.toFixed(3) : meta.currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="text-sm" style={{ color: changeColor }}>
+              <span className="text-sm whitespace-nowrap" style={{ color: changeColor }}>
                 {sign}{meta.change < 10 ? meta.change.toFixed(4) : meta.change.toFixed(2)} ({sign}{meta.changePct.toFixed(2)}%)
               </span>
             </>
           )}
         </div>
-        <div className="flex items-center gap-1">
-          <span className="text-[0.6rem] text-chamber-text-dim mr-2">
+        <div className="flex items-center gap-1 ml-auto">
+          <span className="hidden sm:inline text-[0.6rem] text-chamber-text-dim mr-2">
             <span className="inline-block w-1.5 h-[1px] bg-chamber-orange mr-1 align-middle" />EMA 50
             <span className="inline-block w-1.5 h-[1px] bg-[#d4d4d4] ml-3 mr-1 align-middle" />EMA 200
           </span>
@@ -398,7 +398,7 @@ function InstrumentCard({
             <button
               key={tf}
               onClick={() => onTimeframeChange(tf)}
-              className="px-2 py-0.5 text-xs font-bold transition-colors"
+              className="px-2.5 py-1 text-xs font-bold transition-colors"
               style={{ color: timeframe === tf ? "#e8651a" : "#444" }}
             >
               {tf}

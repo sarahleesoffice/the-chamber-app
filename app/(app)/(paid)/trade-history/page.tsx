@@ -100,7 +100,9 @@ export default function TradeHistoryPage() {
           <StatCard label="Win Rate" value={`${stats.winRate.toFixed(1)}%`} color={stats.winRate >= 55 ? "#22c55e" : stats.winRate >= 45 ? "#e8651a" : "#ef4444"} subText={`${stats.winners}W / ${stats.losers}L`} />
           <StatCard label="Total Pips" value={`${stats.totalPips > 0 ? "+" : ""}${stats.totalPips.toFixed(1)}`} color={stats.totalPips > 0 ? "#22c55e" : "#ef4444"} />
           <StatCard label="Avg Pips" value={stats.avgPips.toFixed(1)} color={stats.avgPips > 0 ? "#22c55e" : "#ef4444"} />
-          <StatCard label="Net P&L" value={formatDollar(stats.totalDollar)} color={stats.totalDollar > 0 ? "#22c55e" : "#ef4444"} />
+          <div className="col-span-2 md:col-span-1">
+            <StatCard label="Net P&L" value={formatDollar(stats.totalDollar)} color={stats.totalDollar > 0 ? "#22c55e" : "#ef4444"} />
+          </div>
         </div>
       )}
 
@@ -156,19 +158,22 @@ export default function TradeHistoryPage() {
                 {/* Header row */}
                 <button
                   onClick={() => setExpandedId(expanded ? null : (t.id || null))}
-                  className="w-full flex justify-between items-center p-4 text-left hover:bg-chamber-orange/5 transition-colors"
+                  className="w-full p-4 text-left hover:bg-chamber-orange/5 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-chamber-text-muted text-[0.75rem]">{t.trade_date}</span>
-                    <span className="text-white font-bold">{t.pair}</span>
-                    <span className="text-chamber-text-muted text-sm uppercase">{t.direction}</span>
-                    <span className={`${resultBg} text-[0.68rem] font-bold px-2.5 py-0.5 rounded-full`} style={{ color: pnlColor }}>
-                      {resultTag}
+                  <div className="flex justify-between items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="hidden sm:inline text-chamber-text-muted text-[0.75rem] shrink-0">{t.trade_date}</span>
+                      <span className="text-white font-bold truncate">{t.pair}</span>
+                      <span className="text-chamber-text-muted text-sm uppercase">{t.direction}</span>
+                      <span className={`${resultBg} text-[0.68rem] font-bold px-2.5 py-0.5 rounded-full shrink-0`} style={{ color: pnlColor }}>
+                        {resultTag}
+                      </span>
+                    </div>
+                    <span className="font-bold text-lg shrink-0" style={{ color: pnlColor }}>
+                      {t.pnl_dollar ? formatDollar(t.pnl_dollar) : `${t.pnl_pips > 0 ? "+" : ""}${t.pnl_pips.toFixed(1)}p`}
                     </span>
                   </div>
-                  <span className="font-bold text-lg" style={{ color: pnlColor }}>
-                    {t.pnl_dollar ? formatDollar(t.pnl_dollar) : `${t.pnl_pips > 0 ? "+" : ""}${t.pnl_pips.toFixed(1)}p`}
-                  </span>
+                  <div className="sm:hidden mt-1 text-chamber-text-muted text-[0.72rem]">{t.trade_date}</div>
                 </button>
 
                 {/* Expanded details */}

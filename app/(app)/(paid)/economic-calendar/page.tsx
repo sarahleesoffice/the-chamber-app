@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 
 // ── Types ────────────────────────────────────────────────────
 interface CalendarEvent {
@@ -187,12 +187,20 @@ export default function EconomicCalendarPage() {
 
   const filters: ImpactFilter[] = ["All", "High Only", "High + Medium"];
 
+  // On phones the week is a horizontal snap-scroll strip — start centered on today
+  const todayCardRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      todayCardRef.current?.scrollIntoView({ inline: "center", block: "nearest" });
+    }
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
         <h1
-          className="text-3xl font-bold tracking-[3px] text-chamber-orange"
+          className="text-2xl md:text-3xl font-bold tracking-[3px] text-chamber-orange"
           style={{ textShadow: "0 0 20px rgba(232,101,26,0.4)" }}
         >
           ECONOMIC CALENDAR
@@ -239,8 +247,8 @@ export default function EconomicCalendarPage() {
         <span className="text-chamber-text text-lg font-semibold">{weekLabel}</span>
       </div>
 
-      {/* Day headers */}
-      <div className="grid grid-cols-5 gap-1">
+      {/* Day headers — desktop only; on phones the day name lives inside each card */}
+      <div className="hidden md:grid grid-cols-5 gap-1">
         {weekDays.map((d, i) => {
           const isToday = isSameDay(d, today);
           return (
@@ -255,8 +263,8 @@ export default function EconomicCalendarPage() {
         })}
       </div>
 
-      {/* Week grid */}
-      <div className="grid grid-cols-5 gap-1">
+      {/* Week grid — horizontal snap strip on phones, 5-column grid on desktop */}
+      <div className="flex overflow-x-auto snap-x snap-mandatory gap-2 -mx-4 px-4 pb-2 md:grid md:grid-cols-5 md:gap-1 md:overflow-visible md:mx-0 md:px-0 md:pb-0">
         {weekDays.map((d, i) => {
           const key = formatDateKey(d);
           const isToday = isSameDay(d, today);
@@ -267,13 +275,21 @@ export default function EconomicCalendarPage() {
           return (
             <div
               key={i}
-              className="rounded-lg p-2 overflow-y-auto"
+              ref={isToday ? todayCardRef : undefined}
+              className="rounded-lg p-2 overflow-y-auto snap-center shrink-0 w-[72vw] max-w-[300px] md:w-auto md:max-w-none md:shrink"
               style={{
                 background: isToday ? "#1a1210" : "#0e0e0e",
                 border: isToday ? "2px solid #e8651a" : "1px solid #1e1a17",
                 minHeight: 180,
               }}
             >
+              {/* Day name — phones only (desktop has the header row) */}
+              <div
+                className="md:hidden text-center text-xs font-semibold uppercase tracking-wider mb-1.5"
+                style={{ color: isToday ? "#e8651a" : "#a0a0a0" }}
+              >
+                {DAY_NAMES[i]} {d.getDate()}
+              </div>
               {/* TODAY badge */}
               {isToday && (
                 <div className="mb-1.5">

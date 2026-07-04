@@ -88,17 +88,39 @@ export default function Sidebar() {
     router.push("/login");
   };
 
+  // Current page label for the mobile top bar
+  const currentLabel = (() => {
+    for (const section of navSections) {
+      for (const item of section.items) {
+        if (item.href === pathname) return item.label.split(" — ")[0].toUpperCase();
+      }
+    }
+    return "THE CHAMBER";
+  })();
+
   return (
     <>
-      {/* Mobile hamburger */}
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed top-8 left-4 z-40 p-2 rounded-lg bg-[#0f0f0f] border border-chamber-border text-chamber-orange md:hidden"
-      >
-        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-        </svg>
-      </button>
+      {/* Mobile top bar — hamburger + current page, sits just below the ticker */}
+      <div className="fixed top-7 left-0 right-0 z-40 h-12 flex items-center gap-2 px-3 bg-[#0f0f0f]/95 backdrop-blur-md border-b border-chamber-border md:hidden">
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="Open menu"
+          className="p-2 rounded-lg text-chamber-orange hover:bg-chamber-orange/10 transition-colors"
+        >
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+          </svg>
+        </button>
+        <div className="flex items-center gap-2 min-w-0">
+          <ChamberLogo size={20} />
+          <span
+            className="text-[0.78rem] font-bold tracking-[2px] text-chamber-orange truncate"
+            style={{ textShadow: "0 0 12px rgba(232,101,26,0.35)" }}
+          >
+            {currentLabel}
+          </span>
+        </div>
+      </div>
 
       {open && <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={() => setOpen(false)} />}
 
