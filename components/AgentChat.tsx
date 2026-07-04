@@ -148,7 +148,7 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-108px)] md:h-[calc(100vh-64px)]">
+    <div className="flex flex-col h-[calc(100dvh-136px)] md:h-[calc(100vh-64px)]">
       {/* Header — desktop only; the mobile app bar already names the agent */}
       <div className="shrink-0 px-6 pt-6 pb-4 border-b hidden md:flex items-center gap-3" style={{ borderColor: "#1e1a17" }}>
         <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#1a1210", border: `2px solid ${config.accent}` }}>
