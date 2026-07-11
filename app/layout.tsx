@@ -16,14 +16,14 @@ export const metadata: Metadata = {
     title: "The Chamber — Trading Intelligence Platform",
     description:
       "AI trading assistant, trade analysis, journal, and performance analytics — built for smart-money execution.",
-    images: [{ url: "/preview.png", width: 1200, height: 630, alt: "The Chamber dashboard" }],
+    images: [{ url: "/share.png", width: 1200, height: 630, alt: "The Chamber dashboard" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "The Chamber — Trading Intelligence Platform",
     description:
       "AI trading assistant, trade analysis, journal, and performance analytics — built for smart-money execution.",
-    images: ["/preview.png"],
+    images: ["/share.png"],
   },
 };
 
