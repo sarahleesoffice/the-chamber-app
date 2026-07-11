@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://the-chamber.app"),
+  metadataBase: new URL("https://www.the-chamber.app"),
   title: "The Chamber — Trading Intelligence Platform",
   description:
     "AI trading assistant, trade analysis, journal, and performance analytics — built for smart-money execution.",
@@ -11,19 +11,19 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    url: "https://the-chamber.app",
+    url: "https://www.the-chamber.app",
     siteName: "The Chamber",
     title: "The Chamber — Trading Intelligence Platform",
     description:
       "AI trading assistant, trade analysis, journal, and performance analytics — built for smart-money execution.",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "The Chamber" }],
+    images: [{ url: "/preview.png", width: 1200, height: 630, alt: "The Chamber dashboard" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "The Chamber — Trading Intelligence Platform",
     description:
       "AI trading assistant, trade analysis, journal, and performance analytics — built for smart-money execution.",
-    images: ["/og.png"],
+    images: ["/preview.png"],
   },
 };
 
