@@ -2,10 +2,28 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "The Chamber",
-  description: "Trading Mentor — Based on SMC Concepts",
+  metadataBase: new URL("https://the-chamber.app"),
+  title: "The Chamber — Trading Intelligence Platform",
+  description:
+    "AI trading assistant, trade analysis, journal, and performance analytics — built for smart-money execution.",
   icons: {
     icon: "/favicon.svg",
+  },
+  openGraph: {
+    type: "website",
+    url: "https://the-chamber.app",
+    siteName: "The Chamber",
+    title: "The Chamber — Trading Intelligence Platform",
+    description:
+      "AI trading assistant, trade analysis, journal, and performance analytics — built for smart-money execution.",
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "The Chamber" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "The Chamber — Trading Intelligence Platform",
+    description:
+      "AI trading assistant, trade analysis, journal, and performance analytics — built for smart-money execution.",
+    images: ["/og.png"],
   },
 };
 
