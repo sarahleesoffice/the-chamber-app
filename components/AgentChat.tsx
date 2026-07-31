@@ -101,12 +101,41 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
+
+  // Restore this user's past conversation so a refresh doesn't wipe the thread.
+  // "Clear" hides messages older than a per-device marker; the agent's own
+  // memory on the backend is untouched either way.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/agents/${config.bot}/history`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !Array.isArray(data.messages)) return;
+        const clearedAt = Date.parse(localStorage.getItem(`chamber-agent-cleared-${config.bot}`) || "") || 0;
+        const restored: Message[] = data.messages
+          .filter((m: { timestamp: string }) => Date.parse(m.timestamp) > clearedAt)
+          .map((m: { role: "user" | "assistant"; content: string; timestamp: string }) => ({
+            role: m.role,
+            content: m.content,
+            timestamp: new Date(m.timestamp),
+          }));
+        if (restored.length) {
+          setMessages((prev) => (prev.length === 0 ? restored : prev));
+        }
+      } catch { /* history is best-effort */ }
+      finally { if (!cancelled) setHistoryLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [config.bot]);
 
   async function sendMessage(text: string) {
     const trimmed = text.trim();
@@ -162,7 +191,7 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
 
       {/* Chat area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-4" style={{ backgroundColor: "#0a0a0a" }}>
-        {messages.length === 0 ? (
+        {messages.length === 0 && historyLoading ? null : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: "#1a1210", border: `2px solid ${config.accent}` }}>
               <span className="material-icons-outlined" style={{ color: config.accent, fontSize: "30px" }}>{config.icon}</span>
@@ -240,7 +269,10 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
           </button>
           {messages.length > 0 && (
             <button
-              onClick={() => { setMessages([]); setInput(""); inputRef.current?.focus(); }}
+              onClick={() => {
+                try { localStorage.setItem(`chamber-agent-cleared-${config.bot}`, new Date().toISOString()); } catch { /* */ }
+                setMessages([]); setInput(""); inputRef.current?.focus();
+              }}
               aria-label="Clear chat"
               className="shrink-0 text-xs px-2.5 md:px-3 py-3 rounded-lg transition-colors cursor-pointer"
               style={{ backgroundColor: "transparent", border: "1px solid #2a2a2a", color: "#666" }}
