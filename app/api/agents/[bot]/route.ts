@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 /**
  * Proxy to the Ember/Amber agents running on the Mac mini.
@@ -63,6 +64,46 @@ export async function POST(
   // channel_id. Each web conversation maps to its own channel, so context is
   // scoped per conversation ("main" is the original pre-archive thread).
   const channelId = conversationId === "main" ? `web-${user.id}` : `web-${user.id}-${conversationId}`;
+
+  // Mirror the user's logged trades into user_trades — the sync source the
+  // agents' get_recent_trades tool was built to read. Best-effort: a sync
+  // failure must never block the chat.
+  try {
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (serviceKey) {
+      const { data: trades } = await supabase
+        .from("trades")
+        .select("id, user_id, pair, direction, entry_price, exit_price, pnl_pips, pnl_dollar, trade_date, reasoning")
+        .eq("user_id", user.id)
+        .order("trade_date", { ascending: false })
+        .limit(500);
+
+      if (trades) {
+        const admin = createServiceClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          serviceKey,
+          { auth: { persistSession: false } }
+        );
+        const rows = trades.map((t) => ({
+          id: t.id,
+          user_id: t.user_id,
+          symbol: t.pair,
+          direction: t.direction,
+          entry_price: t.entry_price,
+          exit_price: t.exit_price,
+          pnl: t.pnl_dollar ?? null,
+          notes: [
+            t.reasoning,
+            t.pnl_pips != null ? `(${t.pnl_pips > 0 ? "+" : ""}${t.pnl_pips} pips)` : null,
+          ].filter(Boolean).join(" ").slice(0, 600) || null,
+          opened_at: t.trade_date ? `${t.trade_date}T12:00:00` : null,
+          closed_at: t.trade_date ? `${t.trade_date}T12:00:00` : null,
+        }));
+        await admin.from("user_trades").delete().eq("user_id", user.id);
+        if (rows.length > 0) await admin.from("user_trades").insert(rows);
+      }
+    }
+  } catch { /* best-effort sync */ }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55_000);
 

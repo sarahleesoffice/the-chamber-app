@@ -254,52 +254,83 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
       </div>
 
       {/* Archive bar — browse past conversations or start a new one */}
-      <div className="shrink-0 relative flex items-center gap-2 px-3 md:px-6 py-2 border-b" style={{ borderColor: "#1e1a17", backgroundColor: "#0d0d0d" }}>
+      <div
+        className="shrink-0 relative flex items-center gap-2.5 px-3 md:px-6 py-2 border-b"
+        style={{ borderColor: "#1e1a17", background: "linear-gradient(180deg, #100d0b, #0b0a09)" }}
+      >
         <button
           onClick={() => setPickerOpen((o) => !o)}
-          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
-          style={{ border: "1px solid #2a2a2a", color: pickerOpen ? "#fff" : "#999", backgroundColor: pickerOpen ? "#1a1a1a" : "transparent" }}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-all cursor-pointer hover:brightness-125"
+          style={{
+            border: pickerOpen ? `1px solid ${config.accent}66` : "1px solid #2a2a2a",
+            color: pickerOpen ? "#fff" : "#aaa",
+            backgroundColor: pickerOpen ? `${config.accent}14` : "rgba(255,255,255,0.02)",
+          }}
         >
-          <span className="material-icons-outlined" style={{ fontSize: "14px" }}>history</span>
-          Chats{convos && convos.length > 0 ? ` (${convos.length})` : ""}
+          <span className="material-icons-outlined" style={{ fontSize: "14px", color: config.accent, opacity: 0.9 }}>forum</span>
+          Chats
+          {convos && convos.length > 0 && (
+            <span
+              className="text-[0.62rem] font-bold px-1.5 rounded-full"
+              style={{ backgroundColor: `${config.accent}22`, color: config.accent }}
+            >
+              {convos.length}
+            </span>
+          )}
         </button>
-        <span className="flex-1 truncate text-xs" style={{ color: "#666" }}>
+        <span className="flex-1 truncate text-xs tracking-wide" style={{ color: "#7a7a7a" }}>
           {(activeId && convos?.find((c) => c.id === activeId)?.title) || "New conversation"}
         </span>
         <button
           onClick={startNewChat}
-          className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
-          style={{ border: `1px solid ${config.accent}55`, color: config.accent }}
+          className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full transition-all cursor-pointer hover:brightness-125"
+          style={{
+            border: `1px solid ${config.accent}55`,
+            color: config.accent,
+            backgroundColor: `${config.accent}10`,
+            boxShadow: `0 0 12px ${config.accent}14`,
+          }}
         >
           <span className="material-icons-outlined" style={{ fontSize: "14px" }}>add</span>
-          New
+          New chat
         </button>
 
         {pickerOpen && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setPickerOpen(false)} />
             <div
-              className="absolute left-2 md:left-6 top-full mt-1 z-20 w-80 max-w-[88vw] max-h-80 overflow-y-auto rounded-lg shadow-2xl"
-              style={{ backgroundColor: "#141414", border: "1px solid #2a2a2a" }}
+              className="absolute left-2 md:left-6 top-full mt-1.5 z-20 w-80 max-w-[88vw] max-h-80 overflow-y-auto rounded-xl shadow-2xl"
+              style={{ backgroundColor: "#121110", border: "1px solid #2a2520", boxShadow: `0 12px 40px rgba(0,0,0,0.6), 0 0 20px ${config.accent}0a` }}
             >
+              <p
+                className="px-4 pt-3 pb-1.5 text-[0.58rem] font-semibold uppercase"
+                style={{ color: `${config.accent}99`, letterSpacing: "0.25em" }}
+              >
+                Conversations
+              </p>
               {!convos || convos.length === 0 ? (
-                <p className="text-xs px-4 py-4" style={{ color: "#666" }}>No past conversations yet.</p>
+                <p className="text-xs px-4 pb-4 pt-1" style={{ color: "#666" }}>No past conversations yet.</p>
               ) : (
-                convos.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => { setActiveId(c.id); setPickerOpen(false); }}
-                    className="w-full text-left px-4 py-2.5 transition-colors cursor-pointer hover:bg-white/5"
-                    style={{ borderLeft: c.id === activeId ? `2px solid ${config.accent}` : "2px solid transparent" }}
-                  >
-                    <span className="block text-xs truncate" style={{ color: c.id === activeId ? "#fff" : "#ccc" }}>
-                      {c.title}
-                    </span>
-                    <span className="block text-[0.65rem] mt-0.5" style={{ color: "#666" }}>
-                      {convoWhen(c.lastAt)} · {c.count} message{c.count !== 1 ? "s" : ""}
-                    </span>
-                  </button>
-                ))
+                <div className="pb-1.5">
+                  {convos.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => { setActiveId(c.id); setPickerOpen(false); }}
+                      className="w-full text-left px-4 py-2.5 transition-colors cursor-pointer hover:bg-white/[0.04]"
+                      style={{
+                        borderLeft: c.id === activeId ? `2px solid ${config.accent}` : "2px solid transparent",
+                        backgroundColor: c.id === activeId ? `${config.accent}0d` : "transparent",
+                      }}
+                    >
+                      <span className="block text-xs truncate" style={{ color: c.id === activeId ? "#fff" : "#c5c5c5" }}>
+                        {c.title}
+                      </span>
+                      <span className="block text-[0.65rem] mt-0.5" style={{ color: "#5e5e5e" }}>
+                        {convoWhen(c.lastAt)} · {c.count} message{c.count !== 1 ? "s" : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           </>
