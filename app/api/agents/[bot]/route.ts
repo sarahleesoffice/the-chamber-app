@@ -45,9 +45,13 @@ export async function POST(
   }
 
   let message: string;
+  let conversationId = "main";
   try {
     const body = await req.json();
     message = typeof body.message === "string" ? body.message.trim() : "";
+    if (typeof body.conversationId === "string" && /^(main|c[a-z0-9]{4,31})$/.test(body.conversationId)) {
+      conversationId = body.conversationId;
+    }
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
@@ -56,7 +60,9 @@ export async function POST(
   }
 
   // The agent keeps its own conversation history in Supabase keyed by
-  // channel_id, so we only send the new message and a stable per-user scope.
+  // channel_id. Each web conversation maps to its own channel, so context is
+  // scoped per conversation ("main" is the original pre-archive thread).
+  const channelId = conversationId === "main" ? `web-${user.id}` : `web-${user.id}-${conversationId}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55_000);
 
@@ -70,7 +76,7 @@ export async function POST(
       body: JSON.stringify({
         user_id: user.id,
         user_display_name: user.email || "Web User",
-        channel_id: `web-${user.id}`,
+        channel_id: channelId,
         message,
       }),
       signal: controller.signal,

@@ -97,11 +97,34 @@ function AssistantMessage({ content, accent }: { content: string; accent: string
   );
 }
 
+interface ConvoMeta {
+  id: string;
+  title: string;
+  lastAt: string;
+  count: number;
+}
+
+function newConvoId() {
+  return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function convoWhen(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  if (d.toDateString() === now.toDateString()) {
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
 export default function AgentChat({ config }: { config: AgentConfig }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [convos, setConvos] = useState<ConvoMeta[] | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -109,48 +132,89 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, loading]);
 
-  // Restore this user's past conversation so a refresh doesn't wipe the thread.
-  // "Clear" hides messages older than a per-device marker; the agent's own
-  // memory on the backend is untouched either way.
+  // Load the conversation archive, then open the most recent conversation
+  // (or a fresh one if there's no history yet).
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      let list: ConvoMeta[] = [];
       try {
-        const res = await fetch(`/api/agents/${config.bot}/history`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (cancelled || !Array.isArray(data.messages)) return;
-        const clearedAt = Date.parse(localStorage.getItem(`chamber-agent-cleared-${config.bot}`) || "") || 0;
-        const restored: Message[] = data.messages
-          .filter((m: { timestamp: string }) => Date.parse(m.timestamp) > clearedAt)
-          .map((m: { role: "user" | "assistant"; content: string; timestamp: string }) => ({
-            role: m.role,
-            content: m.content,
-            timestamp: new Date(m.timestamp),
-          }));
-        if (restored.length) {
-          setMessages((prev) => (prev.length === 0 ? restored : prev));
+        const res = await fetch(`/api/agents/${config.bot}/conversations`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.conversations)) list = data.conversations;
         }
-      } catch { /* history is best-effort */ }
-      finally { if (!cancelled) setHistoryLoading(false); }
+      } catch { /* archive is best-effort */ }
+      if (cancelled) return;
+      setConvos(list);
+      setActiveId(list.length > 0 ? list[0].id : newConvoId());
     })();
     return () => { cancelled = true; };
   }, [config.bot]);
 
+  // Load the selected conversation's messages. The agent's backend memory is
+  // scoped per conversation, so reopening one picks its context back up.
+  useEffect(() => {
+    if (!activeId) return;
+    let cancelled = false;
+    setHistoryLoading(true);
+    setMessages([]);
+    (async () => {
+      try {
+        const res = await fetch(`/api/agents/${config.bot}/history?conversation=${activeId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled || !Array.isArray(data.messages)) return;
+        setMessages(
+          data.messages.map((m: { role: "user" | "assistant"; content: string; timestamp: string }) => ({
+            role: m.role,
+            content: m.content,
+            timestamp: new Date(m.timestamp),
+          }))
+        );
+      } catch { /* best-effort */ }
+      finally { if (!cancelled) setHistoryLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [activeId, config.bot]);
+
+  function startNewChat() {
+    setPickerOpen(false);
+    setActiveId(newConvoId());
+    setInput("");
+    inputRef.current?.focus();
+  }
+
   async function sendMessage(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
+    if (!trimmed || loading || !activeId) return;
 
     setMessages((prev) => [...prev, { role: "user", content: trimmed, timestamp: new Date() }]);
     setInput("");
     inputRef.current?.focus();
     setLoading(true);
 
+    // Keep the archive list in sync: new conversations appear once the first
+    // message is sent; existing ones bubble to the top.
+    setConvos((prev) => {
+      const rest = (prev ?? []).filter((c) => c.id !== activeId);
+      const existing = (prev ?? []).find((c) => c.id === activeId);
+      return [
+        {
+          id: activeId,
+          title: existing?.title ?? trimmed.slice(0, 60),
+          lastAt: new Date().toISOString(),
+          count: (existing?.count ?? 0) + 1,
+        },
+        ...rest,
+      ];
+    });
+
     try {
       const res = await fetch(`/api/agents/${config.bot}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({ message: trimmed, conversationId: activeId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -187,6 +251,59 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
           <h1 className="text-2xl font-bold text-white">{config.name}</h1>
           <p className="text-sm mt-0.5" style={{ color: "#888" }}>{config.role}</p>
         </div>
+      </div>
+
+      {/* Archive bar — browse past conversations or start a new one */}
+      <div className="shrink-0 relative flex items-center gap-2 px-3 md:px-6 py-2 border-b" style={{ borderColor: "#1e1a17", backgroundColor: "#0d0d0d" }}>
+        <button
+          onClick={() => setPickerOpen((o) => !o)}
+          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+          style={{ border: "1px solid #2a2a2a", color: pickerOpen ? "#fff" : "#999", backgroundColor: pickerOpen ? "#1a1a1a" : "transparent" }}
+        >
+          <span className="material-icons-outlined" style={{ fontSize: "14px" }}>history</span>
+          Chats{convos && convos.length > 0 ? ` (${convos.length})` : ""}
+        </button>
+        <span className="flex-1 truncate text-xs" style={{ color: "#666" }}>
+          {(activeId && convos?.find((c) => c.id === activeId)?.title) || "New conversation"}
+        </span>
+        <button
+          onClick={startNewChat}
+          className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md transition-colors cursor-pointer"
+          style={{ border: `1px solid ${config.accent}55`, color: config.accent }}
+        >
+          <span className="material-icons-outlined" style={{ fontSize: "14px" }}>add</span>
+          New
+        </button>
+
+        {pickerOpen && (
+          <>
+            <div className="fixed inset-0 z-10" onClick={() => setPickerOpen(false)} />
+            <div
+              className="absolute left-2 md:left-6 top-full mt-1 z-20 w-80 max-w-[88vw] max-h-80 overflow-y-auto rounded-lg shadow-2xl"
+              style={{ backgroundColor: "#141414", border: "1px solid #2a2a2a" }}
+            >
+              {!convos || convos.length === 0 ? (
+                <p className="text-xs px-4 py-4" style={{ color: "#666" }}>No past conversations yet.</p>
+              ) : (
+                convos.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => { setActiveId(c.id); setPickerOpen(false); }}
+                    className="w-full text-left px-4 py-2.5 transition-colors cursor-pointer hover:bg-white/5"
+                    style={{ borderLeft: c.id === activeId ? `2px solid ${config.accent}` : "2px solid transparent" }}
+                  >
+                    <span className="block text-xs truncate" style={{ color: c.id === activeId ? "#fff" : "#ccc" }}>
+                      {c.title}
+                    </span>
+                    <span className="block text-[0.65rem] mt-0.5" style={{ color: "#666" }}>
+                      {convoWhen(c.lastAt)} · {c.count} message{c.count !== 1 ? "s" : ""}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Chat area */}
@@ -267,22 +384,6 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
           >
             Send
           </button>
-          {messages.length > 0 && (
-            <button
-              onClick={() => {
-                try { localStorage.setItem(`chamber-agent-cleared-${config.bot}`, new Date().toISOString()); } catch { /* */ }
-                setMessages([]); setInput(""); inputRef.current?.focus();
-              }}
-              aria-label="Clear chat"
-              className="shrink-0 text-xs px-2.5 md:px-3 py-3 rounded-lg transition-colors cursor-pointer"
-              style={{ backgroundColor: "transparent", border: "1px solid #2a2a2a", color: "#666" }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = "#555"; e.currentTarget.style.color = "#aaa"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#2a2a2a"; e.currentTarget.style.color = "#666"; }}
-            >
-              <span className="md:hidden" aria-hidden>✕</span>
-              <span className="hidden md:inline">Clear</span>
-            </button>
-          )}
         </div>
       </div>
 

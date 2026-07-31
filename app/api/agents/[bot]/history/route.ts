@@ -12,7 +12,7 @@ const BOTS = new Set(["ember", "amber"]);
  * app only displays the user's own thread (channel web-<user_id>).
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ bot: string }> }
 ) {
   const { bot } = await params;
@@ -25,6 +25,12 @@ export async function GET(
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+
+  const convParam = req.nextUrl.searchParams.get("conversation") || "main";
+  if (!/^(main|c[a-z0-9]{4,31})$/.test(convParam)) {
+    return NextResponse.json({ error: "Bad conversation id" }, { status: 400 });
+  }
+  const channelId = convParam === "main" ? `web-${user.id}` : `web-${user.id}-${convParam}`;
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) {
@@ -42,7 +48,7 @@ export async function GET(
     .from("agent_conversations")
     .select("role, content, created_at")
     .eq("bot_name", bot)
-    .eq("channel_id", `web-${user.id}`)
+    .eq("channel_id", channelId)
     .order("created_at", { ascending: true })
     .limit(200);
 
