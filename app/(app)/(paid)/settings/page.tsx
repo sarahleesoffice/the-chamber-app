@@ -272,15 +272,26 @@ export default function SettingsPage() {
           extra={
             <label className="block mb-3">
               <span className="block text-chamber-text-muted text-[0.72rem] mb-1">Model</span>
-              <select
-                value={openrouterModel}
-                onChange={(e) => changeOpenrouterModel(e.target.value)}
-                className="w-full bg-chamber-bg border border-chamber-border-light rounded-lg px-3 py-2 text-sm text-chamber-text focus:outline-none focus:border-chamber-orange/50 transition-colors"
-              >
-                {OPENROUTER_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-              </select>
+              <div className="relative">
+                {/* Custom chevron: the native arrow sits flush against the border */}
+                <select
+                  value={openrouterModel}
+                  onChange={(e) => changeOpenrouterModel(e.target.value)}
+                  className="w-full appearance-none bg-chamber-bg border border-chamber-border-light rounded-lg pl-3 pr-10 py-2 text-sm text-chamber-text focus:outline-none focus:border-chamber-orange/50 transition-colors cursor-pointer"
+                >
+                  {OPENROUTER_MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </select>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-chamber-text-muted"
+                >
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
+              </div>
             </label>
           }
           {...cardProps("openrouter")}
@@ -380,23 +391,25 @@ function ApiKeyCard({
 
       {note && <p className="text-chamber-text-dim text-[0.72rem] -mt-1.5 mb-3">{note}</p>}
 
-      {/* Which key AI features use */}
-      {connected && (
-        <div className="mb-3">
-          {active ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-chamber-orange/15 border border-chamber-orange/40 px-2.5 py-1 text-[0.72rem] font-semibold text-chamber-orange">
-              ✓ In use for AI Analysis &amp; SMC Chat
-            </span>
-          ) : (
-            <button
-              onClick={onActivate}
-              className="rounded-full border border-chamber-border-light px-2.5 py-1 text-[0.72rem] text-chamber-text-muted hover:border-chamber-orange/50 hover:text-chamber-orange transition-colors cursor-pointer"
-            >
-              Use this one
-            </button>
-          )}
-        </div>
-      )}
+      {/* Which key AI features use — always shown so the choice is discoverable */}
+      <div className="mb-3">
+        {active ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-chamber-orange/15 border border-chamber-orange/40 px-2.5 py-1 text-[0.72rem] font-semibold text-chamber-orange">
+            ✓ In use for AI Analysis &amp; SMC Chat
+          </span>
+        ) : connected ? (
+          <button
+            onClick={onActivate}
+            className="rounded-full border border-chamber-border-light px-2.5 py-1 text-[0.72rem] text-chamber-text-muted hover:border-chamber-orange/50 hover:text-chamber-orange transition-colors cursor-pointer"
+          >
+            Use this one
+          </button>
+        ) : (
+          <span className="inline-block rounded-full border border-dashed border-chamber-border-light px-2.5 py-1 text-[0.72rem] text-chamber-text-dim">
+            Save a key to use this one
+          </span>
+        )}
+      </div>
 
       {extra}
 
