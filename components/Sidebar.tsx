@@ -35,6 +35,7 @@ const navSections: NavSection[] = [
     items: [
       { href: "/ember", label: "Ember — Technical", icon: "local_fire_department" },
       { href: "/amber", label: "Amber — Mental Game", icon: "self_improvement" },
+      { href: "/ash", label: "Ash — Overseer", icon: "insights" },
     ],
   },
   {
