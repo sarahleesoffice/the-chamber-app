@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getUserApiKeys } from "@/lib/api-keys";
 
 const SMC_SYSTEM_PROMPT = `You are the AI mentor inside "The Chamber" — a trading app built on SMC (Smart Money Concepts) methodology, powered by 675+ SMC YouTube lecture transcripts, study cards, and Discord discussions.
 
@@ -269,18 +270,15 @@ export async function POST(req: NextRequest) {
     const systemPromptWithRAG = SMC_SYSTEM_PROMPT + ragContext + studyContext;
 
     // Get user's API key
-    const { data: keys } = await supabase
-      .from("user_api_keys")
-      .select("provider, encrypted_key")
-      .eq("user_id", user.id);
+    const keys = await getUserApiKeys(user.id);
 
-    if (!keys || keys.length === 0) {
+    if (!keys.anthropic && !keys.gemini) {
       return NextResponse.json({ error: "No API key configured" }, { status: 400 });
     }
 
     // Prefer anthropic, fallback to gemini
-    const anthropicKey = keys.find((k) => k.provider === "anthropic");
-    const geminiKey = keys.find((k) => k.provider === "gemini");
+    const anthropicKey = keys.anthropic;
+    const geminiKey = keys.gemini;
 
     if (anthropicKey) {
       // Try models in order of preference
@@ -296,7 +294,7 @@ export async function POST(req: NextRequest) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": anthropicKey.encrypted_key,
+            "x-api-key": anthropicKey,
             "anthropic-version": "2023-06-01",
           },
           body: JSON.stringify({
@@ -331,7 +329,7 @@ export async function POST(req: NextRequest) {
     } else if (geminiKey) {
       // Call Gemini API
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey.encrypted_key}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

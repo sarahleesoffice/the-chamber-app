@@ -62,6 +62,25 @@ export default function SettingsPage() {
     setTimeout(() => setMessage(null), 3000);
   }
 
+  // Returns an error message, or null on success
+  async function callKeysApi(
+    method: "POST" | "DELETE",
+    body: { provider: "anthropic" | "gemini"; key?: string }
+  ): Promise<string | null> {
+    try {
+      const res = await fetch("/api/api-keys", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) return null;
+      const data = await res.json().catch(() => ({}));
+      return data.error || `Request failed (${res.status})`;
+    } catch {
+      return "Network error";
+    }
+  }
+
   async function saveKey(provider: "anthropic" | "gemini", key: string) {
     if (!key.trim()) {
       showMessage("warning", "Please enter a valid API key.");
@@ -70,20 +89,13 @@ export default function SettingsPage() {
 
     setSaving(provider);
 
-    // Upsert: insert or update
-    const { error } = await supabase.from("user_api_keys").upsert(
-      {
-        user_id: userId,
-        provider,
-        encrypted_key: key.trim(),
-      },
-      { onConflict: "user_id,provider" }
-    );
+    // Encrypted server-side — the browser never writes user_api_keys directly
+    const error = await callKeysApi("POST", { provider, key: key.trim() });
 
     setSaving(null);
 
     if (error) {
-      showMessage("error", `Failed to save key: ${error.message}`);
+      showMessage("error", `Failed to save key: ${error}`);
       return;
     }
 
@@ -99,16 +111,12 @@ export default function SettingsPage() {
   async function removeKey(provider: "anthropic" | "gemini") {
     setSaving(provider);
 
-    const { error } = await supabase
-      .from("user_api_keys")
-      .delete()
-      .eq("user_id", userId)
-      .eq("provider", provider);
+    const error = await callKeysApi("DELETE", { provider });
 
     setSaving(null);
 
     if (error) {
-      showMessage("error", `Failed to remove key: ${error.message}`);
+      showMessage("error", `Failed to remove key: ${error}`);
       return;
     }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getUserApiKeys } from "@/lib/api-keys";
 
 const SMC_ANALYSIS_SYSTEM_PROMPT = `You are an expert SMC (Smart Money Concepts) methodology trade analyst inside "The Chamber" trading app. You have deep knowledge of Smart Money Concepts as taught across institutional trading education.
 
@@ -164,12 +165,9 @@ export async function POST(req: NextRequest) {
     const userMessage = buildUserMessage(body);
 
     // Get user's API key
-    const { data: keys } = await supabase
-      .from("user_api_keys")
-      .select("provider, encrypted_key")
-      .eq("user_id", user.id);
+    const keys = await getUserApiKeys(user.id);
 
-    if (!keys || keys.length === 0) {
+    if (!keys.anthropic && !keys.gemini) {
       return NextResponse.json(
         { error: "No API key configured" },
         { status: 400 }
@@ -177,8 +175,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Prefer anthropic, fallback to gemini
-    const anthropicKey = keys.find((k) => k.provider === "anthropic");
-    const geminiKey = keys.find((k) => k.provider === "gemini");
+    const anthropicKey = keys.anthropic;
+    const geminiKey = keys.gemini;
 
     let analysisText: string;
     let provider: string;
@@ -205,7 +203,7 @@ export async function POST(req: NextRequest) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": anthropicKey.encrypted_key,
+            "x-api-key": anthropicKey,
             "anthropic-version": "2023-06-01",
           },
           body: JSON.stringify({
@@ -247,7 +245,7 @@ export async function POST(req: NextRequest) {
       model = "gemini-2.0-flash";
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey.encrypted_key}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
