@@ -90,8 +90,10 @@ export default function SettingsPage() {
     preferred && keyStatus[preferred]
       ? preferred
       : PROVIDER_FALLBACK_ORDER.find((p) => keyStatus[p]) ?? null;
+  // The switch shows the user's pick, even before that key is saved
+  const selectedProvider = preferred ?? activeProvider;
 
-  async function savePreference(data: { ai_provider?: AIProvider; openrouter_model?: string }) {
+  async function savePreference(data: { ai_provider?: AIProvider | null; openrouter_model?: string }) {
     const { error } = await supabase.auth.updateUser({ data });
     if (error) {
       showMessage("error", `Failed to save: ${error.message}`);
@@ -100,10 +102,19 @@ export default function SettingsPage() {
     return true;
   }
 
-  async function activate(provider: AIProvider) {
-    if (await savePreference({ ai_provider: provider })) {
-      setPreferred(provider);
-      showMessage("success", `AI features will now use ${PROVIDER_NAME[provider]}.`);
+  async function toggleProvider(provider: AIProvider) {
+    // Switching the selected one off goes back to automatic (first saved key)
+    const next = selectedProvider === provider ? null : provider;
+    if (await savePreference({ ai_provider: next })) {
+      setPreferred(next);
+      showMessage(
+        "success",
+        next
+          ? keyStatus[next]
+            ? `AI features will now use ${PROVIDER_NAME[next]}.`
+            : `${PROVIDER_NAME[next]} selected. Save a key to start using it.`
+          : "Automatic: AI features use your first saved key."
+      );
     }
   }
 
@@ -170,11 +181,12 @@ export default function SettingsPage() {
   const cardProps = (provider: AIProvider) => ({
     connected: keyStatus[provider],
     active: activeProvider === provider,
+    selected: selectedProvider === provider,
     value: keyInputs[provider],
     onChange: (v: string) => setKeyInputs((prev) => ({ ...prev, [provider]: v })),
     onSave: () => saveKey(provider, keyInputs[provider]),
     onRemove: () => removeKey(provider),
-    onActivate: () => activate(provider),
+    onToggle: () => toggleProvider(provider),
     saving: saving === provider,
   });
 
@@ -319,12 +331,13 @@ interface ApiKeyCardProps {
   linkText: string;
   connected: boolean;
   active: boolean;
+  selected: boolean;
   placeholder: string;
   value: string;
   onChange: (v: string) => void;
   onSave: () => void;
   onRemove: () => void;
-  onActivate: () => void;
+  onToggle: () => void;
   saving: boolean;
   note?: string;
   extra?: ReactNode;
@@ -337,12 +350,13 @@ function ApiKeyCard({
   linkText,
   connected,
   active,
+  selected,
   placeholder,
   value,
   onChange,
   onSave,
   onRemove,
-  onActivate,
+  onToggle,
   saving,
   note,
   extra,
@@ -350,12 +364,12 @@ function ApiKeyCard({
   return (
     <div
       className={`bg-chamber-surface border rounded-[10px] px-6 py-5 transition-colors ${
-        active ? "border-chamber-orange/60" : "border-chamber-border"
+        selected ? "border-chamber-orange/60" : "border-chamber-border"
       }`}
     >
       {/* Header row */}
-      <div className="flex justify-between items-center mb-3.5">
-        <div>
+      <div className="flex justify-between items-center gap-3 mb-3.5">
+        <div className="min-w-0">
           <div className="text-chamber-text text-[0.95rem] font-bold">
             {name}
             <span className="text-chamber-text-muted font-normal text-[0.82rem] ml-1.5">
@@ -373,7 +387,7 @@ function ApiKeyCard({
             </a>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
           <span
             className={`w-[7px] h-[7px] rounded-full inline-block ${
               connected ? "bg-chamber-green" : "bg-chamber-red"
@@ -390,26 +404,6 @@ function ApiKeyCard({
       </div>
 
       {note && <p className="text-chamber-text-dim text-[0.72rem] -mt-1.5 mb-3">{note}</p>}
-
-      {/* Which key AI features use — always shown so the choice is discoverable */}
-      <div className="mb-3">
-        {active ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-chamber-orange/15 border border-chamber-orange/40 px-2.5 py-1 text-[0.72rem] font-semibold text-chamber-orange">
-            ✓ In use for AI Analysis &amp; SMC Chat
-          </span>
-        ) : connected ? (
-          <button
-            onClick={onActivate}
-            className="rounded-full border border-chamber-border-light px-2.5 py-1 text-[0.72rem] text-chamber-text-muted hover:border-chamber-orange/50 hover:text-chamber-orange transition-colors cursor-pointer"
-          >
-            Use this one
-          </button>
-        ) : (
-          <span className="inline-block rounded-full border border-dashed border-chamber-border-light px-2.5 py-1 text-[0.72rem] text-chamber-text-dim">
-            Save a key to use this one
-          </span>
-        )}
-      </div>
 
       {extra}
 
@@ -437,6 +431,36 @@ function ApiKeyCard({
           className="px-4 py-2 rounded-lg bg-transparent border border-[#333] text-chamber-text-muted text-[0.78rem] hover:border-chamber-red hover:text-chamber-red transition-colors disabled:opacity-50 cursor-pointer"
         >
           Remove Key
+        </button>
+      </div>
+
+      {/* Which key AI features use — one small switch per card, at most one on */}
+      <div className="flex items-center justify-end gap-2 mt-3">
+        {selected && (
+          <span className="text-[0.68rem] text-chamber-text-dim mr-auto">
+            {active ? "In use for AI Analysis & SMC Chat" : "Save a key to start using it"}
+          </span>
+        )}
+        <span className={`text-[0.72rem] ${selected ? "text-chamber-orange font-semibold" : "text-chamber-text-muted"}`}>
+          Use this one
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={selected}
+          aria-label={`Use ${name} for AI features`}
+          onClick={onToggle}
+          className={`relative inline-flex h-[18px] w-8 shrink-0 items-center rounded-full border transition-colors cursor-pointer ${
+            selected
+              ? "bg-chamber-orange border-chamber-orange"
+              : "bg-chamber-bg border-chamber-border-light hover:border-chamber-orange/50"
+          }`}
+        >
+          <span
+            className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform ${
+              selected ? "translate-x-[16px]" : "translate-x-[2px]"
+            }`}
+          />
         </button>
       </div>
     </div>
