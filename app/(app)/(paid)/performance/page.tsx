@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { Trade, JournalEntry } from "@/lib/types";
 import { formatDollar, formatDollarCompact } from "@/lib/trade-math";
 import StatCard from "@/components/StatCard";
+import EdgeReport from "@/components/EdgeReport";
+import { computeEdgeReport } from "@/lib/trade-stats";
 import {
   LineChart,
   Line,
@@ -118,7 +120,7 @@ export default function PerformancePage() {
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [allJournals, setAllJournals] = useState<JournalEntry[]>([]);
   const [selectedRange, setSelectedRange] = useState<RangeKey>("This Month");
-  const [activeTab, setActiveTab] = useState<"calendar" | "equity" | "breakdowns" | "streaks" | "mental">("calendar");
+  const [activeTab, setActiveTab] = useState<"calendar" | "equity" | "breakdowns" | "streaks" | "edge" | "mental">("calendar");
   const [breakdownType, setBreakdownType] = useState<"Pair" | "Direction" | "Day of Week">("Pair");
   const [loading, setLoading] = useState(true);
 
@@ -165,9 +167,10 @@ export default function PerformancePage() {
     const winRate = trades.length > 0 ? (winners.length / trades.length) * 100 : 0;
     const avgWinDollar = winners.length ? winners.reduce((s, t) => s + (t.pnl_dollar || 0), 0) / winners.length : 0;
     const avgLossDollar = losers.length ? losers.reduce((s, t) => s + (t.pnl_dollar || 0), 0) / losers.length : 0;
-    const grossWinPips = winners.reduce((s, t) => s + t.pnl_pips, 0);
-    const grossLossPips = Math.abs(losers.reduce((s, t) => s + t.pnl_pips, 0));
-    const profitFactor = grossLossPips > 0 ? grossWinPips / grossLossPips : 0;
+    // Dollars, not pips: pips aren't comparable across forex and indices
+    const grossWinDollar = winners.reduce((s, t) => s + (t.pnl_dollar || 0), 0);
+    const grossLossDollar = Math.abs(losers.reduce((s, t) => s + (t.pnl_dollar || 0), 0));
+    const profitFactor = grossLossDollar > 0 ? grossWinDollar / grossLossDollar : 0;
     const rrRatio = avgLossDollar !== 0 ? Math.abs(avgWinDollar / avgLossDollar) : 0;
     const bestTrade = trades.length ? trades.reduce((best, t) => (t.pnl_dollar || 0) > (best.pnl_dollar || 0) ? t : best, trades[0]) : null;
     const worstTrade = trades.length ? trades.reduce((worst, t) => (t.pnl_dollar || 0) < (worst.pnl_dollar || 0) ? t : worst, trades[0]) : null;
@@ -213,6 +216,8 @@ export default function PerformancePage() {
   const avgTradesPerDay = stats.tradingDays > 0 ? trades.length / stats.tradingDays : 0;
   const avgDollarPerDay = stats.tradingDays > 0 ? stats.totalDollar / stats.tradingDays : 0;
   const dayWinRate = stats.tradingDays > 0 ? (stats.winningDays / stats.tradingDays) * 100 : 0;
+
+  const edgeReport = useMemo(() => computeEdgeReport(trades), [trades]);
 
   // ============================================================
   // Equity Curve data
@@ -483,6 +488,7 @@ export default function PerformancePage() {
           ["equity", "Equity Curve"],
           ["breakdowns", "Breakdowns"],
           ["streaks", "Streaks"],
+          ["edge", "Edge Report"],
           ["mental", "Mental Correlation"],
         ] as const).map(([key, label]) => (
           <button
@@ -770,6 +776,8 @@ export default function PerformancePage() {
           )}
         </div>
       )}
+
+      {activeTab === "edge" && <EdgeReport report={edgeReport} />}
 
       {/* ============================================================ */}
       {/* MENTAL CORRELATION TAB */}
