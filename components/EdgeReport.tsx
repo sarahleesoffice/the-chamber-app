@@ -1,3 +1,6 @@
+"use client";
+
+import { Fragment, useState } from "react";
 import type { EdgeReport as Report, EdgeStats, SizeBasis, StatsUnit } from "@/lib/trade-stats";
 import { formatDollar } from "@/lib/trade-math";
 import StatCard from "@/components/StatCard";
@@ -39,46 +42,46 @@ type Row = {
   label: string;
   value: (s: EdgeStats) => string;
   color?: (s: EdgeStats) => string | undefined;
-  hint?: string;
+  hint: string;
 };
 
 function rows(unit: StatsUnit): (Row | "gap")[] {
   return [
-    { label: "Net profit", value: (s) => money(s.netProfit, unit), color: (s) => signColor(s.netProfit) },
-    { label: "Gross profit", value: (s) => money(s.grossProfit, unit) },
-    { label: "Gross loss", value: (s) => money(s.grossLoss, unit), color: (s) => (s.grossLoss < 0 ? RED : undefined) },
-    { label: "Profit factor", value: (s) => ratio(s.profitFactor, s.winners > 0), color: (s) => (s.profitFactor === null ? undefined : s.profitFactor > 1.5 ? GREEN : s.profitFactor > 1 ? ORANGE : RED), hint: "Gross profit ÷ gross loss. Above 1 = profitable." },
-    { label: "Expectancy / trade", value: (s) => money(s.avgTrade, unit), color: (s) => signColor(s.avgTrade), hint: "What an average trade is worth." },
+    { label: "Net profit", value: (s) => money(s.netProfit, unit), color: (s) => signColor(s.netProfit), hint: "Everything you made minus everything you lost. FTMO imports include swap and commission, so this matches your FTMO dashboard." },
+    { label: "Gross profit", value: (s) => money(s.grossProfit, unit), hint: "All your winning trades added together." },
+    { label: "Gross loss", value: (s) => money(s.grossLoss, unit), color: (s) => (s.grossLoss < 0 ? RED : undefined), hint: "All your losing trades added together." },
+    { label: "Profit factor", value: (s) => ratio(s.profitFactor, s.winners > 0), color: (s) => (s.profitFactor === null ? undefined : s.profitFactor > 1.5 ? GREEN : s.profitFactor > 1 ? ORANGE : RED), hint: "Gross profit ÷ gross loss. Above 1 means you're profitable. 1.5+ is solid, 2+ is strong." },
+    { label: "Expectancy / trade", value: (s) => money(s.avgTrade, unit), color: (s) => signColor(s.avgTrade), hint: "What the average trade makes or loses. Positive means you have an edge, as long as the sample is big enough." },
     "gap",
-    { label: "Sharpe ratio", value: (s) => ratio(s.sharpe), color: (s) => (s.sharpe === null ? undefined : s.sharpe >= 0.3 ? GREEN : s.sharpe > 0 ? ORANGE : RED), hint: "Average trade ÷ how much trade results swing, per trade (same basis as FTMO). 0.3+ is solid." },
-    { label: "Sortino ratio", value: (s) => ratio(s.sortino), color: (s) => (s.sortino === null ? undefined : s.sortino >= 0.5 ? GREEN : s.sortino > 0 ? ORANGE : RED), hint: "Like Sharpe, but only counts losing trades as risk — big winners aren't penalized." },
-    { label: "Max drawdown", value: (s) => money(-s.maxDrawdown, unit), color: (s) => (s.maxDrawdown > 0 ? RED : undefined) },
-    { label: "Recovery factor", value: (s) => ratio(s.recoveryFactor), hint: "Net profit ÷ max drawdown." },
-    { label: "Longest drawdown", value: (s) => plural(s.longestDrawdownDays, "day"), hint: "Most calendar days spent below a previous equity high." },
+    { label: "Sharpe ratio", value: (s) => ratio(s.sharpe), color: (s) => (s.sharpe === null ? undefined : s.sharpe >= 0.3 ? GREEN : s.sharpe > 0 ? ORANGE : RED), hint: "Average trade ÷ how much your results swing from trade to trade. Calculated per trade, the same basis FTMO uses. 0.3+ is solid." },
+    { label: "Sortino ratio", value: (s) => ratio(s.sortino), color: (s) => (s.sortino === null ? undefined : s.sortino >= 0.5 ? GREEN : s.sortino > 0 ? ORANGE : RED), hint: "Like Sharpe, but only losing trades count as risk, so big winners don't drag it down. 0.5+ is solid." },
+    { label: "Max drawdown", value: (s) => money(-s.maxDrawdown, unit), color: (s) => (s.maxDrawdown > 0 ? RED : undefined), hint: "Biggest drop from a profit peak to a low, on closed trades. Compare it to your prop firm's max-loss limit." },
+    { label: "Recovery factor", value: (s) => ratio(s.recoveryFactor), hint: "Net profit ÷ max drawdown. Above 2 means your profit comfortably outweighs your worst dip." },
+    { label: "Longest drawdown", value: (s) => plural(s.longestDrawdownDays, "day"), hint: "Most calendar days you spent below a previous equity high before getting back to it." },
     "gap",
-    { label: "Total trades", value: (s) => String(s.trades) },
-    { label: "Win rate", value: (s) => `${s.winRate.toFixed(1)}%` },
-    { label: "Winners / losers", value: (s) => `${s.winners} / ${s.losers}${s.breakeven ? ` / ${s.breakeven} BE` : ""}` },
-    { label: "Avg win", value: (s) => money(s.avgWin, unit), color: () => GREEN },
-    { label: "Avg loss", value: (s) => money(s.avgLoss, unit), color: () => RED },
-    { label: "Avg win ÷ avg loss", value: (s) => ratio(s.winLossRatio, s.winners > 0) },
-    { label: "Largest win", value: (s) => money(s.largestWin, unit) },
-    { label: "Largest loss", value: (s) => money(s.largestLoss, unit), color: (s) => (s.largestLoss < 0 ? RED : undefined) },
-    { label: "Max consec. winners", value: (s) => String(s.maxConsecWins) },
-    { label: "Max consec. losers", value: (s) => String(s.maxConsecLosses) },
+    { label: "Total trades", value: (s) => String(s.trades), hint: "Closed trades in this date range. Under 30 is too few to judge a method." },
+    { label: "Win rate", value: (s) => `${s.winRate.toFixed(1)}%`, hint: "Share of trades that made money. A low win rate is fine if your winners are much bigger than your losers." },
+    { label: "Winners / losers", value: (s) => `${s.winners} / ${s.losers}${s.breakeven ? ` / ${s.breakeven} BE` : ""}`, hint: "How many trades won, lost, or broke even (BE)." },
+    { label: "Avg win", value: (s) => money(s.avgWin, unit), color: () => GREEN, hint: "Average result of your winning trades." },
+    { label: "Avg loss", value: (s) => money(s.avgLoss, unit), color: () => RED, hint: "Average result of your losing trades. It should be close to your planned risk if you respect your stops." },
+    { label: "Avg win ÷ avg loss", value: (s) => ratio(s.winLossRatio, s.winners > 0), hint: "How many times bigger your average winner is than your average loser. To break even you need at least losers ÷ winners. At a 25% win rate that's 3." },
+    { label: "Largest win", value: (s) => money(s.largestWin, unit), hint: "Your single best trade. If it's most of your profit, your results depend on rare big winners." },
+    { label: "Largest loss", value: (s) => money(s.largestLoss, unit), color: (s) => (s.largestLoss < 0 ? RED : undefined), hint: "Your single worst trade. If it's much bigger than your average loss, a stop was moved or skipped." },
+    { label: "Max consec. winners", value: (s) => String(s.maxConsecWins), hint: "Longest run of winning trades in a row." },
+    { label: "Max consec. losers", value: (s) => String(s.maxConsecLosses), hint: "Longest run of losing trades in a row. Size so that a streak twice this long still won't hit your loss limits." },
     "gap",
-    { label: "Risk known on", value: (s) => `${s.riskTrades} of ${s.trades}`, hint: "Trades with a stop loss from a broker import. Trades whose stop was moved to breakeven or into profit are left out." },
-    { label: "Avg risk / trade", value: (s) => (s.avgRisk === null ? "—" : formatDollar(s.avgRisk)) },
-    { label: "Risk swing", value: (s) => (s.riskSwing === null ? "—" : `±${s.riskSwing.toFixed(0)}%`), color: (s) => (s.riskSwing === null ? undefined : s.riskSwing <= 20 ? GREEN : s.riskSwing <= 40 ? ORANGE : RED), hint: "How much your $ risk varies trade to trade. Consistent risk keeps the stats honest." },
-    { label: "Expectancy (R)", value: (s) => (s.expectancyR === null ? "—" : `${s.expectancyR >= 0 ? "+" : ""}${s.expectancyR.toFixed(2)}R`), color: (s) => (s.expectancyR === null ? undefined : signColor(s.expectancyR)), hint: "Average result in units of what you risked. +0.2R means each trade earns 20% of its risk on average." },
-    { label: "Avg winner (R)", value: (s) => (s.avgWinR === null ? "—" : `${s.avgWinR.toFixed(2)}R`) },
-    { label: "Avg hold, winners", value: (s) => duration(s.avgHoldWinMin) },
-    { label: "Avg hold, losers", value: (s) => duration(s.avgHoldLossMin), color: (s) => (s.avgHoldLossMin !== null && s.avgHoldWinMin !== null && s.avgHoldLossMin > s.avgHoldWinMin * 1.5 ? RED : undefined), hint: "Red when you hold losers much longer than winners." },
+    { label: "Risk known on", value: (s) => `${s.riskTrades} of ${s.trades}`, hint: "Trades where we know your $ risk: imported with a stop loss, or entered with one. Trades whose stop was moved to breakeven or into profit are left out." },
+    { label: "Avg risk / trade", value: (s) => (s.avgRisk === null ? "—" : formatDollar(s.avgRisk)), hint: "Average dollars at risk per trade, measured from entry to stop loss." },
+    { label: "Risk swing", value: (s) => (s.riskSwing === null ? "—" : `±${s.riskSwing.toFixed(0)}%`), color: (s) => (s.riskSwing === null ? undefined : s.riskSwing <= 20 ? GREEN : s.riskSwing <= 40 ? ORANGE : RED), hint: "How much your $ risk changes from trade to trade. Under ±20% is consistent. Big swings usually mean sizing on emotion." },
+    { label: "Expectancy (R)", value: (s) => (s.expectancyR === null ? "—" : `${s.expectancyR >= 0 ? "+" : ""}${s.expectancyR.toFixed(2)}R`), color: (s) => (s.expectancyR === null ? undefined : signColor(s.expectancyR)), hint: "Average result in units of what you risked (R). +0.2R means each trade earns 20% of its risk on average. Positive is an edge." },
+    { label: "Avg winner (R)", value: (s) => (s.avgWinR === null ? "—" : `${s.avgWinR.toFixed(2)}R`), hint: "Your average winning trade measured in R. 2R means you made twice what you risked." },
+    { label: "Avg hold, winners", value: (s) => duration(s.avgHoldWinMin), hint: "Average time you stay in winning trades." },
+    { label: "Avg hold, losers", value: (s) => duration(s.avgHoldLossMin), color: (s) => (s.avgHoldLossMin !== null && s.avgHoldWinMin !== null && s.avgHoldLossMin > s.avgHoldWinMin * 1.5 ? RED : undefined), hint: "Average time you stay in losing trades. Turns red when you hold losers much longer than winners, which usually means hoping instead of cutting." },
     "gap",
-    { label: "Trading days", value: (s) => String(s.tradingDays) },
-    { label: "Avg trades / day", value: (s) => s.avgTradesPerDay.toFixed(1) },
-    { label: "Avg daily P&L", value: (s) => money(s.avgDailyPnl, unit), color: (s) => signColor(s.avgDailyPnl) },
-    { label: "Green-day rate", value: (s) => `${s.dayWinRate.toFixed(0)}%` },
+    { label: "Trading days", value: (s) => String(s.tradingDays), hint: "Days with at least one closed trade." },
+    { label: "Avg trades / day", value: (s) => s.avgTradesPerDay.toFixed(1), hint: "Trades per trading day. If this jumps on bad days, it can mean overtrading." },
+    { label: "Avg daily P&L", value: (s) => money(s.avgDailyPnl, unit), color: (s) => signColor(s.avgDailyPnl), hint: "Your average result per trading day." },
+    { label: "Green-day rate", value: (s) => `${s.dayWinRate.toFixed(0)}%`, hint: "Share of trading days that ended positive." },
   ];
 }
 
@@ -90,6 +93,7 @@ const CONFIDENCE_STYLE = {
 
 export default function EdgeReport({ report }: { report: Report }) {
   const { unit, all, long, short, confidence, afterRedDay, afterGreenDay, excluded, sizeBasis, afterLosingTrade, afterWinningTrade } = report;
+  const [openHint, setOpenHint] = useState<string | null>(null);
   const sizesUpAfterLoss =
     afterLosingTrade.avgSize !== null && afterWinningTrade.avgSize !== null && afterLosingTrade.avgSize > afterWinningTrade.avgSize * 1.15;
 
@@ -130,10 +134,18 @@ export default function EdgeReport({ report }: { report: Report }) {
               row === "gap" ? (
                 <tr key={i}><td colSpan={4} className="h-3" /></tr>
               ) : (
-                <tr key={row.label} className="border-t border-chamber-border">
-                  <td className="py-1.5 pr-2 text-chamber-text-muted" title={row.hint}>
-                    {row.label}
-                    {row.hint && <span className="text-chamber-text-dim ml-1 cursor-help">ⓘ</span>}
+                <Fragment key={row.label}>
+                <tr className="border-t border-chamber-border">
+                  <td className="py-1.5 pr-2">
+                    <button
+                      type="button"
+                      onClick={() => setOpenHint(openHint === row.label ? null : row.label)}
+                      aria-expanded={openHint === row.label}
+                      className={`text-left transition-colors hover:text-chamber-text ${openHint === row.label ? "text-chamber-orange" : "text-chamber-text-muted"}`}
+                    >
+                      {row.label}
+                      <span className="ml-1 text-chamber-text-dim">ⓘ</span>
+                    </button>
                   </td>
                   {columns.map(([label, s]) => (
                     <td key={label} className="py-1.5 px-2 text-right font-semibold tabular-nums" style={{ color: s.trades ? row.color?.(s) : undefined }}>
@@ -141,6 +153,17 @@ export default function EdgeReport({ report }: { report: Report }) {
                     </td>
                   ))}
                 </tr>
+                {openHint === row.label && (
+                  <tr>
+                    <td colSpan={4} className="pb-2">
+                      {/* Sticky + capped width keeps the box on screen while the table scrolls sideways on phones */}
+                      <div className="sticky left-0 max-w-[calc(100vw-2rem)] md:max-w-none rounded-md border border-chamber-orange/30 bg-chamber-orange/5 px-3 py-2 text-xs leading-relaxed text-chamber-text-muted">
+                        {row.hint}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               )
             )}
           </tbody>
