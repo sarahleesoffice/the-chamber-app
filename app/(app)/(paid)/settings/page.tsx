@@ -1,12 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  DEFAULT_OPENROUTER_MODEL,
+  OPENROUTER_MODELS,
+  PROVIDER_FALLBACK_ORDER,
+  type AIProvider,
+} from "@/lib/ai-providers";
 
-interface ApiKeyStatus {
-  anthropic: boolean;
-  gemini: boolean;
-}
+type ApiKeyStatus = Record<AIProvider, boolean>;
+
+const PROVIDER_NAME: Record<AIProvider, string> = {
+  anthropic: "Claude",
+  gemini: "Gemini",
+  openai: "ChatGPT",
+  openrouter: "OpenRouter",
+};
 
 export default function SettingsPage() {
   const supabase = createClient();
@@ -16,10 +26,18 @@ export default function SettingsPage() {
   const [keyStatus, setKeyStatus] = useState<ApiKeyStatus>({
     anthropic: false,
     gemini: false,
+    openai: false,
+    openrouter: false,
   });
-
-  const [claudeKey, setClaudeKey] = useState("");
-  const [geminiKey, setGeminiKey] = useState("");
+  const [keyInputs, setKeyInputs] = useState<Record<AIProvider, string>>({
+    anthropic: "",
+    gemini: "",
+    openai: "",
+    openrouter: "",
+  });
+  // Which key AI features use; stored in user_metadata so API routes can read it
+  const [preferred, setPreferred] = useState<AIProvider | null>(null);
+  const [openrouterModel, setOpenrouterModel] = useState<string>(DEFAULT_OPENROUTER_MODEL);
   const [saving, setSaving] = useState<string | null>(null);
   const [message, setMessage] = useState<{
     type: "success" | "error" | "warning";
@@ -51,8 +69,13 @@ export default function SettingsPage() {
         setKeyStatus({
           anthropic: keys.some((k) => k.provider === "anthropic"),
           gemini: keys.some((k) => k.provider === "gemini"),
+          openai: keys.some((k) => k.provider === "openai"),
+          openrouter: keys.some((k) => k.provider === "openrouter"),
         });
       }
+      const meta = user.user_metadata || {};
+      if (PROVIDER_FALLBACK_ORDER.includes(meta.ai_provider)) setPreferred(meta.ai_provider);
+      if (OPENROUTER_MODELS.some((m) => m.id === meta.openrouter_model)) setOpenrouterModel(meta.openrouter_model);
     }
     load();
   }, []);
@@ -62,7 +85,39 @@ export default function SettingsPage() {
     setTimeout(() => setMessage(null), 3000);
   }
 
-  async function saveKey(provider: "anthropic" | "gemini", key: string) {
+  // Mirrors pickKey() on the server: the chosen provider if it has a key, else the first saved key
+  const activeProvider =
+    preferred && keyStatus[preferred]
+      ? preferred
+      : PROVIDER_FALLBACK_ORDER.find((p) => keyStatus[p]) ?? null;
+
+  async function savePreference(data: { ai_provider?: AIProvider; openrouter_model?: string }) {
+    const { error } = await supabase.auth.updateUser({ data });
+    if (error) {
+      showMessage("error", `Failed to save: ${error.message}`);
+      return false;
+    }
+    return true;
+  }
+
+  async function activate(provider: AIProvider) {
+    if (await savePreference({ ai_provider: provider })) {
+      setPreferred(provider);
+      showMessage("success", `AI features will now use ${PROVIDER_NAME[provider]}.`);
+    }
+  }
+
+  async function changeOpenrouterModel(model: string) {
+    const previous = openrouterModel;
+    setOpenrouterModel(model);
+    if (await savePreference({ openrouter_model: model })) {
+      showMessage("success", "OpenRouter model saved.");
+    } else {
+      setOpenrouterModel(previous);
+    }
+  }
+
+  async function saveKey(provider: AIProvider, key: string) {
     if (!key.trim()) {
       showMessage("warning", "Please enter a valid API key.");
       return;
@@ -88,15 +143,11 @@ export default function SettingsPage() {
     }
 
     setKeyStatus((prev) => ({ ...prev, [provider]: true }));
-    if (provider === "anthropic") setClaudeKey("");
-    else setGeminiKey("");
-    showMessage(
-      "success",
-      `${provider === "anthropic" ? "Claude" : "Gemini"} API key saved!`
-    );
+    setKeyInputs((prev) => ({ ...prev, [provider]: "" }));
+    showMessage("success", `${PROVIDER_NAME[provider]} API key saved!`);
   }
 
-  async function removeKey(provider: "anthropic" | "gemini") {
+  async function removeKey(provider: AIProvider) {
     setSaving(provider);
 
     const { error } = await supabase
@@ -113,11 +164,19 @@ export default function SettingsPage() {
     }
 
     setKeyStatus((prev) => ({ ...prev, [provider]: false }));
-    showMessage(
-      "success",
-      `${provider === "anthropic" ? "Claude" : "Gemini"} API key removed.`
-    );
+    showMessage("success", `${PROVIDER_NAME[provider]} API key removed.`);
   }
+
+  const cardProps = (provider: AIProvider) => ({
+    connected: keyStatus[provider],
+    active: activeProvider === provider,
+    value: keyInputs[provider],
+    onChange: (v: string) => setKeyInputs((prev) => ({ ...prev, [provider]: v })),
+    onSave: () => saveKey(provider, keyInputs[provider]),
+    onRemove: () => removeKey(provider),
+    onActivate: () => activate(provider),
+    saving: saving === provider,
+  });
 
   const initial = displayName ? displayName[0].toUpperCase() : "?";
 
@@ -173,45 +232,65 @@ export default function SettingsPage() {
       </div>
       <p className="text-[#666] text-[0.8rem] mb-5">
         To use AI Analysis and AI SMC Chat, you need your own API key. Your key
-        is stored securely and only used for your requests.
+        is only used for your own requests. If you add more than one, pick
+        which one to use.
       </p>
 
-      {/* ── Claude Card ──────────────────────────────────── */}
-      <ApiKeyCard
-        name="Claude"
-        subtitle="Anthropic"
-        linkHref="https://console.anthropic.com/settings/keys"
-        linkText="console.anthropic.com/settings/keys"
-        connected={keyStatus.anthropic}
-        placeholder="sk-ant-..."
-        value={claudeKey}
-        onChange={setClaudeKey}
-        onSave={() => saveKey("anthropic", claudeKey)}
-        onRemove={() => removeKey("anthropic")}
-        saving={saving === "anthropic"}
-      />
-
-      <div className="h-5" />
-
-      {/* ── Gemini Card ──────────────────────────────────── */}
-      <ApiKeyCard
-        name="Gemini"
-        subtitle="Google AI"
-        linkHref="https://aistudio.google.com/apikey"
-        linkText="aistudio.google.com/apikey"
-        connected={keyStatus.gemini}
-        placeholder="AIza..."
-        value={geminiKey}
-        onChange={setGeminiKey}
-        onSave={() => saveKey("gemini", geminiKey)}
-        onRemove={() => removeKey("gemini")}
-        saving={saving === "gemini"}
-      />
+      <div className="space-y-5">
+        <ApiKeyCard
+          name="Claude"
+          subtitle="Anthropic"
+          linkHref="https://console.anthropic.com/settings/keys"
+          linkText="console.anthropic.com/settings/keys"
+          placeholder="sk-ant-..."
+          {...cardProps("anthropic")}
+        />
+        <ApiKeyCard
+          name="ChatGPT"
+          subtitle="OpenAI"
+          linkHref="https://platform.openai.com/api-keys"
+          linkText="platform.openai.com/api-keys"
+          placeholder="sk-..."
+          note="A ChatGPT Plus subscription doesn't include API access. Create a key and add billing at platform.openai.com."
+          {...cardProps("openai")}
+        />
+        <ApiKeyCard
+          name="Gemini"
+          subtitle="Google AI"
+          linkHref="https://aistudio.google.com/apikey"
+          linkText="aistudio.google.com/apikey"
+          placeholder="AIza..."
+          {...cardProps("gemini")}
+        />
+        <ApiKeyCard
+          name="OpenRouter"
+          subtitle="Any model, one key"
+          linkHref="https://openrouter.ai/keys"
+          linkText="openrouter.ai/keys"
+          placeholder="sk-or-..."
+          note="One key for Claude, GPT, Gemini and Grok. Buy credits on openrouter.ai, then choose a model below."
+          extra={
+            <label className="block mb-3">
+              <span className="block text-chamber-text-muted text-[0.72rem] mb-1">Model</span>
+              <select
+                value={openrouterModel}
+                onChange={(e) => changeOpenrouterModel(e.target.value)}
+                className="w-full bg-chamber-bg border border-chamber-border-light rounded-lg px-3 py-2 text-sm text-chamber-text focus:outline-none focus:border-chamber-orange/50 transition-colors"
+              >
+                {OPENROUTER_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </select>
+            </label>
+          }
+          {...cardProps("openrouter")}
+        />
+      </div>
 
       {/* ── Footer ───────────────────────────────────────── */}
       <div className="text-center mt-10">
         <span className="text-[#333] text-[0.65rem] tracking-wide">
-          YOUR API KEYS ARE STORED LOCALLY &middot; NEVER SHARED
+          YOUR API KEYS ARE ONLY USED FOR YOUR OWN REQUESTS &middot; NEVER SHARED
         </span>
       </div>
     </div>
@@ -228,12 +307,16 @@ interface ApiKeyCardProps {
   linkHref: string;
   linkText: string;
   connected: boolean;
+  active: boolean;
   placeholder: string;
   value: string;
   onChange: (v: string) => void;
   onSave: () => void;
   onRemove: () => void;
+  onActivate: () => void;
   saving: boolean;
+  note?: string;
+  extra?: ReactNode;
 }
 
 function ApiKeyCard({
@@ -242,15 +325,23 @@ function ApiKeyCard({
   linkHref,
   linkText,
   connected,
+  active,
   placeholder,
   value,
   onChange,
   onSave,
   onRemove,
+  onActivate,
   saving,
+  note,
+  extra,
 }: ApiKeyCardProps) {
   return (
-    <div className="bg-chamber-surface border border-chamber-border rounded-[10px] px-6 py-5">
+    <div
+      className={`bg-chamber-surface border rounded-[10px] px-6 py-5 transition-colors ${
+        active ? "border-chamber-orange/60" : "border-chamber-border"
+      }`}
+    >
       {/* Header row */}
       <div className="flex justify-between items-center mb-3.5">
         <div>
@@ -286,6 +377,28 @@ function ApiKeyCard({
           </span>
         </div>
       </div>
+
+      {note && <p className="text-chamber-text-dim text-[0.72rem] -mt-1.5 mb-3">{note}</p>}
+
+      {/* Which key AI features use */}
+      {connected && (
+        <div className="mb-3">
+          {active ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-chamber-orange/15 border border-chamber-orange/40 px-2.5 py-1 text-[0.72rem] font-semibold text-chamber-orange">
+              ✓ In use for AI Analysis &amp; SMC Chat
+            </span>
+          ) : (
+            <button
+              onClick={onActivate}
+              className="rounded-full border border-chamber-border-light px-2.5 py-1 text-[0.72rem] text-chamber-text-muted hover:border-chamber-orange/50 hover:text-chamber-orange transition-colors cursor-pointer"
+            >
+              Use this one
+            </button>
+          )}
+        </div>
+      )}
+
+      {extra}
 
       {/* Input */}
       <input

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { AIProviderError, generate, pickKey } from "@/lib/ai-providers";
 
 const SMC_ANALYSIS_SYSTEM_PROMPT = `You are an expert SMC (Smart Money Concepts) methodology trade analyst inside "The Chamber" trading app. You have deep knowledge of Smart Money Concepts as taught across institutional trading education.
 
@@ -163,126 +164,26 @@ export async function POST(req: NextRequest) {
     const body: AnalysisRequest = await req.json();
     const userMessage = buildUserMessage(body);
 
-    // Get user's API key
+    // Get user's API key: the provider they chose in Settings, else the first they have
     const { data: keys } = await supabase
       .from("user_api_keys")
       .select("provider, encrypted_key")
       .eq("user_id", user.id);
 
-    if (!keys || keys.length === 0) {
-      return NextResponse.json(
-        { error: "No API key configured" },
-        { status: 400 }
-      );
+    const key = pickKey(keys || [], user.user_metadata?.ai_provider);
+    if (!key) {
+      return NextResponse.json({ error: "No API key configured" }, { status: 400 });
     }
 
-    // Prefer anthropic, fallback to gemini
-    const anthropicKey = keys.find((k) => k.provider === "anthropic");
-    const geminiKey = keys.find((k) => k.provider === "gemini");
-
-    let analysisText: string;
-    let provider: string;
-    let model: string;
-
-    if (anthropicKey) {
-      provider = "claude";
-
-      // Try models in order of preference — fallback if model not available on user's plan
-      const modelsToTry = [
-        "claude-sonnet-4-5-20250929",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-5-sonnet-20240620",
-        "claude-3-haiku-20240307",
-      ];
-
-      let lastError = "";
-      let success = false;
-      analysisText = "";
-      model = modelsToTry[0];
-
-      for (const tryModel of modelsToTry) {
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": anthropicKey.encrypted_key,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: tryModel,
-            max_tokens: 2048,
-            system: SMC_ANALYSIS_SYSTEM_PROMPT,
-            messages: [{ role: "user", content: userMessage }],
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          analysisText = data.content?.[0]?.text || "No response from Claude.";
-          model = tryModel;
-          success = true;
-          break;
-        }
-
-        const err = await response.json().catch(() => ({}));
-        lastError = err?.error?.message || "Claude API error";
-
-        // Only retry on model-not-found errors, not auth/billing errors
-        if (response.status !== 404 && response.status !== 400) {
-          return NextResponse.json(
-            { error: `Claude API: ${lastError}` },
-            { status: response.status }
-          );
-        }
-      }
-
-      if (!success) {
-        return NextResponse.json(
-          { error: `Claude API: No compatible model found. Last error: ${lastError}` },
-          { status: 400 }
-        );
-      }
-    } else if (geminiKey) {
-      provider = "gemini";
-      model = "gemini-2.0-flash";
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey.encrypted_key}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: {
-              parts: [{ text: SMC_ANALYSIS_SYSTEM_PROMPT }],
-            },
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: userMessage }],
-              },
-            ],
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        return NextResponse.json(
-          { error: err?.error?.message || "Gemini API error" },
-          { status: response.status }
-        );
-      }
-
-      const data = await response.json();
-      analysisText =
-        data.candidates?.[0]?.content?.parts?.[0]?.text ||
-        "No response from Gemini.";
-    } else {
-      return NextResponse.json(
-        { error: "No supported API key found" },
-        { status: 400 }
-      );
-    }
+    const { text, provider, model } = await generate({
+      provider: key.provider,
+      apiKey: key.encrypted_key,
+      model: user.user_metadata?.openrouter_model,
+      system: SMC_ANALYSIS_SYSTEM_PROMPT,
+      messages: [{ role: "user", text: userMessage }],
+      maxTokens: 2048,
+    });
+    const analysisText = text || "No response from the AI.";
 
     // Extract SMC score from the response
     const ictScore = extractScore(analysisText);
@@ -316,6 +217,9 @@ export async function POST(req: NextRequest) {
       model,
     });
   } catch (err: unknown) {
+    if (err instanceof AIProviderError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     const message =
       err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
