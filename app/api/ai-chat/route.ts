@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { AIProviderError, generate, pickKey } from "@/lib/ai-providers";
 
 const SMC_SYSTEM_PROMPT = `You are the AI mentor inside "The Chamber" — a trading app built on SMC (Smart Money Concepts) methodology, powered by 675+ SMC YouTube lecture transcripts, study cards, and Discord discussions.
 
@@ -268,99 +269,33 @@ export async function POST(req: NextRequest) {
 
     const systemPromptWithRAG = SMC_SYSTEM_PROMPT + ragContext + studyContext;
 
-    // Get user's API key
+    // Get user's API key: the provider they chose in Settings, else the first they have
     const { data: keys } = await supabase
       .from("user_api_keys")
       .select("provider, encrypted_key")
       .eq("user_id", user.id);
 
-    if (!keys || keys.length === 0) {
+    const key = pickKey(keys || [], user.user_metadata?.ai_provider);
+    if (!key) {
       return NextResponse.json({ error: "No API key configured" }, { status: 400 });
     }
 
-    // Prefer anthropic, fallback to gemini
-    const anthropicKey = keys.find((k) => k.provider === "anthropic");
-    const geminiKey = keys.find((k) => k.provider === "gemini");
-
-    if (anthropicKey) {
-      // Try models in order of preference
-      const modelsToTry = [
-        "claude-sonnet-4-5-20250929",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-5-sonnet-20240620",
-        "claude-3-haiku-20240307",
-      ];
-
-      for (const tryModel of modelsToTry) {
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": anthropicKey.encrypted_key,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: tryModel,
-            max_tokens: 1024,
-            system: systemPromptWithRAG,
-            messages: messages.map((m: { role: string; content: string }) => ({
-              role: m.role,
-              content: m.content,
-            })),
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const reply = data.content?.[0]?.text || "No response from Claude.";
-          return NextResponse.json({ reply, provider: "claude", model: tryModel, studyMaterials });
-        }
-
-        // Only retry on model-not-found errors
-        if (response.status !== 404 && response.status !== 400) {
-          const err = await response.json().catch(() => ({}));
-          return NextResponse.json(
-            { error: err?.error?.message || "Claude API error" },
-            { status: response.status }
-          );
-        }
-      }
-
-      return NextResponse.json({ error: "No compatible Claude model found" }, { status: 400 });
-
-    } else if (geminiKey) {
-      // Call Gemini API
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey.encrypted_key}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPromptWithRAG }] },
-            contents: messages.map((m: { role: string; content: string }) => ({
-              role: m.role === "assistant" ? "model" : "user",
-              parts: [{ text: m.content }],
-            })),
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        return NextResponse.json(
-          { error: err?.error?.message || "Gemini API error" },
-          { status: response.status }
-        );
-      }
-
-      const data = await response.json();
-      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Gemini.";
-      return NextResponse.json({ reply, provider: "gemini", studyMaterials });
-
-    } else {
-      return NextResponse.json({ error: "No supported API key found" }, { status: 400 });
-    }
+    const { text, provider, model } = await generate({
+      provider: key.provider,
+      apiKey: key.encrypted_key,
+      model: user.user_metadata?.openrouter_model,
+      system: systemPromptWithRAG,
+      messages: messages.map((m: { role: string; content: string }) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        text: m.content,
+      })),
+      maxTokens: 1024,
+    });
+    return NextResponse.json({ reply: text || "No response from the AI.", provider, model, studyMaterials });
   } catch (err: unknown) {
+    if (err instanceof AIProviderError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     const message = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }

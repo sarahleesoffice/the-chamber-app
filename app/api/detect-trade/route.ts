@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { AIProviderError, generate, pickKey } from "@/lib/ai-providers";
 
 export const dynamic = "force-dynamic";
 
@@ -92,145 +93,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get user's API key
+    // Get user's API key: the provider they chose in Settings, else the first they have
     const { data: keys } = await supabase
       .from("user_api_keys")
       .select("provider, encrypted_key")
       .eq("user_id", user.id);
 
-    if (!keys || keys.length === 0) {
-      return NextResponse.json(
-        { error: "No API key configured" },
-        { status: 400 }
-      );
+    const key = pickKey(keys || [], user.user_metadata?.ai_provider);
+    if (!key) {
+      return NextResponse.json({ error: "No API key configured" }, { status: 400 });
     }
 
-    const anthropicKey = keys.find((k) => k.provider === "anthropic");
-    const geminiKey = keys.find((k) => k.provider === "gemini");
-
-    let responseText = "";
-    let provider = "";
-    let model = "";
-
-    if (anthropicKey) {
-      provider = "claude";
-
-      // Build vision content blocks
-      const contentBlocks: Array<Record<string, unknown>> = [];
-      for (const img of body.images) {
-        contentBlocks.push({
-          type: "image",
-          source: {
-            type: "base64",
-            media_type: img.mediaType,
-            data: img.base64,
-          },
-        });
-      }
-      contentBlocks.push({
-        type: "text",
-        text: "Analyze this trading chart and extract trade details. Return ONLY valid JSON.",
-      });
-
-      const modelsToTry = [
-        "claude-sonnet-4-5-20250929",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-5-sonnet-20240620",
-        "claude-3-haiku-20240307",
-      ];
-
-      let lastError = "";
-      let success = false;
-
-      for (const tryModel of modelsToTry) {
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": anthropicKey.encrypted_key,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: tryModel,
-            max_tokens: 1024,
-            system: DETECT_SYSTEM_PROMPT,
-            messages: [{ role: "user", content: contentBlocks }],
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          responseText = data.content?.[0]?.text || "";
-          model = tryModel;
-          success = true;
-          break;
-        }
-
-        const err = await response.json().catch(() => ({}));
-        lastError = err?.error?.message || "Claude API error";
-
-        if (response.status !== 404 && response.status !== 400) {
-          return NextResponse.json(
-            { error: `Claude API: ${lastError}` },
-            { status: response.status }
-          );
-        }
-      }
-
-      if (!success) {
-        return NextResponse.json(
-          { error: `Claude API: No compatible model found. Last error: ${lastError}` },
-          { status: 400 }
-        );
-      }
-    } else if (geminiKey) {
-      provider = "gemini";
-      model = "gemini-2.0-flash";
-
-      const parts: Array<Record<string, unknown>> = [];
-      for (const img of body.images) {
-        parts.push({
-          inlineData: {
-            mimeType: img.mediaType,
-            data: img.base64,
-          },
-        });
-      }
-      parts.push({
-        text: "Analyze this trading chart and extract trade details. Return ONLY valid JSON.",
-      });
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey.encrypted_key}`,
+    const { text: responseText, provider, model } = await generate({
+      provider: key.provider,
+      apiKey: key.encrypted_key,
+      model: user.user_metadata?.openrouter_model,
+      system: DETECT_SYSTEM_PROMPT,
+      messages: [
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            systemInstruction: {
-              parts: [{ text: DETECT_SYSTEM_PROMPT }],
-            },
-            contents: [{ role: "user", parts }],
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        return NextResponse.json(
-          { error: err?.error?.message || "Gemini API error" },
-          { status: response.status }
-        );
-      }
-
-      const data = await response.json();
-      responseText =
-        data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    } else {
-      return NextResponse.json(
-        { error: "No supported API key found" },
-        { status: 400 }
-      );
-    }
+          role: "user",
+          text: "Analyze this trading chart and extract trade details. Return ONLY valid JSON.",
+          images: body.images.map((img) => ({ base64: img.base64, mediaType: img.mediaType })),
+        },
+      ],
+      maxTokens: 1024,
+    });
 
     // Parse the AI response
     const result = parseAIResponse(responseText);
@@ -256,6 +143,9 @@ export async function POST(req: NextRequest) {
       model,
     });
   } catch (err: unknown) {
+    if (err instanceof AIProviderError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     const message = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
