@@ -51,6 +51,9 @@ interface ParsedTrade {
   pnl_dollar: number | null;
   trade_date: string;
   reasoning: string;
+  /** Keys this trade had under older import rules, so re-importing a file
+   * doesn't duplicate trades saved before the rules changed. */
+  legacyKeys?: string[];
 }
 
 /**
@@ -152,17 +155,28 @@ function parseFTMORows(
       dirRaw === "sell" || dirRaw === "short" || dirRaw === "s" ? "short" : "long";
     const entry_price = parseFloat(cols[5]);
     const exit_price = parseFloat(cols[9]);
-    const pnl_dollar_raw = parseFloat((cols[12] || "").replace(/[$,]/g, ""));
+    const profit = parseFloat((cols[12] || "").replace(/[$,]/g, ""));
+    const swap = parseFloat((cols[10] || "").replace(/[$,]/g, "")) || 0;
+    const commission = parseFloat((cols[11] || "").replace(/[$,]/g, "")) || 0;
     const pnl_pips = parseFloat(cols[13]);
-    trades.push({
+    const openDate = normalizeDate(cols[1] || "");
+    const trade = {
       pair,
       direction,
       entry_price: isNaN(entry_price) ? 0 : entry_price,
       exit_price: isNaN(exit_price) ? 0 : exit_price,
       pnl_pips: isNaN(pnl_pips) ? 0 : pnl_pips,
-      pnl_dollar: isNaN(pnl_dollar_raw) ? null : pnl_dollar_raw,
-      trade_date: normalizeDate(cols[1] || ""),
+      // Net of swap + commission, so totals match the FTMO dashboard
+      pnl_dollar: isNaN(profit) ? null : Math.round((profit + swap + commission) * 100) / 100,
+      // FTMO books a trade on the day it closes (overnight holds land on the
+      // close day), so use the close time, not the open time
+      trade_date: normalizeDate(cols[8] || "") || openDate,
       reasoning: "",
+    };
+    trades.push({
+      ...trade,
+      // Older imports used the open date and gross profit
+      legacyKeys: [tradeDedupKey({ ...trade, trade_date: openDate, pnl_dollar: isNaN(profit) ? null : profit })],
     });
   }
   return { trades, errors };
@@ -299,7 +313,7 @@ export default function ImportTradesPage() {
     const dupeIdx = new Set<number>();
     parsedTrades.forEach((t, i) => {
       const key = tradeDedupKey(t);
-      if (seenKeys.has(key)) {
+      if (seenKeys.has(key) || t.legacyKeys?.some((k) => existingKeys.has(k))) {
         dupeIdx.add(i);
       } else {
         seenKeys.add(key);

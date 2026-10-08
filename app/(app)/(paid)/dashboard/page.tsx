@@ -76,8 +76,9 @@ export default function DashboardPage() {
     const winRate = (winners.length / trades.length) * 100;
     const avgWin = winners.length ? winners.reduce((s, t) => s + (t.pnl_dollar || 0), 0) / winners.length : 0;
     const avgLoss = losers.length ? losers.reduce((s, t) => s + (t.pnl_dollar || 0), 0) / losers.length : 0;
-    const grossWin = winners.reduce((s, t) => s + t.pnl_pips, 0);
-    const grossLoss = Math.abs(losers.reduce((s, t) => s + t.pnl_pips, 0));
+    // Dollars, not pips: pips aren't comparable across forex and indices
+    const grossWin = winners.reduce((s, t) => s + (t.pnl_dollar || 0), 0);
+    const grossLoss = Math.abs(losers.reduce((s, t) => s + (t.pnl_dollar || 0), 0));
     const pf = grossLoss > 0 ? grossWin / grossLoss : 0;
     const rr = avgLoss !== 0 ? Math.abs(avgWin / avgLoss) : 0;
 
