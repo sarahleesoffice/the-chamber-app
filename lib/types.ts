@@ -46,6 +46,13 @@ export interface Trade {
   trade_date: string;
   reasoning: string;
   chart_url?: string | null;
+  // Filled by broker imports; null for manual / older trades
+  lot_size?: number | null;
+  stop_loss?: number | null;
+  take_profit?: number | null;
+  open_time?: string | null; // broker server time, no time zone
+  close_time?: string | null;
+  risk_dollar?: number | null;
   created_at?: string;
   updated_at?: string;
 }

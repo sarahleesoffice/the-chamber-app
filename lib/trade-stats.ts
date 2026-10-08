@@ -9,6 +9,9 @@
  * MetriX uses), so they line up with what traders see on their prop dashboard
  * and aren't inflated by annualizing a handful of days. Both are scale-free
  * (mean / deviation, risk-free rate 0), so no account size is needed.
+ *
+ * R-multiples, sizing and hold times need broker-import fields (risk_dollar,
+ * lot_size, open/close time); they come back null when trades lack them.
  */
 import type { Trade } from "./types";
 
@@ -42,6 +45,13 @@ export interface EdgeStats {
   dayWinRate: number; // 0–100
   sharpe: number | null; // per trade, not annualized
   sortino: number | null; // per trade, not annualized
+  riskTrades: number; // trades with a known $ risk
+  avgRisk: number | null; // $ risked per trade
+  riskSwing: number | null; // spread of $ risk between trades, % of the average
+  expectancyR: number | null; // average R-multiple
+  avgWinR: number | null;
+  avgHoldWinMin: number | null;
+  avgHoldLossMin: number | null;
   firstDate: string | null;
   lastDate: string | null;
 }
@@ -51,7 +61,16 @@ export interface NextDayBehavior {
   avgTrades: number;
   avgPnl: number;
   dayWinRate: number; // 0–100
+  avgSize: number | null; // avg size per trade on those days (see sizeBasis)
 }
+
+export interface SizingAfterTrade {
+  trades: number; // trades opened right after a trade of this kind closed
+  avgSize: number | null;
+}
+
+/** What "size" means for sizing checks: $ risk when known, else lots. */
+export type SizeBasis = "risk" | "lots" | null;
 
 export type ConfidenceLevel = "low" | "medium" | "high";
 
@@ -64,6 +83,19 @@ export interface EdgeReport {
   confidence: { level: ConfidenceLevel; note: string };
   afterRedDay: NextDayBehavior;
   afterGreenDay: NextDayBehavior;
+  sizeBasis: SizeBasis;
+  afterLosingTrade: SizingAfterTrade;
+  afterWinningTrade: SizingAfterTrade;
+}
+
+interface Point {
+  date: string;
+  v: number; // P&L in the report unit
+  usd: number | null;
+  risk: number | null;
+  lots: number | null;
+  open: string | null;
+  close: string | null;
 }
 
 const DAY_MS = 86_400_000;
@@ -82,9 +114,11 @@ function valueOf(t: Trade, unit: StatsUnit): number | null {
   return unit === "usd" ? t.pnl_dollar ?? null : t.pnl_pips;
 }
 
+// Close order: a trade's outcome counts from when it closed
 function chronological(a: Trade, b: Trade): number {
   return (
-    a.trade_date.localeCompare(b.trade_date) ||
+    (a.close_time || a.trade_date).localeCompare(b.close_time || b.trade_date) ||
+    (a.open_time || "").localeCompare(b.open_time || "") ||
     (a.created_at || "").localeCompare(b.created_at || "") ||
     (a.id || "").localeCompare(b.id || "")
   );
@@ -104,13 +138,36 @@ function sampleStd(xs: number[]): number {
   return Math.sqrt(xs.reduce((s, x) => s + (x - m) ** 2, 0) / (xs.length - 1));
 }
 
-/** Daily P&L in date order, plus trade counts per day. */
-function dailySeries(points: { date: string; v: number }[]) {
-  const map = new Map<string, { pnl: number; count: number }>();
+function meanOrNull(xs: number[]): number | null {
+  return xs.length ? mean(xs) : null;
+}
+
+function holdMinutes(p: Point): number | null {
+  if (!p.open || !p.close) return null;
+  const ms = Date.parse(p.close) - Date.parse(p.open);
+  return isFinite(ms) && ms >= 0 ? ms / 60_000 : null;
+}
+
+function pickSizeBasis(points: Point[]): SizeBasis {
+  if (!points.length) return null;
+  const share = (f: (p: Point) => unknown) => points.filter(f).length / points.length;
+  if (share((p) => p.risk) >= 0.5) return "risk";
+  if (share((p) => p.lots) >= 0.5) return "lots";
+  return null;
+}
+
+function sizeOf(p: Point, basis: SizeBasis): number | null {
+  return basis === "risk" ? p.risk : basis === "lots" ? p.lots : null;
+}
+
+/** Daily P&L in date order, plus the trades on each day. */
+function dailySeries(points: Point[]) {
+  const map = new Map<string, { pnl: number; count: number; items: Point[] }>();
   for (const p of points) {
-    const d = map.get(p.date) || { pnl: 0, count: 0 };
+    const d = map.get(p.date) || { pnl: 0, count: 0, items: [] };
     d.pnl += p.v;
     d.count++;
+    d.items.push(p);
     map.set(p.date, d);
   }
   return [...map.entries()]
@@ -118,7 +175,7 @@ function dailySeries(points: { date: string; v: number }[]) {
     .map(([date, d]) => ({ date, ...d }));
 }
 
-function computeStats(points: { date: string; v: number }[]): EdgeStats {
+function computeStats(points: Point[]): EdgeStats {
   const wins = points.filter((p) => p.v > 0).map((p) => p.v);
   const losses = points.filter((p) => p.v < 0).map((p) => p.v);
   const grossProfit = wins.reduce((s, x) => s + x, 0);
@@ -176,6 +233,12 @@ function computeStats(points: { date: string; v: number }[]): EdgeStats {
     ? Math.sqrt(values.reduce((s, x) => s + Math.min(x, 0) ** 2, 0) / values.length)
     : 0;
 
+  const risked = points.filter((p) => p.risk && p.usd !== null);
+  const risks = risked.map((p) => p.risk as number);
+  const rMultiples = risked.map((p) => (p.usd as number) / (p.risk as number));
+  const avgRisk = meanOrNull(risks);
+  const holdOf = (ps: Point[]) => ps.map(holdMinutes).filter((m): m is number => m !== null);
+
   return {
     trades: points.length,
     winners: wins.length,
@@ -204,13 +267,20 @@ function computeStats(points: { date: string; v: number }[]): EdgeStats {
     dayWinRate: days.length ? (dailyPnl.filter((x) => x > 0).length / days.length) * 100 : 0,
     sharpe: tradeStd > 0 ? avgTrade / tradeStd : null,
     sortino: downsideDev > 0 ? avgTrade / downsideDev : null,
+    riskTrades: risked.length,
+    avgRisk,
+    riskSwing: risks.length >= 2 && avgRisk ? (sampleStd(risks) / avgRisk) * 100 : null,
+    expectancyR: meanOrNull(rMultiples),
+    avgWinR: meanOrNull(rMultiples.filter((r) => r > 0)),
+    avgHoldWinMin: meanOrNull(holdOf(points.filter((p) => p.v > 0))),
+    avgHoldLossMin: meanOrNull(holdOf(points.filter((p) => p.v < 0))),
     firstDate: days[0]?.date ?? null,
     lastDate: days[days.length - 1]?.date ?? null,
   };
 }
 
 /** How the trader behaves on the trading day after a red (or green) day. */
-function nextDayBehavior(points: { date: string; v: number }[]) {
+function nextDayBehavior(points: Point[], basis: SizeBasis) {
   const days = dailySeries(points);
   const after = { red: [] as typeof days, green: [] as typeof days };
   for (let i = 1; i < days.length; i++) {
@@ -222,8 +292,36 @@ function nextDayBehavior(points: { date: string; v: number }[]) {
     avgTrades: mean(ds.map((d) => d.count)),
     avgPnl: mean(ds.map((d) => d.pnl)),
     dayWinRate: ds.length ? (ds.filter((d) => d.pnl > 0).length / ds.length) * 100 : 0,
+    avgSize: meanOrNull(
+      ds.flatMap((d) => d.items.map((p) => sizeOf(p, basis))).filter((x): x is number => x !== null)
+    ),
   });
   return { afterRedDay: summarize(after.red), afterGreenDay: summarize(after.green) };
+}
+
+/**
+ * Size of each trade vs the outcome of the most recent trade that had CLOSED
+ * when it was opened: the "did you size up to win it back" check. Needs
+ * open/close times; trades without them are skipped.
+ */
+function sizingAfterTrade(points: Point[], basis: SizeBasis) {
+  const timed = points.filter((p) => p.open && p.close);
+  const byOpen = [...timed].sort((a, b) => (a.open as string).localeCompare(b.open as string));
+  const byClose = [...timed].sort((a, b) => (a.close as string).localeCompare(b.close as string));
+  const sizes = { loss: [] as number[], win: [] as number[] };
+  let next = 0;
+  let lastClosed: Point | null = null;
+  for (const p of byOpen) {
+    while (next < byClose.length && (byClose[next].close as string) <= (p.open as string)) {
+      lastClosed = byClose[next++];
+    }
+    const size = sizeOf(p, basis);
+    if (!lastClosed || size === null) continue;
+    if (lastClosed.v < 0) sizes.loss.push(size);
+    else if (lastClosed.v > 0) sizes.win.push(size);
+  }
+  const summarize = (xs: number[]): SizingAfterTrade => ({ trades: xs.length, avgSize: meanOrNull(xs) });
+  return { afterLosingTrade: summarize(sizes.loss), afterWinningTrade: summarize(sizes.win) };
 }
 
 function confidenceFor(trades: number, days: number): EdgeReport["confidence"] {
@@ -250,10 +348,20 @@ export function computeEdgeReport(trades: Trade[]): EdgeReport {
   const usable = trades
     .filter((t) => valueOf(t, unit) !== null)
     .sort(chronological);
-  const toPoints = (ts: Trade[]) => ts.map((t) => ({ date: t.trade_date, v: valueOf(t, unit) as number }));
+  const toPoints = (ts: Trade[]): Point[] =>
+    ts.map((t) => ({
+      date: t.trade_date,
+      v: valueOf(t, unit) as number,
+      usd: t.pnl_dollar ?? null,
+      risk: t.risk_dollar || null,
+      lots: t.lot_size || null,
+      open: t.open_time || null,
+      close: t.close_time || null,
+    }));
 
   const allPoints = toPoints(usable);
   const all = computeStats(allPoints);
+  const sizeBasis = pickSizeBasis(allPoints);
 
   return {
     unit,
@@ -262,6 +370,8 @@ export function computeEdgeReport(trades: Trade[]): EdgeReport {
     long: computeStats(toPoints(usable.filter((t) => t.direction === "long"))),
     short: computeStats(toPoints(usable.filter((t) => t.direction === "short"))),
     confidence: confidenceFor(all.trades, all.tradingDays),
-    ...nextDayBehavior(allPoints),
+    ...nextDayBehavior(allPoints, sizeBasis),
+    sizeBasis,
+    ...sizingAfterTrade(allPoints, sizeBasis),
   };
 }

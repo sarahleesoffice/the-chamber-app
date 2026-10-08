@@ -1,4 +1,4 @@
-import type { EdgeReport as Report, EdgeStats, StatsUnit } from "@/lib/trade-stats";
+import type { EdgeReport as Report, EdgeStats, SizeBasis, StatsUnit } from "@/lib/trade-stats";
 import { formatDollar } from "@/lib/trade-math";
 import StatCard from "@/components/StatCard";
 
@@ -13,6 +13,18 @@ function money(v: number, unit: StatsUnit): string {
 function ratio(v: number | null, hasWins = false): string {
   if (v === null) return hasWins ? "∞" : "—";
   return v.toFixed(2);
+}
+
+function duration(min: number | null): string {
+  if (min === null) return "—";
+  if (min < 60) return `${Math.round(min)}m`;
+  const h = Math.floor(min / 60);
+  return `${h}h ${Math.round(min - h * 60)}m`;
+}
+
+function size(v: number | null, basis: SizeBasis): string {
+  if (v === null) return "—";
+  return basis === "lots" ? `${v.toFixed(1)} lots` : formatDollar(v);
 }
 
 function plural(n: number, word: string): string {
@@ -55,6 +67,14 @@ function rows(unit: StatsUnit): (Row | "gap")[] {
     { label: "Max consec. winners", value: (s) => String(s.maxConsecWins) },
     { label: "Max consec. losers", value: (s) => String(s.maxConsecLosses) },
     "gap",
+    { label: "Risk known on", value: (s) => `${s.riskTrades} of ${s.trades}`, hint: "Trades with a stop loss from a broker import. Trades whose stop was moved to breakeven or into profit are left out." },
+    { label: "Avg risk / trade", value: (s) => (s.avgRisk === null ? "—" : formatDollar(s.avgRisk)) },
+    { label: "Risk swing", value: (s) => (s.riskSwing === null ? "—" : `±${s.riskSwing.toFixed(0)}%`), color: (s) => (s.riskSwing === null ? undefined : s.riskSwing <= 20 ? GREEN : s.riskSwing <= 40 ? ORANGE : RED), hint: "How much your $ risk varies trade to trade. Consistent risk keeps the stats honest." },
+    { label: "Expectancy (R)", value: (s) => (s.expectancyR === null ? "—" : `${s.expectancyR >= 0 ? "+" : ""}${s.expectancyR.toFixed(2)}R`), color: (s) => (s.expectancyR === null ? undefined : signColor(s.expectancyR)), hint: "Average result in units of what you risked. +0.2R means each trade earns 20% of its risk on average." },
+    { label: "Avg winner (R)", value: (s) => (s.avgWinR === null ? "—" : `${s.avgWinR.toFixed(2)}R`) },
+    { label: "Avg hold, winners", value: (s) => duration(s.avgHoldWinMin) },
+    { label: "Avg hold, losers", value: (s) => duration(s.avgHoldLossMin), color: (s) => (s.avgHoldLossMin !== null && s.avgHoldWinMin !== null && s.avgHoldLossMin > s.avgHoldWinMin * 1.5 ? RED : undefined), hint: "Red when you hold losers much longer than winners." },
+    "gap",
     { label: "Trading days", value: (s) => String(s.tradingDays) },
     { label: "Avg trades / day", value: (s) => s.avgTradesPerDay.toFixed(1) },
     { label: "Avg daily P&L", value: (s) => money(s.avgDailyPnl, unit), color: (s) => signColor(s.avgDailyPnl) },
@@ -69,7 +89,9 @@ const CONFIDENCE_STYLE = {
 } as const;
 
 export default function EdgeReport({ report }: { report: Report }) {
-  const { unit, all, long, short, confidence, afterRedDay, afterGreenDay, excluded } = report;
+  const { unit, all, long, short, confidence, afterRedDay, afterGreenDay, excluded, sizeBasis, afterLosingTrade, afterWinningTrade } = report;
+  const sizesUpAfterLoss =
+    afterLosingTrade.avgSize !== null && afterWinningTrade.avgSize !== null && afterLosingTrade.avgSize > afterWinningTrade.avgSize * 1.15;
 
   if (!all.trades) {
     return <p className="text-chamber-text-muted text-sm">No trades in this range.</p>;
@@ -135,6 +157,25 @@ export default function EdgeReport({ report }: { report: Report }) {
             <StatCard label="Trades after green" value={afterGreenDay.days ? afterGreenDay.avgTrades.toFixed(1) : "—"} subText={plural(afterGreenDay.days, "day")} />
             <StatCard label="Avg P&L after red" value={afterRedDay.days ? money(afterRedDay.avgPnl, unit) : "—"} color={signColor(afterRedDay.avgPnl)} subText={afterRedDay.days ? `${afterRedDay.dayWinRate.toFixed(0)}% green` : ""} />
             <StatCard label="Avg P&L after green" value={afterGreenDay.days ? money(afterGreenDay.avgPnl, unit) : "—"} color={signColor(afterGreenDay.avgPnl)} subText={afterGreenDay.days ? `${afterGreenDay.dayWinRate.toFixed(0)}% green` : ""} />
+          </div>
+        </>
+      )}
+
+      {sizeBasis && (afterLosingTrade.trades > 0 || afterWinningTrade.trades > 0) && (
+        <>
+          <div className="border-t border-chamber-border my-4" />
+          <p className="font-bold mb-1 text-sm">Sizing after a loss</p>
+          <p className="text-chamber-text-dim text-xs mb-3">
+            Average {sizeBasis === "risk" ? "$ risk" : "lot size"} on the next trade after a loser vs after a winner.
+            {sizesUpAfterLoss && afterWinningTrade.avgSize
+              ? <span style={{ color: RED }}> You size up {Math.round((afterLosingTrade.avgSize! / afterWinningTrade.avgSize - 1) * 100)}% after losses.</span>
+              : null}
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <StatCard label="After a loss" value={size(afterLosingTrade.avgSize, sizeBasis)} subText={plural(afterLosingTrade.trades, "trade")} color={sizesUpAfterLoss ? RED : undefined} />
+            <StatCard label="After a win" value={size(afterWinningTrade.avgSize, sizeBasis)} subText={plural(afterWinningTrade.trades, "trade")} />
+            <StatCard label="Day after red" value={size(afterRedDay.avgSize, sizeBasis)} subText={plural(afterRedDay.days, "day")} />
+            <StatCard label="Day after green" value={size(afterGreenDay.avgSize, sizeBasis)} subText={plural(afterGreenDay.days, "day")} />
           </div>
         </>
       )}

@@ -73,7 +73,7 @@ export async function POST(
     if (serviceKey) {
       const { data: trades } = await supabase
         .from("trades")
-        .select("id, user_id, pair, direction, entry_price, exit_price, pnl_pips, pnl_dollar, trade_date, reasoning")
+        .select("id, user_id, pair, direction, entry_price, exit_price, pnl_pips, pnl_dollar, trade_date, reasoning, lot_size, stop_loss, risk_dollar, open_time, close_time")
         .eq("user_id", user.id)
         .order("trade_date", { ascending: false })
         .limit(500);
@@ -95,9 +95,15 @@ export async function POST(
           notes: [
             t.reasoning,
             t.pnl_pips != null ? `(${t.pnl_pips > 0 ? "+" : ""}${t.pnl_pips} pips)` : null,
+            t.lot_size ? `${t.lot_size} lots` : null,
+            t.stop_loss ? `SL ${t.stop_loss}` : null,
+            t.risk_dollar && t.pnl_dollar != null
+              ? `risk $${t.risk_dollar} (${(t.pnl_dollar / t.risk_dollar).toFixed(2)}R)`
+              : null,
           ].filter(Boolean).join(" ").slice(0, 600) || null,
-          opened_at: t.trade_date ? `${t.trade_date}T12:00:00` : null,
-          closed_at: t.trade_date ? `${t.trade_date}T12:00:00` : null,
+          // Real broker times when imported; noon on the trade date otherwise
+          opened_at: t.open_time ?? (t.trade_date ? `${t.trade_date}T12:00:00` : null),
+          closed_at: t.close_time ?? (t.trade_date ? `${t.trade_date}T12:00:00` : null),
         }));
         await admin.from("user_trades").delete().eq("user_id", user.id);
         if (rows.length > 0) await admin.from("user_trades").insert(rows);
