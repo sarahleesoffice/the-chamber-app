@@ -4,7 +4,9 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-const BOTS = new Set(["ember", "amber"]);
+const BOTS = new Set(["ember", "amber", "ash"]);
+// Web "ash" is stored by the mini under its locked-down name
+const DB_BOT_NAME: Record<string, string> = { ember: "ember", amber: "amber", ash: "chamber_ash" };
 
 /**
  * Lists the signed-in user's archived web conversations with an agent.
@@ -41,7 +43,7 @@ export async function GET(
   const { data, error } = await admin
     .from("agent_conversations")
     .select("channel_id, role, content, created_at")
-    .eq("bot_name", bot)
+    .eq("bot_name", DB_BOT_NAME[bot])
     .like("channel_id", `web-${user.id}%`)
     .order("created_at", { ascending: true })
     .limit(3000);

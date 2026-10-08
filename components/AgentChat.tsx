@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 
 export interface AgentConfig {
-  bot: "ember" | "amber";
+  bot: "ember" | "amber" | "ash";
   name: string;
   role: string;
   blurb: string;
@@ -423,7 +423,9 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
         <p className="tracking-widest" style={{ color: "#444", fontSize: "9px" }}>
           {config.bot === "ember"
             ? "EMBER · TECHNICAL SMC MENTOR · LIVE DATA, CHARTS & CONCEPTS"
-            : "AMBER · MENTAL GAME COACH · TRADING PSYCHOLOGY"}
+            : config.bot === "ash"
+              ? "ASH · PERFORMANCE OVERSEER · YOUR STATS, JOURNAL & MENTOR CHATS"
+              : "AMBER · MENTAL GAME COACH · TRADING PSYCHOLOGY"}
         </p>
       </div>
     </div>

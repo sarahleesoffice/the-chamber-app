@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { buildAshContext } from "@/lib/ash-context";
 
 /**
- * Proxy to the Ember/Amber agents running on the Mac mini.
+ * Proxy to the Ember/Amber/Ash agents running on the Mac mini.
+ * "ash" is the locked-down Chamber overseer (no tools on the mini); this route
+ * sends it the member's own Edge Report, journal and mentor chats as context.
  *
  * The agents live behind a FastAPI wrapper exposed through a Cloudflare tunnel.
  * This route authenticates the Chamber user via their Supabase session, then
@@ -18,7 +21,8 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const BOTS = new Set(["ember", "amber"]);
+const BOTS = new Set(["ember", "amber", "ash"]);
+const BOT_LABEL: Record<string, string> = { ember: "Ember", amber: "Amber", ash: "Ash" };
 
 export async function POST(
   req: NextRequest,
@@ -40,7 +44,7 @@ export async function POST(
   const secret = process.env.AGENT_API_SECRET;
   if (!baseUrl || !secret) {
     return NextResponse.json(
-      { error: `${bot === "ember" ? "Ember" : "Amber"} isn't connected yet. The agent backend hasn't been configured.` },
+      { error: `${BOT_LABEL[bot]} isn't connected yet. The agent backend hasn't been configured.` },
       { status: 503 }
     );
   }
@@ -110,6 +114,22 @@ export async function POST(
       }
     }
   } catch { /* best-effort sync */ }
+
+  // Ash has no tools on the mini — everything it knows about this member is
+  // built here. A failure degrades to "no data" rather than blocking the chat.
+  let context: string | undefined;
+  if (bot === "ash") {
+    try {
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const admin = serviceKey
+        ? createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, { auth: { persistSession: false } })
+        : null;
+      context = await buildAshContext(supabase, admin, user.id);
+    } catch {
+      context = "Trader data is temporarily unavailable — tell the member you can't see their stats right now.";
+    }
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 55_000);
 
@@ -125,6 +145,7 @@ export async function POST(
         user_display_name: user.email || "Web User",
         channel_id: channelId,
         message,
+        ...(context ? { context } : {}),
       }),
       signal: controller.signal,
     });
