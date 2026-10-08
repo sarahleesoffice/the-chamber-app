@@ -76,3 +76,26 @@ export function formatDollar(val: number): string {
 export function formatDollarCompact(val: number): string {
   return `${val < 0 ? "-" : ""}$${Math.round(Math.abs(val)).toLocaleString("en-US")}`;
 }
+
+/**
+ * Dollar risk of a trade, derived from its own fill: the $-per-point it
+ * realised (|gross profit| ÷ |exit − entry|) times the stop distance. Works
+ * for any instrument without contract specs.
+ *
+ * Returns null when risk can't be known: no stop, a stop already trailed to
+ * breakeven or into profit (exports carry the FINAL stop), or a scratch trade.
+ */
+export function deriveRiskDollar(
+  direction: "long" | "short",
+  entry: number,
+  exit: number,
+  stopLoss: number | null | undefined,
+  grossProfit: number | null | undefined
+): number | null {
+  if (!stopLoss || grossProfit == null || !isFinite(grossProfit)) return null;
+  const move = Math.abs(exit - entry);
+  if (!move) return null;
+  const stopDistance = direction === "long" ? entry - stopLoss : stopLoss - entry;
+  if (stopDistance <= 0) return null;
+  return Math.round(stopDistance * (Math.abs(grossProfit) / move) * 100) / 100;
+}

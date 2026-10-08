@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { deriveRiskDollar } from "@/lib/trade-math";
 
 /**
  * Build a deterministic key for a trade so we can detect duplicates between
@@ -38,6 +39,9 @@ const HEADER_ALIASES: Record<string, string[]> = {
   pnl_dollar: ["pnl_dollar", "pnl", "p&l", "profit", "profit_loss", "net_pnl", "pnl dollar", "profit/loss", "dollar_pnl"],
   trade_date: ["trade_date", "date", "trade date", "open_date", "close_date", "datetime", "time", "open date", "close date"],
   reasoning: ["reasoning", "notes", "comment", "comments", "reason", "description", "setup", "strategy"],
+  lot_size: ["lot_size", "lots", "lot", "volume", "size", "quantity", "qty", "contracts"],
+  stop_loss: ["stop_loss", "sl", "stop", "stoploss", "stop loss", "s/l"],
+  take_profit: ["take_profit", "tp", "target", "takeprofit", "take profit", "t/p"],
 };
 
 const CANONICAL_KEYS = Object.keys(HEADER_ALIASES);
@@ -51,6 +55,12 @@ interface ParsedTrade {
   pnl_dollar: number | null;
   trade_date: string;
   reasoning: string;
+  lot_size?: number | null;
+  stop_loss?: number | null;
+  take_profit?: number | null;
+  open_time?: string | null;
+  close_time?: string | null;
+  risk_dollar?: number | null;
   /** Keys this trade had under older import rules, so re-importing a file
    * doesn't duplicate trades saved before the rules changed. */
   legacyKeys?: string[];
@@ -116,6 +126,18 @@ function normalizeDate(raw: string): string {
   return raw; // return as-is; Supabase will reject if invalid
 }
 
+/** "2026-10-08 17:01:48" → "2026-10-08T17:01:48"; null if not a date-time. */
+function normalizeDateTime(raw: string): string | null {
+  const m = raw.trim().match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)/);
+  return m ? `${m[1]}T${m[2]}` : null;
+}
+
+/** Parse an optional price/size column; 0 and blanks mean "not set". */
+function optionalNumber(raw: string | undefined): number | null {
+  const n = parseFloat((raw || "").replace(/[$,]/g, ""));
+  return isNaN(n) || n === 0 ? null : n;
+}
+
 /**
  * FTMO/MT5 export uses fixed columns and has TWO "Price" columns (open and close),
  * which the generic alias parser can't disambiguate. Detect by header shape and
@@ -160,6 +182,7 @@ function parseFTMORows(
     const commission = parseFloat((cols[11] || "").replace(/[$,]/g, "")) || 0;
     const pnl_pips = parseFloat(cols[13]);
     const openDate = normalizeDate(cols[1] || "");
+    const stop_loss = optionalNumber(cols[6]);
     const trade = {
       pair,
       direction,
@@ -172,6 +195,14 @@ function parseFTMORows(
       // close day), so use the close time, not the open time
       trade_date: normalizeDate(cols[8] || "") || openDate,
       reasoning: "",
+      lot_size: optionalNumber(cols[3]),
+      stop_loss,
+      take_profit: optionalNumber(cols[7]),
+      open_time: normalizeDateTime(cols[1] || ""),
+      close_time: normalizeDateTime(cols[8] || ""),
+      risk_dollar: isNaN(profit) || isNaN(entry_price) || isNaN(exit_price)
+        ? null
+        : deriveRiskDollar(direction, entry_price, exit_price, stop_loss, profit),
     };
     trades.push({
       ...trade,
@@ -239,6 +270,9 @@ function parseCSV(text: string): { trades: ParsedTrade[]; errors: string[] } {
       const rawDate = idx["trade_date"] !== undefined ? cols[idx["trade_date"]] : "";
       const trade_date = normalizeDate(rawDate) || today;
       const reasoning = idx["reasoning"] !== undefined ? cols[idx["reasoning"]] || "" : "";
+      const lot_size = idx["lot_size"] !== undefined ? optionalNumber(cols[idx["lot_size"]]) : null;
+      const stop_loss = idx["stop_loss"] !== undefined ? optionalNumber(cols[idx["stop_loss"]]) : null;
+      const take_profit = idx["take_profit"] !== undefined ? optionalNumber(cols[idx["take_profit"]]) : null;
 
       if (!pair) {
         errors.push(`Row ${i + 1}: missing pair/symbol`);
@@ -254,6 +288,14 @@ function parseCSV(text: string): { trades: ParsedTrade[]; errors: string[] } {
         pnl_dollar: pnl_dollar !== null && isNaN(pnl_dollar) ? null : pnl_dollar,
         trade_date,
         reasoning,
+        lot_size,
+        stop_loss,
+        take_profit,
+        // Generic CSVs give net P&L only, close enough to gross for sizing risk
+        risk_dollar:
+          pnl_dollar === null || isNaN(entry_price) || isNaN(exit_price)
+            ? null
+            : deriveRiskDollar(direction, entry_price, exit_price, stop_loss, pnl_dollar),
       });
     } catch {
       errors.push(`Row ${i + 1}: failed to parse`);
@@ -381,6 +423,12 @@ export default function ImportTradesPage() {
       pnl_dollar: t.pnl_dollar,
       trade_date: t.trade_date,
       reasoning: t.reasoning,
+      lot_size: t.lot_size ?? null,
+      stop_loss: t.stop_loss ?? null,
+      take_profit: t.take_profit ?? null,
+      open_time: t.open_time ?? null,
+      close_time: t.close_time ?? null,
+      risk_dollar: t.risk_dollar ?? null,
     }));
 
     const { error: dbError } = await supabase.from("trades").insert(rows);

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { calculatePnlPips, formatPair, COMMON_PAIRS } from "@/lib/trade-math";
+import { calculatePnlPips, deriveRiskDollar, formatPair, COMMON_PAIRS } from "@/lib/trade-math";
 import { format } from "date-fns";
 
 export default function EnterTradePage() {
@@ -13,6 +13,8 @@ export default function EnterTradePage() {
   const [entryPrice, setEntryPrice] = useState("");
   const [exitPrice, setExitPrice] = useState("");
   const [pnlDollar, setPnlDollar] = useState("");
+  const [lotSize, setLotSize] = useState("");
+  const [stopLoss, setStopLoss] = useState("");
   const [tradeDate, setTradeDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [reasoning, setReasoning] = useState("");
   const [saving, setSaving] = useState(false);
@@ -40,6 +42,8 @@ export default function EnterTradePage() {
 
     const pnlPips = calculatePnlPips(activePair, direction, entry, exit);
     const dollarVal = pnlDollar ? parseFloat(pnlDollar) : null;
+    const lots = lotSize ? parseFloat(lotSize) : null;
+    const stop = stopLoss ? parseFloat(stopLoss) : null;
 
     const { error: dbError } = await supabase.from("trades").insert({
       user_id: user.id,
@@ -51,6 +55,9 @@ export default function EnterTradePage() {
       pnl_dollar: dollarVal,
       trade_date: tradeDate,
       reasoning,
+      lot_size: lots && !isNaN(lots) ? lots : null,
+      stop_loss: stop && !isNaN(stop) ? stop : null,
+      risk_dollar: deriveRiskDollar(direction, entry, exit, stop && !isNaN(stop) ? stop : null, dollarVal),
     });
 
     setSaving(false);
@@ -64,6 +71,8 @@ export default function EnterTradePage() {
       setEntryPrice("");
       setExitPrice("");
       setPnlDollar("");
+      setLotSize("");
+      setStopLoss("");
       setReasoning("");
     }
   };
@@ -169,6 +178,32 @@ export default function EnterTradePage() {
             placeholder="0.00"
             className="w-full bg-chamber-surface border border-chamber-border rounded-lg px-3 py-2.5 text-white text-sm focus:border-chamber-orange focus:outline-none transition-colors placeholder:text-chamber-text-dim"
           />
+        </div>
+
+        {/* Size + stop (optional) — enables R-multiples and sizing checks */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-chamber-text-muted mb-1.5">Lot Size (optional)</label>
+            <input
+              type="number"
+              step="any"
+              value={lotSize}
+              onChange={(e) => setLotSize(e.target.value)}
+              placeholder="0.00"
+              className="w-full bg-chamber-surface border border-chamber-border rounded-lg px-3 py-2.5 text-white text-sm focus:border-chamber-orange focus:outline-none transition-colors placeholder:text-chamber-text-dim"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-chamber-text-muted mb-1.5">Stop Loss (optional)</label>
+            <input
+              type="number"
+              step="any"
+              value={stopLoss}
+              onChange={(e) => setStopLoss(e.target.value)}
+              placeholder="0.00000"
+              className="w-full bg-chamber-surface border border-chamber-border rounded-lg px-3 py-2.5 text-white text-sm focus:border-chamber-orange focus:outline-none transition-colors placeholder:text-chamber-text-dim"
+            />
+          </div>
         </div>
 
         {/* Date */}
