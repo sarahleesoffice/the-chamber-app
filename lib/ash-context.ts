@@ -69,6 +69,27 @@ function journalText(entries: JournalEntry[]): string {
   ].join("\n");
 }
 
+/**
+ * App capability: the chat renders ```sizing-plan blocks as interactive charts
+ * (lib/position-sizing.ts computes every number). Lives here, next to the
+ * renderer contract, rather than in the mini's persona.
+ */
+const FENCE = "```";
+const SIZING_PLAN_INSTRUCTIONS = `APP FEATURE — POSITION SIZING PLANS
+If the trader asks for a position sizing plan / sizing chart / lot size chart, build one:
+1. You need: account size, firm + rules (or "personal account"), instruments, and how much they want to risk per trade. Ask ONE short question for anything essential you don't know. If the firm is FTMO 2-Step $100k, standard rules are 10% phase-1 target, 5% phase-2 target, 5% max daily loss, 10% max loss, 4 min trading days — say they should confirm current rules. Use their Edge Report (avg risk per trade, instruments they trade) to pick sensible risk rows, and mention it.
+2. Then reply with a short intro (1-3 sentences) and EXACTLY ONE fenced block like this — inputs only, valid JSON, no comments:
+${FENCE}sizing-plan
+{"title":"FTMO $100K Sizing Plan","firm":"FTMO 2-Step","account":100000,
+ "rules":{"profitTargetPct":10,"phase2TargetPct":5,"maxDailyLossPct":5,"personalDailyCapPct":1,"maxLossPct":10,"minTradingDays":4},
+ "instruments":[{"symbol":"NAS100USD","name":"Nasdaq-100","dollarPerPoint":1,"volStep":0.01,"stops":[5,10,15,20,25,30,40,50],"targets":[10,20,30,50,75,100]}],
+ "riskAmounts":[50,100,250,500,750,1000],"riskPcts":[0.25,0.5,1],"lotSizes":[5,10,25,50,100],
+ "notes":["Max 2 losses per day at 0.5% keeps you under the 1% personal cap"]}
+${FENCE}
+- dollarPerPoint = $ per 1-point move for ONE lot/contract on THEIR platform (FTMO index CFDs NAS100/US500/US30: 1; NQ 20, MNQ 2, ES 50, MES 5, YM 5, MYM 0.5; volStep 1 for futures). If unsure, use these and say to verify.
+- Up to 4 instruments, up to 10 stops/targets, 8 riskAmounts, 4 riskPcts, 6 lotSizes. Omit rules you don't know.
+- NEVER write lot sizes, risk dollars or profit numbers yourself — the app calculates and draws all of them from the block. Don't repeat the tables in text.`;
+
 type ConversationRow = { bot_name: string; role: string; content: unknown; created_at: string };
 
 function mentorText(rows: ConversationRow[]): string {
@@ -111,6 +132,7 @@ export async function buildAshContext(
   ]);
 
   const text = [
+    SIZING_PLAN_INSTRUCTIONS,
     edgeReportText((tradesRes.data as Trade[]) || []),
     journalText((journalRes.data as JournalEntry[]) || []),
     mentorText((convoRes.data as ConversationRow[]) || []),

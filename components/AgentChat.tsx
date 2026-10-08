@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import SizingPlan from "@/components/SizingPlan";
+import { splitSizingPlans } from "@/lib/position-sizing";
 
 export interface AgentConfig {
   bot: "ember" | "amber" | "ash";
@@ -374,7 +376,18 @@ export default function AgentChat({ config }: { config: AgentConfig }) {
                 }}
               >
                 {msg.role === "assistant" ? (
-                  <AssistantMessage content={msg.content} accent={config.accent} />
+                  // Ash can embed ```sizing-plan blocks; the app renders and computes them
+                  splitSizingPlans(msg.content).map((seg, si) =>
+                    seg.type === "text" ? (
+                      <AssistantMessage key={si} content={seg.text.trim()} accent={config.accent} />
+                    ) : seg.plan ? (
+                      <SizingPlan key={si} plan={seg.plan} />
+                    ) : (
+                      <p key={si} className="text-xs" style={{ color: "#ef4444" }}>
+                        Ash sent a sizing plan the app couldn&apos;t read. Ask it to try again.
+                      </p>
+                    )
+                  )
                 ) : (
                   <p className="text-sm whitespace-pre-wrap" style={{ color: "#e0e0e0" }}>{msg.content}</p>
                 )}
