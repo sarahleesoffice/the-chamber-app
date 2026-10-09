@@ -74,19 +74,20 @@ export class AIProviderError extends Error {
   }
 }
 
-interface KeyRow {
-  provider: string;
-  encrypted_key: string;
-}
-
-/** The key to use: the user's chosen provider if they have that key, else the first one they have. */
-export function pickKey(keys: KeyRow[], preferred: unknown): (KeyRow & { provider: AIProvider }) | null {
+/**
+ * The key to use: the user's chosen provider if they have that key, else the
+ * first one they have. `keys` are already-decrypted keys (lib/api-keys.ts).
+ */
+export function pickKey(
+  keys: Partial<Record<AIProvider, string>>,
+  preferred: unknown
+): { provider: AIProvider; key: string } | null {
   const order = typeof preferred === "string" && PROVIDER_FALLBACK_ORDER.includes(preferred as AIProvider)
     ? [preferred as AIProvider, ...PROVIDER_FALLBACK_ORDER.filter((p) => p !== preferred)]
     : PROVIDER_FALLBACK_ORDER;
   for (const p of order) {
-    const row = keys.find((k) => k.provider === p);
-    if (row) return { ...row, provider: p };
+    const key = keys[p];
+    if (key) return { provider: p, key };
   }
   return null;
 }
