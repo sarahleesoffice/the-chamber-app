@@ -12,6 +12,11 @@ interface NavSection {
   items: { href: string; label: string; icon?: string }[];
 }
 
+const ADMIN_SECTION: NavSection = {
+  title: "ADMIN",
+  items: [{ href: "/admin/usage", label: "AI Usage", icon: "monitoring" }],
+};
+
 const navSections: NavSection[] = [
   {
     title: "TRADE",
@@ -76,6 +81,15 @@ export default function Sidebar() {
   const router = useRouter();
   const supabase = createClient();
   const [open, setOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  // Admin links only render for accounts the server says are admins
+  useEffect(() => {
+    fetch("/api/admin/me")
+      .then((r) => (r.ok ? r.json() : { admin: false }))
+      .then((d) => setIsAdmin(!!d.admin))
+      .catch(() => {});
+  }, []);
+  const sections = isAdmin ? [...navSections, ADMIN_SECTION] : navSections;
 
   useEffect(() => { setOpen(false); }, [pathname]);
   useEffect(() => {
@@ -91,7 +105,7 @@ export default function Sidebar() {
 
   // Current page label for the mobile top bar
   const currentLabel = (() => {
-    for (const section of navSections) {
+    for (const section of sections) {
       for (const item of section.items) {
         if (item.href === pathname) return item.label.split(" — ")[0].toUpperCase();
       }
@@ -144,7 +158,7 @@ export default function Sidebar() {
 
         {/* Nav — matching 8501 style */}
         <nav className="flex-1 px-4 py-4 overflow-y-auto space-y-5">
-          {navSections.map((section) => (
+          {sections.map((section) => (
             <div key={section.title}>
               <p className="px-2 mb-2 text-[0.55rem] font-semibold tracking-[3px] text-chamber-orange/50 uppercase">
                 {section.title}
