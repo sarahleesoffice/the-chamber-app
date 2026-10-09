@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { AIProviderError, generate, pickKey } from "@/lib/ai-providers";
+import { getUserApiKeys } from "@/lib/api-keys";
 
 export const dynamic = "force-dynamic";
 
@@ -93,20 +94,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get user's API key: the provider they chose in Settings, else the first they have
-    const { data: keys } = await supabase
-      .from("user_api_keys")
-      .select("provider, encrypted_key")
-      .eq("user_id", user.id);
-
-    const key = pickKey(keys || [], user.user_metadata?.ai_provider);
+    // Get user's API key (decrypted server-side): the provider they chose in
+    // Settings, else the first they have
+    const key = pickKey(await getUserApiKeys(user.id), user.user_metadata?.ai_provider);
     if (!key) {
       return NextResponse.json({ error: "No API key configured" }, { status: 400 });
     }
 
     const { text: responseText, provider, model } = await generate({
       provider: key.provider,
-      apiKey: key.encrypted_key,
+      apiKey: key.key,
       model: user.user_metadata?.openrouter_model,
       system: DETECT_SYSTEM_PROMPT,
       messages: [

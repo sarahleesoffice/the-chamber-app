@@ -128,6 +128,22 @@ export default function SettingsPage() {
     }
   }
 
+  /** Calls /api/api-keys; returns an error message, or null on success. */
+  async function apiKeysRequest(method: "POST" | "DELETE", body: object): Promise<string | null> {
+    try {
+      const res = await fetch("/api/api-keys", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) return null;
+      const data = await res.json().catch(() => ({}));
+      return data.error || `Request failed (${res.status})`;
+    } catch {
+      return "Network error";
+    }
+  }
+
   async function saveKey(provider: AIProvider, key: string) {
     if (!key.trim()) {
       showMessage("warning", "Please enter a valid API key.");
@@ -136,20 +152,13 @@ export default function SettingsPage() {
 
     setSaving(provider);
 
-    // Upsert: insert or update
-    const { error } = await supabase.from("user_api_keys").upsert(
-      {
-        user_id: userId,
-        provider,
-        encrypted_key: key.trim(),
-      },
-      { onConflict: "user_id,provider" }
-    );
+    // Encrypted and stored server-side; the browser can't write keys directly
+    const error = await apiKeysRequest("POST", { provider, key: key.trim() });
 
     setSaving(null);
 
     if (error) {
-      showMessage("error", `Failed to save key: ${error.message}`);
+      showMessage("error", `Failed to save key: ${error}`);
       return;
     }
 
@@ -161,16 +170,12 @@ export default function SettingsPage() {
   async function removeKey(provider: AIProvider) {
     setSaving(provider);
 
-    const { error } = await supabase
-      .from("user_api_keys")
-      .delete()
-      .eq("user_id", userId)
-      .eq("provider", provider);
+    const error = await apiKeysRequest("DELETE", { provider });
 
     setSaving(null);
 
     if (error) {
-      showMessage("error", `Failed to remove key: ${error.message}`);
+      showMessage("error", `Failed to remove key: ${error}`);
       return;
     }
 
