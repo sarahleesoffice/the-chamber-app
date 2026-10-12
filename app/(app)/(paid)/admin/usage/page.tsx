@@ -43,6 +43,18 @@ function assignColors(keys: string[]) {
   return { colors, order };
 }
 
+const REASON_LABELS: Record<string, string> = {
+  "budget:member": "Member over daily cap → cheaper model",
+};
+const reasonLabel = (r: string) => {
+  if (REASON_LABELS[r]) return REASON_LABELS[r];
+  const [kind, name] = r.split(/:(.*)/);
+  if (kind === "agent") return `${name} main model`;
+  if (kind === "app") return `${name} job`;
+  if (kind === "unavailable") return `${name} (target offline)`;
+  return r;
+};
+
 const money = (v: number) => (v > 0 && v < 0.01 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`);
 const tokens = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}K` : String(v));
 const ms = (v: number | null) => (v == null ? "—" : v >= 1000 ? `${(v / 1000).toFixed(1)}s` : `${v}ms`);
@@ -193,6 +205,53 @@ export default function UsagePage() {
                   </ResponsiveContainer>
                 </div>
               </>
+            )}
+          </section>
+
+          <section className="space-y-2">
+            <p className="text-sm font-bold text-chamber-text">Routing</p>
+            <p className="text-xs text-chamber-text-dim">
+              The mini&apos;s router (agent/router.py). In shadow mode calls run unchanged and it records what its choice would have cost on the same tokens. Budget caps and the OpenRouter fallback are always on.
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <StatCard
+                label="Shadow savings"
+                value={money(report.routing.shadowSavings)}
+                color={report.routing.shadowSavings > 0 ? "#22c55e" : "#f5f5f5"}
+                subText={report.routing.actualCost ? `${((report.routing.shadowSavings / report.routing.actualCost) * 100).toFixed(0)}% of routed spend` : "no routed calls yet"}
+              />
+              <StatCard label="Routed calls" value={report.routing.routedCalls.toLocaleString()} subText="router had a pick" />
+              <StatCard label="Fallbacks" value={report.routing.fallbackCalls.toLocaleString()} subText="answered via OpenRouter" />
+              <StatCard label="Budget downgrades" value={report.routing.budgetDowngrades.toLocaleString()} subText="member hit daily cap" />
+            </div>
+            {report.routing.byReason.length > 0 && (
+              <div className="overflow-x-auto rounded-lg border border-chamber-border">
+                <table className="w-full min-w-[520px] text-xs border-collapse">
+                  <thead>
+                    <tr className="text-chamber-text-muted uppercase tracking-widest text-[0.6rem]">
+                      {["Rule", "Calls", "Actual cost", "With router", "Difference"].map((h, i) => (
+                        <th key={h} className={`px-3 py-2 font-medium ${i ? "text-right" : "text-left"}`}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.routing.byReason.map((g) => (
+                      <tr key={g.reason} className="border-t border-chamber-border">
+                        <td className="px-3 py-1.5 text-chamber-text">{reasonLabel(g.reason)}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">{g.calls.toLocaleString()}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums text-chamber-text-muted">{money(g.actualCost)}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums text-chamber-text-muted">{money(g.routedCost)}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums font-semibold text-chamber-text">{money(g.actualCost - g.routedCost)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {report.routing.byProvider.length > 1 && (
+              <p className="text-xs text-chamber-text-muted">
+                Providers: {report.routing.byProvider.map((p) => `${p.provider} ${p.calls.toLocaleString()} calls (${money(p.cost)})`).join(" · ")}
+              </p>
             )}
           </section>
 

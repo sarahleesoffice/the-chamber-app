@@ -14,7 +14,10 @@ interface NavSection {
 
 const ADMIN_SECTION: NavSection = {
   title: "ADMIN",
-  items: [{ href: "/admin/usage", label: "AI Usage", icon: "monitoring" }],
+  items: [
+    { href: "/admin/usage", label: "AI Usage", icon: "monitoring" },
+    { href: "/admin/questions", label: "What People Ask", icon: "forum" },
+  ],
 };
 
 const navSections: NavSection[] = [

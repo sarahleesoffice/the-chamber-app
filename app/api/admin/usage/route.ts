@@ -9,6 +9,9 @@ export const dynamic = "force-dynamic";
 const RANGES: Record<string, number> = { "1d": 1, "7d": 7, "30d": 30 };
 const PAGE = 1000; // PostgREST max rows per request
 const MAX_ROWS = 50_000;
+const BASE_COLUMNS =
+  "created_at, app, agent, user_id, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd, latency_ms, status, error";
+const ROUTE_COLUMNS = "provider, route_model, route_cost_usd, route_reason";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -32,17 +35,28 @@ export async function GET(req: NextRequest) {
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
 
   const rows: LlmCallRow[] = [];
+  let columns = `${BASE_COLUMNS}, ${ROUTE_COLUMNS}`;
   for (let from = 0; from < MAX_ROWS; from += PAGE) {
-    const { data, error } = await admin
+    let { data, error } = await admin
       .from("llm_calls")
-      .select("created_at, app, agent, user_id, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd, latency_ms, status, error")
+      .select(columns)
       .gte("created_at", since)
       .order("created_at", { ascending: true })
       .range(from, from + PAGE - 1);
+    if (error && columns !== BASE_COLUMNS) {
+      // Router columns (migration 009) not there yet — fall back to the base set.
+      columns = BASE_COLUMNS;
+      ({ data, error } = await admin
+        .from("llm_calls")
+        .select(columns)
+        .gte("created_at", since)
+        .order("created_at", { ascending: true })
+        .range(from, from + PAGE - 1));
+    }
     if (error) {
       return NextResponse.json({ error: "Usage data unavailable" }, { status: 502 });
     }
-    rows.push(...((data as LlmCallRow[]) || []));
+    rows.push(...((data as unknown as LlmCallRow[]) || []));
     if (!data || data.length < PAGE) break;
   }
 
