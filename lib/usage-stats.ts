@@ -17,6 +17,24 @@ export interface LlmCallRow {
   latency_ms: number | null;
   status: string | null;
   error: string | null;
+  // Router columns (migration 009) — absent on older rows / before the migration
+  provider?: string | null;
+  route_model?: string | null;
+  route_cost_usd?: number | string | null;
+  route_reason?: string | null;
+}
+
+export interface RoutingStats {
+  /** Calls the router has an opinion on (shadow, applied, budget, unavailable). */
+  routedCalls: number;
+  /** What those calls cost vs. what the router's choice costs on the same tokens. */
+  actualCost: number;
+  routedCost: number;
+  shadowSavings: number; // actual − routed, shadow-mode calls only
+  byReason: { reason: string; calls: number; actualCost: number; routedCost: number }[];
+  byProvider: { provider: string; calls: number; cost: number }[];
+  fallbackCalls: number; // answered by OpenRouter after an Anthropic failure
+  budgetDowngrades: number;
 }
 
 export interface GroupStats {
@@ -47,6 +65,7 @@ export interface UsageReport {
   byModel: GroupStats[];
   byUser: (GroupStats & { label?: string })[];
   recentErrors: { at: string; agent: string; model: string; error: string }[];
+  routing: RoutingStats;
 }
 
 const MAX_SERIES = 7; // categorical palette slots; the rest fold into "Other"
@@ -87,6 +106,43 @@ function group(rows: LlmCallRow[], keyOf: (r: LlmCallRow) => string): GroupStats
   return [...m.values()]
     .map(({ latSum, latN, ...g }) => ({ ...g, avgLatencyMs: latN ? Math.round(latSum / latN) : null }))
     .sort((a, b) => b.cost - a.cost || b.calls - a.calls);
+}
+
+/** "shadow:agent:chamber_ash" -> "agent:chamber_ash" (mode prefix shown separately). */
+const reasonKey = (r: string) => r.replace(/^shadow:/, "");
+
+export function buildRoutingStats(rows: LlmCallRow[]): RoutingStats {
+  const routed = rows.filter((r) => r.route_model && r.status === "ok");
+  const reasons = new Map<string, { reason: string; calls: number; actualCost: number; routedCost: number }>();
+  let shadowSavings = 0;
+  for (const r of routed) {
+    const key = reasonKey(r.route_reason || "unknown");
+    const g = reasons.get(key) || { reason: key, calls: 0, actualCost: 0, routedCost: 0 };
+    g.calls++;
+    g.actualCost += n(r.cost_usd);
+    g.routedCost += n(r.route_cost_usd);
+    reasons.set(key, g);
+    if ((r.route_reason || "").startsWith("shadow:")) shadowSavings += n(r.cost_usd) - n(r.route_cost_usd);
+  }
+  const providers = new Map<string, { provider: string; calls: number; cost: number }>();
+  for (const r of rows) {
+    const p = r.provider || "anthropic";
+    const g = providers.get(p) || { provider: p, calls: 0, cost: 0 };
+    g.calls++;
+    g.cost += n(r.cost_usd);
+    providers.set(p, g);
+  }
+  return {
+    routedCalls: routed.length,
+    actualCost: routed.reduce((s, r) => s + n(r.cost_usd), 0),
+    routedCost: routed.reduce((s, r) => s + n(r.route_cost_usd), 0),
+    shadowSavings,
+    byReason: [...reasons.values()].sort((a, b) => b.calls - a.calls),
+    byProvider: [...providers.values()].sort((a, b) => b.calls - a.calls),
+    // OpenRouter calls the router didn't deliberately send there = Anthropic-failure fallbacks
+    fallbackCalls: rows.filter((r) => r.provider === "openrouter" && !/^(app|agent):/.test(r.route_reason || "")).length,
+    budgetDowngrades: routed.filter((r) => r.route_reason === "budget:member").length,
+  };
 }
 
 export function buildUsageReport(rows: LlmCallRow[], sinceIso: string, days: number): UsageReport {
@@ -133,5 +189,6 @@ export function buildUsageReport(rows: LlmCallRow[], sinceIso: string, days: num
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .slice(0, 20)
       .map((r) => ({ at: r.created_at, agent: seriesKeyOf(r), model: r.model || "", error: (r.error || "").slice(0, 200) })),
+    routing: buildRoutingStats(rows),
   };
 }
