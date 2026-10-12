@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { AIProviderError, generate, pickKey } from "@/lib/ai-providers";
 import { getUserApiKeys } from "@/lib/api-keys";
+import { accessDenied } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
@@ -84,6 +85,8 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
+    const denied = await accessDenied(user);
+    if (denied) return denied;
 
     const body: DetectRequest = await req.json();
 

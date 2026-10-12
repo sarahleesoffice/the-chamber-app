@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { AIProviderError, generate, pickKey } from "@/lib/ai-providers";
 import { getUserApiKeys } from "@/lib/api-keys";
+import { accessDenied } from "@/lib/access";
 
 const SMC_SYSTEM_PROMPT = `You are the AI mentor inside "The Chamber" — a trading app built on SMC (Smart Money Concepts) methodology, powered by 675+ SMC YouTube lecture transcripts, study cards, and Discord discussions.
 
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
+    const denied = await accessDenied(user);
+    if (denied) return denied;
 
     const { messages } = await req.json();
 
