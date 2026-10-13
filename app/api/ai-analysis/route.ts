@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { AIProviderError, generate, pickKey } from "@/lib/ai-providers";
 import { getUserApiKeys } from "@/lib/api-keys";
+import { accessDenied } from "@/lib/access";
 
 const SMC_ANALYSIS_SYSTEM_PROMPT = `You are an expert SMC (Smart Money Concepts) methodology trade analyst inside "The Chamber" trading app. You have deep knowledge of Smart Money Concepts as taught across institutional trading education.
 
@@ -161,6 +162,8 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
+    const denied = await accessDenied(user);
+    if (denied) return denied;
 
     const body: AnalysisRequest = await req.json();
     const userMessage = buildUserMessage(body);

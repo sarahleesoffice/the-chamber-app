@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { accessDenied } from "@/lib/access";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,6 +15,8 @@ export async function POST(req: NextRequest) {
         { status: 401 }
       );
     }
+    const denied = await accessDenied(user);
+    if (denied) return denied;
 
     const body = await req.json();
     const query: string = body.query?.trim();

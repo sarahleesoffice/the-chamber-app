@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { buildAshContext } from "@/lib/ash-context";
+import { accessDenied } from "@/lib/access";
 
 /**
  * Proxy to the Ember/Amber/Ash agents running on the Mac mini.
@@ -39,6 +40,8 @@ export async function POST(
   if (!user) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
+  const denied = await accessDenied(user);
+  if (denied) return denied;
 
   const baseUrl = process.env.AGENT_API_URL;
   const secret = process.env.AGENT_API_SECRET;
