@@ -18,7 +18,7 @@ export default function SignupPage() {
     setError("");
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -29,9 +29,12 @@ export default function SignupPage() {
     setLoading(false);
     if (error) {
       setError(error.message);
-    } else {
-      // Email confirmation disabled — go straight to the app
+    } else if (data.session) {
+      // Confirmation not required — signed in already.
       window.location.href = "/dashboard";
+    } else {
+      // "Confirm email" is on: they have to click the link we just sent.
+      setSuccess(true);
     }
   };
 
