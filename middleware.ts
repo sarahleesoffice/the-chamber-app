@@ -32,7 +32,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes
-  if (pathname === "/login" || pathname === "/signup" || pathname.startsWith("/api/")) {
+  if (pathname === "/login" || pathname === "/signup" || pathname === "/forgot-password" || pathname.startsWith("/api/")) {
     if (user && (pathname === "/login" || pathname === "/signup")) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
