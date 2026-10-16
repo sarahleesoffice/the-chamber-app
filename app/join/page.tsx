@@ -7,7 +7,7 @@ import { getAccess } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
-const CHECKOUT_URL = process.env.NEXT_PUBLIC_WHOP_CHECKOUT_URL || "https://whop.com/the-chamber-895d/the-chamber";
+const CHECKOUT_URL = process.env.NEXT_PUBLIC_WHOP_CHECKOUT_URL || "https://whop.com/the-chamber-895d/the-chamber-d3-4196/";
 
 const ERRORS: Record<string, string> = {
   denied: "Whop sign-in was cancelled.",
