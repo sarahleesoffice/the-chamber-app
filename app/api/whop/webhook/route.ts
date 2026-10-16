@@ -61,7 +61,10 @@ export async function POST(req: NextRequest) {
 
   const d = event.data || {};
   const productId = d.product_id || d.product?.id;
-  if (productId && process.env.WHOP_PRODUCT_ID && productId !== process.env.WHOP_PRODUCT_ID) {
+  // WHOP_PRODUCT_ID may be a product (prod_…) or the whole business (biz_…);
+  // only a product ID narrows which membership events we act on.
+  const onlyProduct = process.env.WHOP_PRODUCT_ID?.startsWith("prod_") ? process.env.WHOP_PRODUCT_ID : null;
+  if (productId && onlyProduct && productId !== onlyProduct) {
     return NextResponse.json({ ok: true, ignored: "other product" });
   }
   const whopUserId = d.user_id || d.user?.id;

@@ -9,7 +9,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  *
  * Env (Vercel + .env.local):
  *   WHOP_API_KEY        — company API key (server only)
- *   WHOP_PRODUCT_ID     — The Chamber's product id (prod_...)
+ *   WHOP_PRODUCT_ID     — The Chamber's product id (prod_...), or the business
+ *                         id (biz_...) to accept a membership to any of its products
  *   WHOP_CLIENT_ID      — OAuth app client id (app_...)
  *   WHOP_WEBHOOK_SECRET — webhook signing secret (ws_...)
  *   WHOP_REDIRECT_URI   — optional; defaults to <site>/api/whop/callback
