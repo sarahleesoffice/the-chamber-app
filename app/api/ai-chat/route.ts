@@ -5,10 +5,12 @@ import { getUserApiKeys } from "@/lib/api-keys";
 import { accessDenied } from "@/lib/access";
 import { ndjsonResponse } from "@/lib/ndjson";
 import { SMC_CONCEPTS, detectConcepts, findLectureExcerpts } from "@/lib/smc-concepts";
+import { MENTOR_VOICE, isMentorId, type MentorId } from "@/lib/mentors";
 
-const SMC_SYSTEM_PROMPT = `You are the AI mentor inside "The Chamber" — a trading app built on SMC (Smart Money Concepts) methodology, powered by 675+ SMC YouTube lecture transcripts, study cards, and Discord discussions.
+// Source-material rules shared by every mentor; the mentor's own voice is prepended per request.
+const SOURCES_PROMPT = `You are inside "The Chamber" — a trading app built on SMC (Smart Money Concepts) methodology, with SMC lecture transcripts, study cards, and Discord discussions as source material.
 
-RESPONSE FORMAT — You MUST follow this structure for EVERY response:
+RESPONSE FORMAT:
 
 1. **Answer the question** from the LECTURE EXCERPTS and study materials provided. Build the answer on what the lectures actually teach: their specific rules, conditions, times and examples. Don't fall back on generic trading advice when the excerpts cover the topic; if they don't cover it, say so briefly and keep general knowledge to a minimum.
 
@@ -42,12 +44,15 @@ export async function POST(req: NextRequest) {
     const denied = await accessDenied(user);
     if (denied) return denied;
 
-    const { messages, stream } = await req.json();
+    const { messages, stream, mentor: rawMentor } = await req.json();
+    const mentor: MentorId = isMentorId(rawMentor) ? rawMentor : "ember";
 
     // RAG: lecture transcript excerpts for the question's topics. Started now so it
     // runs alongside the study-card lookup below; awaited before the model is called.
     const lastUserMessage = [...messages].reverse().find((m: { role: string }) => m.role === "user");
-    const lecturesPromise = lastUserMessage ? findLectureExcerpts(supabase, lastUserMessage.content) : Promise.resolve([]);
+    // SMC lecture material is Ember's; Amber (Tendler) and Ash (the trader's own data) don't use it.
+    const lecturesPromise =
+      lastUserMessage && mentor === "ember" ? findLectureExcerpts(supabase, lastUserMessage.content) : Promise.resolve([]);
 
     // RAG: Search Gamma cards + Discord
     let studyContext = "";
@@ -66,7 +71,7 @@ export async function POST(req: NextRequest) {
 
       const matchedConcepts = detectConcepts(queryLower);
 
-      if (words.length > 0 || matchedConcepts.length > 0) {
+      if (mentor === "ember" && (words.length > 0 || matchedConcepts.length > 0)) {
         const conceptTerms = [...new Set(matchedConcepts.flatMap((c) => SMC_CONCEPTS[c] || []))].filter((w) => w.length > 2);
         const queryTerms = [...new Set([...words, ...conceptTerms])];
         // Search by title AND tags for broader matching
@@ -205,7 +210,7 @@ export async function POST(req: NextRequest) {
     // No title-keyword fallback: a video whose title merely shares a word with the
     // question isn't a source. Sources are only the lectures that fed the answer.
 
-    const systemPromptWithRAG = SMC_SYSTEM_PROMPT + ragContext + studyContext;
+    const systemPromptWithRAG = MENTOR_VOICE[mentor] + "\n\n" + SOURCES_PROMPT + ragContext + studyContext;
 
     // Get user's API key (decrypted server-side): the provider they chose in
     // Settings, else the first they have
@@ -231,12 +236,12 @@ export async function POST(req: NextRequest) {
     if (stream) {
       return ndjsonResponse(async (send) => {
         const { text, provider, model } = await generate(options, (t) => send({ t }));
-        send({ done: true, reply: text || "No response from the AI.", provider, model, studyMaterials });
+        send({ done: true, reply: text || "No response from the AI.", provider, model, studyMaterials, mentor });
       });
     }
 
     const { text, provider, model } = await generate(options);
-    return NextResponse.json({ reply: text || "No response from the AI.", provider, model, studyMaterials });
+    return NextResponse.json({ reply: text || "No response from the AI.", provider, model, studyMaterials, mentor });
   } catch (err: unknown) {
     if (err instanceof AIProviderError) {
       return NextResponse.json({ error: err.message }, { status: err.status });

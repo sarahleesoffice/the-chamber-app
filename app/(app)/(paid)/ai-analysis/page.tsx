@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { uploadChart } from "@/lib/storage";
 import LinkedText from "@/components/LinkedText";
 import { readReplyStream } from "@/lib/ndjson";
+import MentorPicker from "@/components/MentorPicker";
+import { MENTOR_INFO, type MentorId } from "@/lib/mentors";
 import type { Analysis } from "@/lib/types";
 import { COMMON_PAIRS } from "@/lib/trade-math";
 import StatCard from "@/components/StatCard";
@@ -32,6 +34,7 @@ interface AnalysisRow {
   focus?: string;
   ict_score?: number;
   chart_urls?: string[];
+  mentor?: string | null;
 }
 
 // ============================================================
@@ -40,6 +43,12 @@ interface AnalysisRow {
 export default function AIAnalysisPage() {
   const supabase = createClient();
   const [activeTab, setActiveTab] = useState<"analyze" | "past">("analyze");
+  // Which mentor grades the trade. Ember is the chart grader; the others
+  // review the same trade from their own angle.
+  const [mentor, setMentor] = useState<MentorId>("ember");
+  // Saved analyses remember who wrote them; older rows (pre-mentor) default to Ember.
+  const modalMentor = (a: AnalysisRow | null): MentorId =>
+    a?.mentor === "amber" || a?.mentor === "ash" ? a.mentor : "ember";
 
   // Multi-trade state
   interface TradeEntry {
@@ -362,6 +371,7 @@ export default function AIAnalysisPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           stream: true,
+          mentor,
           pair: allTrades[0]?.pair || pair,
           direction: allTrades[0]?.direction || direction,
           entry_price: allTrades[0]?.entryPrices?.join(", ") || entryPrices.filter(p => p).join(", "),
@@ -407,7 +417,8 @@ export default function AIAnalysisPage() {
   // first words and grows as the rest arrives.
   async function streamChatReply(
     messages: { role: string; content: string }[],
-    setList: React.Dispatch<React.SetStateAction<ChatMsg[]>>
+    setList: React.Dispatch<React.SetStateAction<ChatMsg[]>>,
+    chatMentor: MentorId = mentor
   ) {
     const clean = (t: string) => t.replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "").replace(/💯/g, "🔥");
     let started = false;
@@ -424,7 +435,7 @@ export default function AIAnalysisPage() {
       const res = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages, stream: true }),
+        body: JSON.stringify({ messages, stream: true, mentor: chatMentor }),
       });
       const done = await readReplyStream(res, (textSoFar) => show(clean(textSoFar)));
       show(clean(String(done.reply || "No response.")));
@@ -479,7 +490,7 @@ export default function AIAnalysisPage() {
         { role: "user", content: userMsg },
       ];
 
-      await streamChatReply(messages, setModalChat);
+      await streamChatReply(messages, setModalChat, modalMentor(modalAnalysis));
     } finally {
       setModalChatSending(false);
       setTimeout(() => modalChatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
@@ -594,6 +605,20 @@ export default function AIAnalysisPage() {
       {/* ============================================================ */}
       {activeTab === "analyze" && (
         <div className="space-y-8">
+          {/* Who grades it */}
+          <section>
+            <h2
+              className="text-lg font-bold tracking-wider text-chamber-orange mb-1"
+              style={{ textShadow: "0 0 20px rgba(232,101,26,0.4)" }}
+            >
+              YOUR MENTOR
+            </h2>
+            <p className="text-chamber-text-muted text-xs mb-3">
+              Pick who reviews the trade. Ember grades the setup; Amber reads the execution; Ash checks plan vs behavior.
+            </p>
+            <MentorPicker value={mentor} onChange={setMentor} />
+          </section>
+
           {/* Chart Screenshots */}
           <section>
             <h2
@@ -1093,8 +1118,8 @@ export default function AIAnalysisPage() {
                 }}
               >
                 <div className="flex items-center justify-between mb-3 pb-2" style={{ borderBottom: "1px solid rgba(232,101,26,0.3)" }}>
-                  <h3 className="text-lg font-bold" style={{ color: "#e8651a" }}>
-                    SMC Analysis
+                  <h3 className="text-lg font-bold" style={{ color: MENTOR_INFO[mentor].accent }}>
+                    {MENTOR_INFO[mentor].name}&apos;s Analysis
                   </h3>
                   {rating !== null && (
                     <div className="flex items-center gap-2">
@@ -1381,6 +1406,12 @@ export default function AIAnalysisPage() {
                                 {rating}/10
                               </span>
                             )}
+                            <span
+                              className="text-[0.65rem] font-semibold tracking-wider px-1.5 py-0.5 rounded"
+                              style={{ color: MENTOR_INFO[modalMentor(a)].accent, border: `1px solid ${MENTOR_INFO[modalMentor(a)].accent}55` }}
+                            >
+                              {MENTOR_INFO[modalMentor(a)].name}
+                            </span>
                             {a.pair && <span className="font-bold text-white text-sm">{a.pair}</span>}
                             {a.direction && (
                               <span
@@ -1472,7 +1503,7 @@ export default function AIAnalysisPage() {
                         border: `1px solid ${rating >= 7 ? "rgba(34,197,94,0.3)" : rating >= 4 ? "rgba(232,101,26,0.3)" : "rgba(239,68,68,0.3)"}`,
                       }}
                     >
-                      SMC Rating: {rating}/10
+                      {MENTOR_INFO[modalMentor(modalAnalysis)].name} · SMC Rating: {rating}/10
                     </span>
                   )}
                   {modalAnalysis.pair && <span className="font-bold text-white text-lg">{modalAnalysis.pair}</span>}
