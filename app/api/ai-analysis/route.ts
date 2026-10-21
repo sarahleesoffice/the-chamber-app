@@ -5,8 +5,10 @@ import { getUserApiKeys } from "@/lib/api-keys";
 import { accessDenied } from "@/lib/access";
 import { ndjsonResponse } from "@/lib/ndjson";
 import { findLectureExcerpts } from "@/lib/smc-concepts";
+import { MENTOR_ANALYSIS_STYLE, MENTOR_VOICE, isMentorId, type MentorId } from "@/lib/mentors";
 
-const SMC_ANALYSIS_SYSTEM_PROMPT = `You are an expert SMC (Smart Money Concepts) methodology trade analyst inside "The Chamber" trading app. You have deep knowledge of Smart Money Concepts as taught across institutional trading education.
+// Framework + output format shared by every mentor; the mentor's voice and grading angle are prepended per request.
+const SMC_ANALYSIS_SYSTEM_PROMPT = `You are reviewing a member's trade inside "The Chamber" trading app, built on SMC (Smart Money Concepts) methodology.
 
 ## SMC FRAMEWORK — CORE CONCEPTS
 
@@ -71,8 +73,7 @@ FORMATTING RULES — VERY IMPORTANT:
 - DO NOT use bold markers (no ** or __)
 - Use plain text only with line breaks
 - Keep it concise — aim for 300-400 words max
-- Use a conversational, mentor-like tone
-- Use emojis to make it visually engaging (🔥 ✅ ⚠️ 📊 🎯 💡 etc.) but NEVER use the 💯 emoji
+- Stay in your own voice (defined above). Section emojis below are part of the format; beyond those, follow your voice rules on emoji use. NEVER use the 💯 emoji
 
 Format your response EXACTLY like this:
 
@@ -95,8 +96,7 @@ SMC Rating: [X]/10
 This is educational analysis based on SMC methodology, not financial advice.
 
 Rules:
-- Be direct and mentor-like, not robotic
-- Use emojis naturally throughout (not just section headers)
+- Be direct, not robotic
 - Reference SMC concepts naturally, don't just list them
 - If multiple trades, give a quick take on each then an overall session note
 - NEVER use ## or ** in your response — plain text only`;
@@ -104,6 +104,7 @@ Rules:
 
 interface AnalysisRequest {
   stream?: boolean;
+  mentor?: string;
   pair?: string;
   direction?: string;
   entry_price?: string;
@@ -198,6 +199,7 @@ export async function POST(req: NextRequest) {
     if (denied) return denied;
 
     const body: AnalysisRequest = await req.json();
+    const mentor: MentorId = isMentorId(body.mentor) ? body.mentor : "ember";
     // Charts and lecture excerpts for the topics in the trader's reasoning, in parallel
     const [images, lectures] = await Promise.all([
       loadChartImages(supabase, user.id, body.chart_urls),
@@ -224,7 +226,7 @@ export async function POST(req: NextRequest) {
       provider: key.provider,
       apiKey: key.key,
       model: user.user_metadata?.openrouter_model,
-      system: SMC_ANALYSIS_SYSTEM_PROMPT,
+      system: `${MENTOR_VOICE[mentor]}\n\n${SMC_ANALYSIS_SYSTEM_PROMPT}\n\nYOUR ANGLE ON THIS TRADE\n${MENTOR_ANALYSIS_STYLE[mentor]}`,
       messages: [{ role: "user" as const, text: userMessage, images }],
       maxTokens: 2048,
       effort: "medium" as const,
@@ -246,6 +248,7 @@ export async function POST(req: NextRequest) {
         trade_date: body.trade_date || null,
         reasoning: body.reasoning || null,
         focus: body.focus || null,
+        mentor,
         ict_score: ictScore,
         chart_urls: body.chart_urls || null,
       });
@@ -253,7 +256,7 @@ export async function POST(req: NextRequest) {
         console.error("Failed to save analysis:", insertError);
         // Still return the analysis even if saving fails
       }
-      return { analysis: analysisText, score: ictScore, provider, model };
+      return { analysis: analysisText, score: ictScore, provider, model, mentor };
     };
 
     // Streaming: the analysis shows up as it's written instead of after a long wait

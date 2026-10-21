@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { readReplyStream } from "@/lib/ndjson";
+import MentorPicker from "@/components/MentorPicker";
+import { MENTOR_INFO, type MentorId } from "@/lib/mentors";
 
 interface StudyCard {
   title: string;
@@ -262,13 +264,6 @@ function StudyMaterialsSection({ data }: { data: StudyMaterials }) {
   );
 }
 
-const SUGGESTED_QUESTIONS = [
-  "What is an Order Block?",
-  "Explain the Silver Bullet setup",
-  "How does Power of 3 work?",
-  "What are SMC Macros?",
-];
-
 const PLACEHOLDER_REPLY =
   "AI chat requires API key configuration. Go to Settings to add your Claude or Gemini API key.";
 
@@ -277,6 +272,8 @@ export default function AIChatPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
+  const [mentor, setMentor] = useState<MentorId>("ember");
+  const m = MENTOR_INFO[mentor];
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -339,7 +336,7 @@ export default function AIChatPage() {
       const res = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: chatHistory, stream: true }),
+        body: JSON.stringify({ messages: chatHistory, stream: true, mentor }),
       });
       const done = await readReplyStream(res, (textSoFar) => show({ role: "assistant", content: textSoFar, timestamp }));
       show({
@@ -381,11 +378,16 @@ export default function AIChatPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
       {/* Header */}
-      <div className="shrink-0 px-6 pt-6 pb-4 border-b" style={{ borderColor: "#1e1a17" }}>
-        <h1 className="text-2xl font-bold text-white">AI SMC Chat</h1>
-        <p className="text-sm mt-1" style={{ color: "#888" }}>
-          Ask questions about SMC concepts, get help with trade analysis
-        </p>
+      <div className="shrink-0 px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4 border-b" style={{ borderColor: "#1e1a17" }}>
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="min-w-0">
+            <h1 className="text-xl md:text-2xl font-bold text-white">AI SMC Chat</h1>
+            <p className="text-xs md:text-sm mt-0.5 truncate" style={{ color: "#888" }}>
+              Talking to <span style={{ color: m.accent }}>{m.name}</span> · {m.tagline}
+            </p>
+          </div>
+        </div>
+        <MentorPicker value={mentor} onChange={setMentor} />
       </div>
 
       {/* Chat area */}
@@ -399,7 +401,7 @@ export default function AIChatPage() {
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div
               className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
-              style={{ backgroundColor: "#1a1210", border: "2px solid #e8651a" }}
+              style={{ backgroundColor: "#1a1210", border: `2px solid ${m.accent}` }}
             >
               <svg
                 className="w-8 h-8"
@@ -417,13 +419,13 @@ export default function AIChatPage() {
               </svg>
             </div>
             <h2 className="text-lg font-semibold text-white mb-2">
-              Welcome to AI SMC Chat
+              {m.name} — {m.role}
             </h2>
             <p className="text-sm mb-6" style={{ color: "#888" }}>
-              Ask anything about SMC methodology. Try one of these:
+              {m.tagline} Try one of these:
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg">
-              {SUGGESTED_QUESTIONS.map((q) => (
+              {m.suggested.map((q) => (
                 <button
                   key={q}
                   onClick={() => sendMessage(q)}
@@ -607,7 +609,7 @@ export default function AIChatPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about SMC concepts..."
+            placeholder={m.placeholder}
             className="flex-1 text-sm px-4 py-3 rounded-lg outline-none transition-colors"
             style={{
               backgroundColor: "#141414",
@@ -672,7 +674,7 @@ export default function AIChatPage() {
         style={{ borderColor: "#1e1a17" }}
       >
         <p className="tracking-widest" style={{ color: "#444", fontSize: "9px" }}>
-          POWERED BY SMC METHODOLOGY &middot; TRAINED ON 675+ SMC YOUTUBE TRANSCRIPTS
+          BASED ON SMC CONCEPTS
         </p>
       </div>
     </div>
