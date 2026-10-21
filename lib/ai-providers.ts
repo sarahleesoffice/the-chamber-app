@@ -107,12 +107,12 @@ async function tryModels(
   name: string,
   models: string[],
   call: (model: string) => Promise<Response>,
-  read: (data: unknown) => string
+  read: (res: Response) => Promise<string>
 ): Promise<{ text: string; model: string }> {
   let lastError = "";
   for (const model of models) {
     const res = await call(model);
-    if (res.ok) return { text: read(await res.json()), model };
+    if (res.ok) return { text: await read(res), model };
     lastError = await errorMessage(res, `${name} API error`);
     if (res.status !== 404 && res.status !== 400) {
       throw new AIProviderError(`${name} API: ${lastError}`, res.status);
@@ -121,7 +121,67 @@ async function tryModels(
   throw new AIProviderError(`${name} API: No compatible model found. Last error: ${lastError}`, 400);
 }
 
-function callAnthropic(o: GenerateOptions) {
+/** Receives each piece of the reply as it streams in. */
+export type OnText = (chunk: string) => void;
+
+/** Calls onData with the payload of every `data:` line of a server-sent-events body. */
+async function readSSE(res: Response, onData: (data: string) => void) {
+  if (!res.body) return;
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).replace(/\r$/, "");
+      buf = buf.slice(nl + 1);
+      if (line.startsWith("data:")) onData(line.slice(5).trim());
+    }
+  }
+}
+
+/** Anthropic streaming: forward text deltas, skip (hidden) thinking blocks. */
+async function streamAnthropic(res: Response, onText: OnText): Promise<string> {
+  let text = "";
+  let textBlocks = 0;
+  await readSSE(res, (data) => {
+    const ev = JSON.parse(data);
+    if (ev.type === "content_block_start" && ev.content_block?.type === "text") {
+      // Separate consecutive text blocks the same way the non-streaming reader joins them
+      if (textBlocks++ > 0 && text) {
+        text += "\n\n";
+        onText("\n\n");
+      }
+    } else if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta" && ev.delta.text) {
+      text += ev.delta.text;
+      onText(ev.delta.text);
+    } else if (ev.type === "error") {
+      throw new AIProviderError(`Claude API: ${ev.error?.message || "stream error"}`, 502);
+    }
+  });
+  return text;
+}
+
+/** OpenAI / OpenRouter streaming (Chat Completions deltas). */
+async function streamChatCompletion(res: Response, onText: OnText): Promise<string> {
+  let text = "";
+  await readSSE(res, (data) => {
+    if (data === "[DONE]" || !data.startsWith("{")) return;
+    const ev = JSON.parse(data);
+    if (ev.error) throw new AIProviderError(ev.error.message || "stream error", 502);
+    const piece: string | undefined = ev.choices?.[0]?.delta?.content;
+    if (piece) {
+      text += piece;
+      onText(piece);
+    }
+  });
+  return text;
+}
+
+function callAnthropic(o: GenerateOptions, onText?: OnText) {
   const messages = o.messages.map((m) => ({
     role: m.role,
     content: m.images?.length
@@ -152,15 +212,18 @@ function callAnthropic(o: GenerateOptions) {
           max_tokens: model.startsWith("claude-sonnet-5") ? Math.max(o.maxTokens, 16000) : o.maxTokens,
           system: o.system,
           messages,
+          ...(onText ? { stream: true } : {}),
         }),
       }),
     // Newer models put a (hidden) thinking block first, so join every text block
     // instead of reading content[0].
-    (data) =>
-      ((data as { content?: { type?: string; text?: string }[] }).content || [])
-        .filter((b) => b.type === "text" && b.text)
-        .map((b) => b.text)
-        .join("\n\n")
+    onText
+      ? (res) => streamAnthropic(res, onText)
+      : async (res) =>
+          (((await res.json()) as { content?: { type?: string; text?: string }[] }).content || [])
+            .filter((b) => b.type === "text" && b.text)
+            .map((b) => b.text)
+            .join("\n\n")
   );
 }
 
@@ -181,9 +244,9 @@ function callGemini(o: GenerateOptions) {
         headers: { "Content-Type": "application/json", "x-goog-api-key": o.apiKey },
         body: JSON.stringify({ systemInstruction: { parts: [{ text: o.system }] }, contents }),
       }),
-    (data) =>
-      (data as { candidates?: { content?: { parts?: { text?: string }[] } }[] }).candidates?.[0]?.content?.parts?.[0]
-        ?.text || ""
+    async (res) =>
+      ((await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] }).candidates?.[0]?.content
+        ?.parts?.[0]?.text || ""
   );
 }
 
@@ -209,7 +272,7 @@ function openAIMessages(o: GenerateOptions) {
 const readChatCompletion = (data: unknown) =>
   (data as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content || "";
 
-function callOpenAI(o: GenerateOptions) {
+function callOpenAI(o: GenerateOptions, onText?: OnText) {
   const messages = openAIMessages(o);
   // No token cap: newer OpenAI models spend part of the budget on hidden
   // reasoning, and a tight cap can return an empty answer.
@@ -220,13 +283,13 @@ function callOpenAI(o: GenerateOptions) {
       fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${o.apiKey}` },
-        body: JSON.stringify({ model, messages }),
+        body: JSON.stringify({ model, messages, ...(onText ? { stream: true } : {}) }),
       }),
-    readChatCompletion
+    onText ? (res) => streamChatCompletion(res, onText) : async (res) => readChatCompletion(await res.json())
   );
 }
 
-async function callOpenRouter(o: GenerateOptions) {
+async function callOpenRouter(o: GenerateOptions, onText?: OnText) {
   const model = o.model && OPENROUTER_MODELS.some((m) => m.id === o.model) ? o.model : DEFAULT_OPENROUTER_MODEL;
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -235,16 +298,30 @@ async function callOpenRouter(o: GenerateOptions) {
       Authorization: `Bearer ${o.apiKey}`,
       "X-Title": "The Chamber",
     },
-    body: JSON.stringify({ model, messages: openAIMessages(o) }),
+    body: JSON.stringify({ model, messages: openAIMessages(o), ...(onText ? { stream: true } : {}) }),
   });
   if (!res.ok) {
     throw new AIProviderError(`OpenRouter API: ${await errorMessage(res, "OpenRouter API error")}`, res.status);
   }
-  return { text: readChatCompletion(await res.json()), model };
+  const text = onText ? await streamChatCompletion(res, onText) : readChatCompletion(await res.json());
+  return { text, model };
 }
 
-export async function generate(o: GenerateOptions): Promise<GenerateResult> {
+/**
+ * Generate a reply. With onText, the reply streams in as it's written (Claude,
+ * ChatGPT, OpenRouter); providers that don't stream here (Gemini) deliver the
+ * whole reply as one chunk at the end.
+ */
+export async function generate(o: GenerateOptions, onText?: OnText): Promise<GenerateResult> {
   const run = { anthropic: callAnthropic, gemini: callGemini, openai: callOpenAI, openrouter: callOpenRouter }[o.provider];
-  const { text, model } = await run(o);
+  let streamed = false;
+  const forward: OnText | undefined = onText
+    ? (chunk) => {
+        streamed = true;
+        onText(chunk);
+      }
+    : undefined;
+  const { text, model } = await run(o, forward);
+  if (onText && !streamed && text) onText(text);
   return { text, model, provider: PROVIDER_LABEL[o.provider] };
 }

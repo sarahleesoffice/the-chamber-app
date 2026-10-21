@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadChart } from "@/lib/storage";
 import LinkedText from "@/components/LinkedText";
+import { readReplyStream } from "@/lib/ndjson";
 import type { Analysis } from "@/lib/types";
 import { COMMON_PAIRS } from "@/lib/trade-math";
 import StatCard from "@/components/StatCard";
@@ -360,6 +361,7 @@ export default function AIAnalysisPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          stream: true,
           pair: allTrades[0]?.pair || pair,
           direction: allTrades[0]?.direction || direction,
           entry_price: allTrades[0]?.entryPrices?.join(", ") || entryPrices.filter(p => p).join(", "),
@@ -377,15 +379,15 @@ export default function AIAnalysisPage() {
         }),
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setAnalysisResult(`Error: ${data.error || "Failed to analyze trade."}`);
+      // The analysis streams in: show it as it's written
+      try {
+        const done = await readReplyStream(res, (textSoFar) => setAnalysisResult(textSoFar));
+        setAnalysisResult(String(done.analysis ?? ""));
+      } catch (err) {
+        setAnalysisResult(`Error: ${err instanceof Error ? err.message : "Failed to analyze trade."}`);
         setAnalyzing(false);
         return;
       }
-
-      setAnalysisResult(data.analysis);
 
       // Refresh past analyses list
       const { data: updated } = await supabase
@@ -398,6 +400,38 @@ export default function AIAnalysisPage() {
       setAnalysisResult("Error: Failed to connect to the analysis service. Please try again.");
     } finally {
       setAnalyzing(false);
+    }
+  }
+
+  // Stream an assistant reply into a chat list: the bubble appears with the
+  // first words and grows as the rest arrives.
+  async function streamChatReply(
+    messages: { role: string; content: string }[],
+    setList: React.Dispatch<React.SetStateAction<ChatMsg[]>>
+  ) {
+    const clean = (t: string) => t.replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "").replace(/💯/g, "🔥");
+    let started = false;
+    const show = (text: string) => {
+      const msg: ChatMsg = { role: "assistant", text };
+      if (!started) {
+        started = true;
+        setList((prev) => [...prev, msg]);
+      } else {
+        setList((prev) => [...prev.slice(0, -1), msg]);
+      }
+    };
+    try {
+      const res = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages, stream: true }),
+      });
+      const done = await readReplyStream(res, (textSoFar) => show(clean(textSoFar)));
+      show(clean(String(done.reply || "No response.")));
+    } catch (err) {
+      const msg = err instanceof TypeError ? "Couldn't connect right now. Try again 🔁" : `Error: ${err instanceof Error ? err.message : "Something went wrong"} 😕`;
+      if (started) setList((prev) => [...prev, { role: "assistant", text: msg }]);
+      else show(msg);
     }
   }
 
@@ -420,22 +454,7 @@ export default function AIAnalysisPage() {
         { role: "user", content: userMsg },
       ];
 
-      const res = await fetch("/api/ai-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const cleanReply = (data.reply || "No response.").replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "").replace(/💯/g, "🔥");
-        setChatMessages((prev) => [...prev, { role: "assistant", text: cleanReply }]);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setChatMessages((prev) => [...prev, { role: "assistant", text: `Error: ${data.error || "Something went wrong"} 😕` }]);
-      }
-    } catch {
-      setChatMessages((prev) => [...prev, { role: "assistant", text: "Couldn't connect right now. Try again 🔁" }]);
+      await streamChatReply(messages, setChatMessages);
     } finally {
       setChatSending(false);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
@@ -460,22 +479,7 @@ export default function AIAnalysisPage() {
         { role: "user", content: userMsg },
       ];
 
-      const res = await fetch("/api/ai-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const cleanReply = (data.reply || "No response.").replace(/#{1,3}\s*/g, "").replace(/\*\*/g, "").replace(/💯/g, "🔥");
-        setModalChat((prev) => [...prev, { role: "assistant", text: cleanReply }]);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setModalChat((prev) => [...prev, { role: "assistant", text: `Error: ${data.error || "Something went wrong"} 😕` }]);
-      }
-    } catch {
-      setModalChat((prev) => [...prev, { role: "assistant", text: "Couldn't connect right now. Try again 🔁" }]);
+      await streamChatReply(messages, setModalChat);
     } finally {
       setModalChatSending(false);
       setTimeout(() => modalChatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
@@ -1149,7 +1153,7 @@ export default function AIAnalysisPage() {
                     </div>
                   </div>
                 ))}
-                {chatSending && (
+                {chatSending && chatMessages[chatMessages.length - 1]?.role === "user" && (
                   <div className="flex justify-start">
                     <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
                       <span className="text-chamber-text-muted animate-pulse">thinking... 🧠</span>
@@ -1582,7 +1586,7 @@ export default function AIAnalysisPage() {
                           </div>
                         </div>
                       ))}
-                      {modalChatSending && (
+                      {modalChatSending && modalChat[modalChat.length - 1]?.role === "user" && (
                         <div className="flex justify-start">
                           <div className="rounded-xl px-4 py-2.5 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
                             <span className="text-chamber-text-muted animate-pulse">thinking... 🧠</span>
