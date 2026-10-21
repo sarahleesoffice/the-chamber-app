@@ -14,7 +14,7 @@ Look for:
 - Exit price(s): take-profit lines, stop-loss lines, or annotations labeled "TP", "SL", "exit", "target"
 - Direction: "long" if there are buy arrows, green position lines, or upward annotations; "short" if there are sell arrows, red position lines, or downward annotations
 
-Known pairs/symbols to normalize to: EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, NZD/USD, USD/CAD, EUR/GBP, EUR/JPY, GBP/JPY, AUD/JPY, NZD/JPY, CHF/JPY, XAU/USD, XAG/USD, US100, US30, US500, NAS100, SPX500, DJ30, NQ, ES, YM, BTC/USD, ETH/USD
+Known pairs/symbols to normalize to: EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, NZD/USD, USD/CAD, EUR/GBP, EUR/JPY, GBP/JPY, AUD/JPY, NZD/JPY, CHF/JPY, XAU/USD, XAG/USD, US100, US30, US500, NAS100, SPX500, DJ30, NQ, ES, YM, MNQ, MES, MYM, BTC/USD, ETH/USD
 
 Return ONLY valid JSON with no other text, no markdown, no code fences:
 {"pair":"EUR/USD","direction":"long","entryPrices":["1.08550"],"exitPrices":["1.09200"],"confidence":{"pair":"high","direction":"medium","entryPrices":"high","exitPrices":"low"}}
