@@ -332,16 +332,21 @@ export default function AIAnalysisPage() {
 
     // Call AI analysis API
     try {
+      // Same order as filesToUpload/urls; the server attaches the images in this order
       const chartDescriptions: string[] = [];
-      if (htfFile) chartDescriptions.push(`Higher Timeframe (HTF) Bias chart uploaded: ${htfFile.name}${urls[0] ? ` (URL: ${urls[0]})` : ""}`);
-      if (entryFile) chartDescriptions.push(`Entry Timeframe chart uploaded: ${entryFile.name}${urls[1] ? ` (URL: ${urls[1]})` : ""}`);
-      if (extraFile) chartDescriptions.push(`Additional chart uploaded: ${extraFile.name}${urls[2] ? ` (URL: ${urls[2]})` : ""}`);
+      if (htfFile) chartDescriptions.push(`Higher Timeframe (HTF) Bias chart: ${htfFile.name}`);
+      if (entryFile) chartDescriptions.push(`Entry Timeframe chart: ${entryFile.name}`);
+      if (extraFile) chartDescriptions.push(`Additional chart: ${extraFile.name}`);
 
       // Collect all trades — saved ones + current form if filled
       const allTrades = [...savedTrades];
-      if (pair && entryPrices.some(p => p !== "")) {
+      const formTradeAdded = !!pair && entryPrices.some(p => p !== "");
+      if (formTradeAdded) {
         allTrades.push({ id: "current", pair, direction, entryPrices: entryPrices.filter(p => p !== ""), exitPrices: exitPrices.filter(p => p !== ""), tradeDate, reasoning });
       }
+      // Reasoning typed after a trade was added (e.g. one opened from Trade History)
+      // isn't attached to any trade, so send it as general notes instead of dropping it.
+      const looseReasoning = !formTradeAdded && reasoning.trim() ? `\n\nTrader's notes: ${reasoning.trim()}` : "";
 
       const res = await fetch("/api/ai-analysis", {
         method: "POST",
@@ -352,7 +357,7 @@ export default function AIAnalysisPage() {
           entry_price: allTrades[0]?.entryPrices?.join(", ") || entryPrices.filter(p => p).join(", "),
           exit_price: allTrades[0]?.exitPrices?.join(", ") || exitPrices.filter(p => p).join(", "),
           trade_date: allTrades[0]?.tradeDate || tradeDate,
-          reasoning: allTrades.map((t, i) => `Trade ${i + 1} (${t.pair} ${t.direction}): Entries [${t.entryPrices.join(", ")}], Exits [${t.exitPrices.join(", ")}]${t.reasoning ? ` — ${t.reasoning}` : ""}`).join("\n"),
+          reasoning: allTrades.map((t, i) => `Trade ${i + 1} (${t.pair} ${t.direction}): Entries [${t.entryPrices.join(", ")}], Exits [${t.exitPrices.join(", ")}]${t.reasoning ? ` — ${t.reasoning}` : ""}`).join("\n") + looseReasoning,
           focus,
           chart_descriptions: chartDescriptions,
           chart_urls: urls,

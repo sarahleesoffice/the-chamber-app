@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { AIProviderError, generate, pickKey } from "@/lib/ai-providers";
+import { AIProviderError, type ChatImage, generate, pickKey } from "@/lib/ai-providers";
 import { getUserApiKeys } from "@/lib/api-keys";
 import { accessDenied } from "@/lib/access";
 
@@ -139,6 +139,35 @@ function buildUserMessage(req: AnalysisRequest): string {
   return parts.join("\n");
 }
 
+const CHART_PATH_MARKER = "/storage/v1/object/public/charts/";
+const IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // Claude's per-image limit
+
+/**
+ * Load the uploaded chart screenshots so the model actually sees them. Only
+ * charts in the caller's own storage folder are read, so a request can't pull
+ * anyone else's files or make the server fetch arbitrary URLs.
+ */
+async function loadChartImages(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  urls: string[] = []
+): Promise<ChatImage[]> {
+  const images: ChatImage[] = [];
+  for (const url of urls.slice(0, 3)) {
+    const at = url.indexOf(CHART_PATH_MARKER);
+    if (at === -1) continue;
+    const path = decodeURIComponent(url.slice(at + CHART_PATH_MARKER.length).split("?")[0]);
+    if (!path.startsWith(`${userId}/`)) continue;
+    const { data, error } = await supabase.storage.from("charts").download(path);
+    if (error || !data || data.size > MAX_IMAGE_BYTES) continue;
+    const mediaType = data.type || (/\.png$/i.test(path) ? "image/png" : "image/jpeg");
+    if (!IMAGE_TYPES.has(mediaType)) continue;
+    images.push({ base64: Buffer.from(await data.arrayBuffer()).toString("base64"), mediaType });
+  }
+  return images;
+}
+
 function extractScore(text: string): number | null {
   // Match "SMC Rating: 7/10" or "SMC Rating: 7.5/10" etc.
   const match = text.match(/SMC\s+Rating:\s*([\d.]+)\s*\/\s*10/i);
@@ -166,7 +195,11 @@ export async function POST(req: NextRequest) {
     if (denied) return denied;
 
     const body: AnalysisRequest = await req.json();
-    const userMessage = buildUserMessage(body);
+    const images = await loadChartImages(supabase, user.id, body.chart_urls);
+    let userMessage = buildUserMessage(body);
+    if (images.length > 0) {
+      userMessage += `\n\nThe ${images.length} chart screenshot${images.length > 1 ? "s are" : " is"} attached as image${images.length > 1 ? "s" : ""}, in the same order as the chart descriptions above. Read them directly: structure, liquidity, PD arrays, entry and exit.`;
+    }
 
     // Get user's API key (decrypted server-side): the provider they chose in
     // Settings, else the first they have
@@ -180,7 +213,7 @@ export async function POST(req: NextRequest) {
       apiKey: key.key,
       model: user.user_metadata?.openrouter_model,
       system: SMC_ANALYSIS_SYSTEM_PROMPT,
-      messages: [{ role: "user", text: userMessage }],
+      messages: [{ role: "user", text: userMessage, images }],
       maxTokens: 2048,
     });
     const analysisText = text || "No response from the AI.";
