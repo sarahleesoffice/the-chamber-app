@@ -455,7 +455,7 @@ export default function LearningHubPage() {
       {/* ─── Footer ───────────────────────────────────────── */}
       <div className="text-center mt-8 leading-relaxed">
         <span className="text-[#333] text-[0.65rem] tracking-wide">
-          CURRICULUM BASED ON SMC CONCEPTS &middot; 675+ TRANSCRIPTS INDEXED
+          BASED ON SMC CONCEPTS
         </span>
         <br />
         <span className="text-[#292929] text-[0.58rem]">

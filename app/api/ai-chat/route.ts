@@ -202,33 +202,8 @@ export async function POST(req: NextRequest) {
       url: l.url || `https://www.youtube.com/results?search_query=SMC+${encodeURIComponent(l.video)}`,
     }));
 
-    // If no sources found from RAG, search for matching videos directly
-    if (studyMaterials.sources.length === 0 && lastUserMessage) {
-      const searchWords = lastUserMessage.content.toLowerCase()
-        .replace(/[?!.,;:'"]/g, "")
-        .split(/\s+/)
-        .filter((w: string) => w.length > 3 && !new Set(["what", "how", "does", "explain", "about", "trading", "market"]).has(w))
-        .slice(0, 3);
-
-      if (searchWords.length > 0) {
-        const videoFilter = searchWords.map((w: string) => `source_video.ilike.%${w}%`).join(",");
-        const { data: videos } = await supabase
-          .from("knowledge_chunks")
-          .select("source_video")
-          .or(videoFilter)
-          .not("source_video", "is", null)
-          .limit(30);
-
-        if (videos?.length) {
-          // Deduplicate and take top 3
-          const unique = [...new Set(videos.map((v: { source_video: string }) => v.source_video).filter(Boolean))].slice(0, 3);
-          studyMaterials.sources = unique.map(v => ({
-            video: v as string,
-            url: `https://www.youtube.com/results?search_query=SMC+${encodeURIComponent(v as string)}`,
-          }));
-        }
-      }
-    }
+    // No title-keyword fallback: a video whose title merely shares a word with the
+    // question isn't a source. Sources are only the lectures that fed the answer.
 
     const systemPromptWithRAG = SMC_SYSTEM_PROMPT + ragContext + studyContext;
 

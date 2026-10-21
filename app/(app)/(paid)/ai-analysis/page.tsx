@@ -1421,7 +1421,7 @@ export default function AIAnalysisPage() {
       {/* Footer */}
       <div className="text-center mt-8">
         <p className="text-[#333] text-[0.65rem] tracking-wider">
-          BASED ON SMC CONCEPTS &middot; TRAINED ON 675+ SMC YOUTUBE TRANSCRIPTS
+          BASED ON SMC CONCEPTS
         </p>
         <p className="text-[#292929] text-[0.58rem] mt-1">THIS IS NOT FINANCIAL ADVICE</p>
       </div>
