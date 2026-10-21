@@ -9,6 +9,7 @@ export const COMMON_PAIRS = [
   "US100", "US30", "US500", "US100.SIM",
   "NAS100", "SPX500", "DJ30",
   "NQ", "ES", "YM",
+  "MNQ", "MES", "MYM",
   "BTC/USD", "ETH/USD",
 ];
 
@@ -20,6 +21,7 @@ const INDEX_PAIRS = new Set([
   "US100", "US30", "US500", "NAS100", "SPX500", "DJ30",
   "US100.SIM", "US30.SIM", "US500.SIM",
   "NQ", "ES", "YM",
+  "MNQ", "MES", "MYM",
 ]);
 
 /**
