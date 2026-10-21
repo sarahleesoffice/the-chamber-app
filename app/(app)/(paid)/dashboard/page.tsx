@@ -306,7 +306,7 @@ export default function DashboardPage() {
           </button>
           <span className="flex-1 text-center text-sm md:text-lg font-semibold text-white">{format(calMonth, "MMMM yyyy")}</span>
           <div className="flex gap-1.5 md:gap-2">
-            <button onClick={() => setCalMonth(new Date())} className="hidden md:block px-4 py-2 rounded-lg bg-chamber-surface border border-chamber-border text-sm text-chamber-text-muted hover:text-chamber-orange transition-colors">
+            <button onClick={() => setCalMonth(new Date())} className="px-2 py-1.5 md:px-4 md:py-2 rounded-lg bg-chamber-surface border border-chamber-border text-xs md:text-sm text-chamber-text-muted hover:text-chamber-orange transition-colors">
               Today
             </button>
             <button onClick={() => setCalMonth(addMonths(calMonth, 1))} className="px-2 py-1.5 md:px-4 md:py-2 rounded-lg bg-chamber-surface border border-chamber-border text-xs md:text-sm text-chamber-text-muted hover:text-chamber-orange transition-colors">
@@ -700,7 +700,7 @@ export default function DashboardPage() {
 
       {/* Footer */}
       <div className="text-center mt-8">
-        <p className="text-[#333] text-[0.65rem] tracking-wider">BASED ON SMC CONCEPTS · TRAINED ON 675+ SMC YOUTUBE TRANSCRIPTS</p>
+        <p className="text-[#333] text-[0.65rem] tracking-wider">BASED ON SMC CONCEPTS</p>
         <p className="text-[#292929] text-[0.58rem] mt-1">THIS IS NOT FINANCIAL ADVICE</p>
       </div>
     </div>

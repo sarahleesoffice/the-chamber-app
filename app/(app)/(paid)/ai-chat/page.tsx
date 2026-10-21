@@ -231,7 +231,7 @@ function StudyMaterialsSection({ data }: { data: StudyMaterials }) {
               className="text-[10px] font-semibold tracking-widest"
               style={{ color: "#888", fontVariant: "small-caps" }}
             >
-              SEARCH SMC VIDEOS ({data.sources!.length})
+              SMC LECTURES ({data.sources!.length})
             </p>
           </button>
           {sourcesOpen && (
@@ -239,7 +239,7 @@ function StudyMaterialsSection({ data }: { data: StudyMaterials }) {
               {data.sources!.map((s, i) => (
                 <a
                   key={i}
-                  href={`https://www.youtube.com/results?search_query=SMC+${encodeURIComponent(s.video)}`}
+                  href={s.url || `https://www.youtube.com/results?search_query=SMC+${encodeURIComponent(s.video)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs flex items-center gap-1.5 transition-colors hover:underline"
@@ -247,8 +247,8 @@ function StudyMaterialsSection({ data }: { data: StudyMaterials }) {
                   onMouseEnter={(e) => { e.currentTarget.style.color = "#e8651a"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = "#666"; }}
                 >
-                  <span>🔍</span>
-                  Search: &quot;{s.video}&quot;
+                  <span>{s.url ? "▶" : "🔍"}</span>
+                  {s.video}
                   <svg className="w-2.5 h-2.5 shrink-0 opacity-50" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                   </svg>

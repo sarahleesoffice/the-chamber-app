@@ -320,6 +320,7 @@ export default function DailyJournalPage() {
   const [selectedMistakes, setSelectedMistakes] = useState<string[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [customMistakeInputs, setCustomMistakeInputs] = useState<Record<string, string>>({});
+  const [otherMistake, setOtherMistake] = useState("");
 
   // Text areas
   const [reflection, setReflection] = useState("");
@@ -898,6 +899,63 @@ export default function DailyJournalPage() {
             );
           })}
         </div>
+
+        {/* Write-in: anything not covered by the categories above */}
+        {(() => {
+          const others = selectedMistakes.filter((m) => m.startsWith("[Other] "));
+          const addOther = () => {
+            const val = otherMistake.trim();
+            if (!val) return;
+            const tagged = `[Other] ${val}`;
+            if (!selectedMistakes.includes(tagged)) setSelectedMistakes((prev) => [...prev, tagged]);
+            setOtherMistake("");
+          };
+          return (
+            <div className="mt-3">
+              <div className="text-chamber-text-muted text-[0.78rem] uppercase tracking-wider mb-2">
+                Other mistake
+              </div>
+              {others.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {others.map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => toggleMistake(m)}
+                      className="px-3 py-1.5 rounded-full text-xs bg-red-500/15 border border-red-500/30 text-red-300 hover:text-white transition-colors"
+                      title="Remove"
+                    >
+                      {m.replace("[Other] ", "")} ✕
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={otherMistake}
+                  onChange={(e) => setOtherMistake(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addOther();
+                    }
+                  }}
+                  placeholder="Write in a mistake not listed above..."
+                  className="flex-1 min-w-0 bg-chamber-surface border border-chamber-border rounded-lg px-4 py-3 text-sm text-white placeholder-chamber-text-dim focus:outline-none focus:border-chamber-orange/50 transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={addOther}
+                  disabled={!otherMistake.trim()}
+                  className="shrink-0 px-4 py-3 rounded-lg text-sm font-medium bg-chamber-orange/15 border border-chamber-orange/30 text-chamber-orange disabled:opacity-40 transition-colors"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </section>
 
       <hr className="border-chamber-border" />
@@ -987,7 +1045,7 @@ export default function DailyJournalPage() {
       {/* ── Footer Disclaimer ── */}
       <div className="text-center mt-8 pb-4">
         <p className="text-[#333] text-[0.65rem] tracking-wider leading-relaxed">
-          DAILY JOURNAL &middot; BASED ON SMC CONCEPTS &amp; JARED TENDLER&apos;S MENTAL GAME FRAMEWORK
+          BASED ON SMC CONCEPTS
         </p>
         <p className="text-[#292929] text-[0.58rem] mt-1">THIS IS NOT FINANCIAL ADVICE</p>
       </div>

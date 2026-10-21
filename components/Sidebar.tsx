@@ -60,7 +60,6 @@ const navSections: NavSection[] = [
     items: [
       { href: "/sessions", label: "Sessions", icon: "schedule" },
       { href: "/learning-hub", label: "Learning Hub", icon: "school" },
-      { href: "/knowledge-base", label: "Knowledge Base", icon: "local_library" },
     ],
   },
   {

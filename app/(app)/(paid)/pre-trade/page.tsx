@@ -116,7 +116,7 @@ function ChecklistSection({
           </label>
           <button
             onClick={() => onDelete(i)}
-            className="opacity-0 group-hover:opacity-60 hover:!opacity-100 text-xs text-chamber-text-dim hover:text-chamber-orange transition-all"
+            className="opacity-60 md:opacity-0 md:group-hover:opacity-60 hover:!opacity-100 px-2 py-1 text-sm text-chamber-text-dim hover:text-chamber-orange transition-all"
             title={`Remove "${item}"`}
           >
             ✕
