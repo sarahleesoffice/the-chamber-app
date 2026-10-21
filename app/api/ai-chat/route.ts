@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AIProviderError, generate, pickKey } from "@/lib/ai-providers";
 import { getUserApiKeys } from "@/lib/api-keys";
 import { accessDenied } from "@/lib/access";
+import { ndjsonResponse } from "@/lib/ndjson";
 
 const SMC_SYSTEM_PROMPT = `You are the AI mentor inside "The Chamber" — a trading app built on SMC (Smart Money Concepts) methodology, powered by 675+ SMC YouTube lecture transcripts, study cards, and Discord discussions.
 
@@ -10,7 +11,7 @@ RESPONSE FORMAT — You MUST follow this structure for EVERY response:
 
 1. **Answer the question** using the provided transcript excerpts and study materials. Base your answer on the SOURCE MATERIAL provided, not general knowledge.
 
-2. **📘 Study Cards** — If study cards are provided below, you MUST include a section at the end:
+2. **📘 Study Cards** — If study cards are provided below, include a section at the end listing ONLY the cards that directly relate to the user's question (skip the rest; if none fit, leave the section out):
    📘 **Related Study Cards:**
    - [Card Title] — [Category]
    If a Gamma deck URL is provided, add: [View Study Deck](url)
@@ -19,12 +20,12 @@ RESPONSE FORMAT — You MUST follow this structure for EVERY response:
    🎥 **From SMC Lectures:**
    - "[Video Title]" — [brief what was covered]
 
-4. **💬 Discord** — If Discord thread links are provided, you MUST include at the very end:
+4. **💬 Discord** — If a Discord thread link is provided and it relates to the question, include at the very end (one link only):
    💬 **Study this topic in our Discord:** [full URL]
 
 Rules:
 - ALWAYS use the provided source materials to answer. Do NOT rely on general knowledge when sources are available.
-- ALWAYS include the study cards, video sources, and Discord sections when the data is provided to you.
+- Include the study cards, video sources, and Discord sections when the provided items actually match what was asked. Never list an item just because it was provided.
 - Be concise but thorough. Use SMC terminology.
 - Never give specific financial advice or trade recommendations.
 - Psychology questions use Jared Tendler's "The Mental Game of Trading" framework.`;
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     const denied = await accessDenied(user);
     if (denied) return denied;
 
-    const { messages } = await req.json();
+    const { messages, stream } = await req.json();
 
     // RAG: Search knowledge base for relevant SMC transcript chunks
     const lastUserMessage = [...messages].reverse().find((m: { role: string }) => m.role === "user");
@@ -63,14 +64,14 @@ export async function POST(req: NextRequest) {
 
     // RAG: Search Gamma cards + Discord
     let studyContext = "";
-    let studyMaterials: { cards: Array<{ title: string; category: string; gamma_url: string; content: string }>; discord: Array<{ concept: string; thread_url: string }>; sources: Array<{ video: string; url: string }> } = { cards: [], discord: [], sources: [] };
+    const studyMaterials: { cards: Array<{ title: string; category: string; gamma_url: string; content: string }>; discord: Array<{ concept: string; thread_url: string }>; sources: Array<{ video: string; url: string }> } = { cards: [], discord: [], sources: [] };
 
     if (lastUserMessage) {
       const STOP_WORDS = new Set(["what", "how", "does", "the", "are", "is", "can", "you", "explain", "tell", "about", "smc", "trading", "trade", "market", "price", "use", "work", "mean", "definition", "define", "describe", "give", "show", "find", "help", "please", "would", "could", "should", "will", "this", "that", "with", "from", "have", "been", "being", "they", "them", "their", "which", "when", "where", "why", "who", "whom", "me", "do", "my", "for", "and", "any", "some"]);
       const words = lastUserMessage.content.toLowerCase()
         .replace(/[?!.,;:'"()]/g, "")
         .split(/\s+/)
-        .filter((w: string) => w.length > 1 && !STOP_WORDS.has(w))
+        .filter((w: string) => w.length > 2 && !STOP_WORDS.has(w))
         .slice(0, 6);
 
       // Also extract multi-word phrases that match common SMC concepts
@@ -103,19 +104,48 @@ export async function POST(req: NextRequest) {
         "bias": ["bias", "higher", "timeframe"],
         "interest rate": ["interest", "rate"],
         "sentiment": ["sentiment"],
+        "unicorn": ["unicorn"],
+        "2022 model": ["2022", "model"],
       };
 
-      // Find which SMC concept(s) the user is asking about
-      const matchedConcepts: string[] = [];
-      for (const [concept, _keywords] of Object.entries(SMC_CONCEPTS)) {
-        if (queryLower.includes(concept)) {
-          matchedConcepts.push(concept);
-        }
-      }
+      // Which SMC concept(s) the user is asking about: whole words plus common shorthand
+      // ("retracement" → OTE, "msb" → structure, "swept" → liquidity). Ordered so entry
+      // and setup models outrank context terms; the first match is the main topic.
+      const CONCEPT_PATTERNS: [string, RegExp][] = [
+        ["silver bullet", /\bsilver bullet\b/],
+        ["unicorn", /\bunicorn\b/],
+        ["judas swing", /\bjudas\b/],
+        ["turtle soup", /\bturtle soup\b/],
+        ["2022 model", /\b2022 (entry )?model\b/],
+        ["ote", /\b(ote|optimal trade entry|retrace(ment|ments|s|d)?|pull ?backs?|fib(onacci)?)\b/],
+        ["fair value gap", /\b(fvgs?|fair value gaps?|imbalances?|inefficienc(y|ies)|consequent encroachment)\b/],
+        ["breaker block", /\bbreakers?( blocks?)?\b/],
+        ["mitigation block", /\bmitigation blocks?\b/],
+        ["rejection block", /\brejection blocks?\b/],
+        ["propulsion block", /\bpropulsion blocks?\b/],
+        ["vacuum block", /\bvacuum blocks?\b/],
+        ["order block", /\b(obs?|order blocks?)\b/],
+        ["kill zone", /\bkill ?zones?\b/],
+        ["macro", /\bmacros?\b/],
+        ["power of 3", /\b(power of (3|three)|amd|po3)\b/],
+        ["displacement", /\bdisplacement\b/],
+        ["top down analysis", /\btop ?down\b/],
+        ["bias", /\b(bias|htf|higher time ?frame)\b/],
+        ["market maker", /\bmarket makers?\b/],
+        ["market structure", /\b(msb|mss|bos|choch|market structure|structure (break|shift))\b/],
+        ["liquidity void", /\bliquidity voids?\b/],
+        ["liquidity pool", /\bliquidity pools?\b/],
+        ["liquidity", /\b(liquidity|sweeps?|swept|raid(s|ed)?|ssl|bsl|sell ?side|buy ?side|stop hunts?|purge)\b/],
+        ["interest rate", /\binterest rates?\b/],
+        ["sentiment", /\bsentiment\b/],
+      ];
+      const matchedConcepts = CONCEPT_PATTERNS.filter(([, re]) => re.test(queryLower)).map(([c]) => c);
 
       if (words.length > 0 || matchedConcepts.length > 0) {
+        const conceptTerms = [...new Set(matchedConcepts.flatMap((c) => SMC_CONCEPTS[c] || []))].filter((w) => w.length > 2);
+        const queryTerms = [...new Set([...words, ...conceptTerms])];
         // Search by title AND tags for broader matching
-        const titleFilters = words.map((w: string) => `title.ilike.%${w}%`).join(",");
+        const titleFilters = queryTerms.map((w: string) => `title.ilike.%${w}%`).join(",");
         const { data: titleCards } = await supabase
           .from("gamma_cards")
           .select("title, category, gamma_url, content, tags")
@@ -124,7 +154,7 @@ export async function POST(req: NextRequest) {
           .limit(15);
 
         // Also search by tags array — overlap with keywords
-        const tagFilters = words.map((w: string) => `tags.cs.{${w}}`).join(",");
+        const tagFilters = queryTerms.map((w: string) => `tags.cs.{${w}}`).join(",");
         const { data: tagCards } = await supabase
           .from("gamma_cards")
           .select("title, category, gamma_url, content, tags")
@@ -143,18 +173,20 @@ export async function POST(req: NextRequest) {
         const conceptWords = matchedConcepts.flatMap(c => SMC_CONCEPTS[c] || []);
         const allSearchTerms = [...new Set([...words, ...conceptWords])];
 
-        const scoredCards = Array.from(allCards.values()).map((card) => {
+        const hasWord = (text: string, w: string) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`).test(text);
+        const scoredCards = Array.from(allCards.values()).filter((card) => /[a-z]/i.test(card.title)).map((card) => {
           const titleLower = card.title.toLowerCase().replace(/-/g, " ");
           let score = 0;
 
-          // Check if title matches a known SMC concept from the query
-          for (const concept of matchedConcepts) {
-            if (titleLower.includes(concept)) score += 80;
+          // Title matches a concept from the query; the main topic (first match) counts most
+          matchedConcepts.forEach((concept, i) => {
+            const weight = i === 0 ? 1 : 0.5;
+            if (titleLower.includes(concept)) score += 80 * weight;
             // Also check if the concept keywords all appear in the title
             const cWords = SMC_CONCEPTS[concept] || [];
-            const allPresent = cWords.every(w => titleLower.includes(w));
-            if (allPresent && cWords.length >= 2) score += 60;
-          }
+            const allPresent = cWords.every((w) => hasWord(titleLower, w));
+            if (allPresent && cWords.length >= 1) score += 60 * weight;
+          });
 
           // Exact full phrase match
           if (titleLower === queryPhrase) score += 100;
@@ -163,7 +195,7 @@ export async function POST(req: NextRequest) {
           // Word-level matching — more matching words = higher score
           let matchCount = 0;
           for (const w of allSearchTerms) {
-            if (titleLower.includes(w)) {
+            if (hasWord(titleLower, w)) {
               matchCount++;
               score += w.length > 4 ? 4 : 2;
             }
@@ -185,35 +217,31 @@ export async function POST(req: NextRequest) {
           if (card.content?.startsWith("IMG:")) score += 8;
 
           return { ...card, score };
-        }).filter((c) => c.score > 5)
+        }).filter((c) => c.score > 12)
           .sort((a, b) => b.score - a.score)
           .slice(0, 4);
 
         const rankedCards = scoredCards.length > 0 ? scoredCards : [];
 
-        // Discord: match by category from found cards, OR by concept keywords
-        const matchedCategories = rankedCards.map((c) => c.category).filter(Boolean);
+        // Discord: one thread, for the main topic. Threads are per study deck, and a deck
+        // can hold cards on other topics, so pick by concept first and only fall back to
+        // the top card's deck when that card matched a concept strongly. No loose keyword
+        // fallback: every thread description shares generic words, which matched unrelated threads.
+        const CONCEPT_THREAD: Record<string, string> = {
+          "silver bullet": "SMC Silver Bullet",
+          "unicorn": "Unicorn Model",
+          "judas swing": "SMC Judas Swing",
+          "2022 model": "Execution of the 2022 Model",
+          "ote": "SMC Optimal Trade Entry (OTE)",
+          "liquidity": "Liquidity Purge & Revert",
+        };
+        const threadName =
+          matchedConcepts.map((c) => CONCEPT_THREAD[c]).find(Boolean) ||
+          (rankedCards[0] && rankedCards[0].score >= 80 ? rankedCards[0].category : undefined);
         let discord: Array<{ concept: string; thread_url: string }> | null = null;
-
-        // First try matching by card categories
-        if (matchedCategories.length > 0) {
-          const catFilters = [...new Set(matchedCategories)].map((c: string) => `concept.eq.${c}`).join(",");
-          const { data } = await supabase.from("discord_references").select("concept, thread_url").or(catFilters).limit(2);
+        if (threadName) {
+          const { data } = await supabase.from("discord_references").select("concept, thread_url").eq("concept", threadName).limit(1);
           discord = data;
-        }
-        // Then try concept name matching
-        if (!discord?.length && matchedConcepts.length > 0) {
-          const conceptFilters = matchedConcepts.map((c) => `concept.ilike.%${c}%,description.ilike.%${c}%`).join(",");
-          const { data } = await supabase.from("discord_references").select("concept, thread_url").or(conceptFilters).limit(2);
-          discord = data;
-        }
-        // Fallback: keyword search
-        if (!discord?.length) {
-          const descFilters = words.filter((w: string) => w.length > 3).map((w: string) => `concept.ilike.%${w}%,description.ilike.%${w}%`).join(",");
-          if (descFilters) {
-            const { data } = await supabase.from("discord_references").select("concept, thread_url").or(descFilters).limit(2);
-            discord = data;
-          }
         }
 
         if (rankedCards.length) {
@@ -280,17 +308,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No API key configured" }, { status: 400 });
     }
 
-    const { text, provider, model } = await generate({
+    const options = {
       provider: key.provider,
       apiKey: key.key,
       model: user.user_metadata?.openrouter_model,
       system: systemPromptWithRAG,
       messages: messages.map((m: { role: string; content: string }) => ({
-        role: m.role === "assistant" ? "assistant" : "user",
+        role: (m.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
         text: m.content,
       })),
       maxTokens: 1024,
-    });
+    };
+
+    // Streaming: the reply shows up word by word instead of after a long wait
+    if (stream) {
+      return ndjsonResponse(async (send) => {
+        const { text, provider, model } = await generate(options, (t) => send({ t }));
+        send({ done: true, reply: text || "No response from the AI.", provider, model, studyMaterials });
+      });
+    }
+
+    const { text, provider, model } = await generate(options);
     return NextResponse.json({ reply: text || "No response from the AI.", provider, model, studyMaterials });
   } catch (err: unknown) {
     if (err instanceof AIProviderError) {

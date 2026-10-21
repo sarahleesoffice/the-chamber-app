@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AIProviderError, type ChatImage, generate, pickKey } from "@/lib/ai-providers";
 import { getUserApiKeys } from "@/lib/api-keys";
 import { accessDenied } from "@/lib/access";
+import { ndjsonResponse } from "@/lib/ndjson";
 
 const SMC_ANALYSIS_SYSTEM_PROMPT = `You are an expert SMC (Smart Money Concepts) methodology trade analyst inside "The Chamber" trading app. You have deep knowledge of Smart Money Concepts as taught across institutional trading education.
 
@@ -101,6 +102,7 @@ Rules:
 
 
 interface AnalysisRequest {
+  stream?: boolean;
   pair?: string;
   direction?: string;
   entry_price?: string;
@@ -208,47 +210,51 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No API key configured" }, { status: 400 });
     }
 
-    const { text, provider, model } = await generate({
+    const options = {
       provider: key.provider,
       apiKey: key.key,
       model: user.user_metadata?.openrouter_model,
       system: SMC_ANALYSIS_SYSTEM_PROMPT,
-      messages: [{ role: "user", text: userMessage, images }],
+      messages: [{ role: "user" as const, text: userMessage, images }],
       maxTokens: 2048,
-    });
-    const analysisText = text || "No response from the AI.";
+    };
 
-    // Extract SMC score from the response
-    const ictScore = extractScore(analysisText);
+    // Score the finished analysis and save it to the user's history
+    const saveAnalysis = async (text: string, provider: string, model: string) => {
+      const analysisText = text || "No response from the AI.";
+      const ictScore = extractScore(analysisText);
+      const { error: insertError } = await supabase.from("analyses").insert({
+        user_id: user.id,
+        provider,
+        model,
+        analysis_text: analysisText,
+        pair: body.pair || null,
+        direction: body.direction || null,
+        entry_price: body.entry_price || null,
+        exit_price: body.exit_price || null,
+        trade_date: body.trade_date || null,
+        reasoning: body.reasoning || null,
+        focus: body.focus || null,
+        ict_score: ictScore,
+        chart_urls: body.chart_urls || null,
+      });
+      if (insertError) {
+        console.error("Failed to save analysis:", insertError);
+        // Still return the analysis even if saving fails
+      }
+      return { analysis: analysisText, score: ictScore, provider, model };
+    };
 
-    // Save analysis to database
-    const { error: insertError } = await supabase.from("analyses").insert({
-      user_id: user.id,
-      provider,
-      model,
-      analysis_text: analysisText,
-      pair: body.pair || null,
-      direction: body.direction || null,
-      entry_price: body.entry_price || null,
-      exit_price: body.exit_price || null,
-      trade_date: body.trade_date || null,
-      reasoning: body.reasoning || null,
-      focus: body.focus || null,
-      ict_score: ictScore,
-      chart_urls: body.chart_urls || null,
-    });
-
-    if (insertError) {
-      console.error("Failed to save analysis:", insertError);
-      // Still return the analysis even if saving fails
+    // Streaming: the analysis shows up as it's written instead of after a long wait
+    if (body.stream) {
+      return ndjsonResponse(async (send) => {
+        const { text, provider, model } = await generate(options, (t) => send({ t }));
+        send({ done: true, ...(await saveAnalysis(text, provider, model)) });
+      });
     }
 
-    return NextResponse.json({
-      analysis: analysisText,
-      score: ictScore,
-      provider,
-      model,
-    });
+    const { text, provider, model } = await generate(options);
+    return NextResponse.json(await saveAnalysis(text, provider, model));
   } catch (err: unknown) {
     if (err instanceof AIProviderError) {
       return NextResponse.json({ error: err.message }, { status: err.status });

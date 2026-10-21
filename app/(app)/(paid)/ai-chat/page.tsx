@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { readReplyStream } from "@/lib/ndjson";
 
 interface StudyCard {
   title: string;
@@ -323,37 +324,38 @@ export default function AIChatPage() {
       content: m.content,
     }));
 
+    // The reply streams in: its bubble appears with the first words and grows
+    let started = false;
+    const show = (msg: Message) => {
+      if (!started) {
+        started = true;
+        setMessages((prev) => [...prev, msg]);
+      } else {
+        setMessages((prev) => [...prev.slice(0, -1), msg]);
+      }
+    };
+    const timestamp = new Date();
     try {
       const res = await fetch("/api/ai-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: chatHistory }),
+        body: JSON.stringify({ messages: chatHistory, stream: true }),
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: data.error || "Something went wrong. Check your API key in Settings.", timestamp: new Date() },
-        ]);
-        return;
-      }
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: data.reply,
-          timestamp: new Date(),
-          ...(data.studyMaterials ? { studyMaterials: data.studyMaterials } : {}),
-        },
-      ]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Network error. Please try again.", timestamp: new Date() },
-      ]);
+      const done = await readReplyStream(res, (textSoFar) => show({ role: "assistant", content: textSoFar, timestamp }));
+      show({
+        role: "assistant",
+        content: String(done.reply ?? ""),
+        timestamp,
+        ...(done.studyMaterials ? { studyMaterials: done.studyMaterials as StudyMaterials } : {}),
+      });
+    } catch (err) {
+      const content =
+        err instanceof TypeError
+          ? "Network error. Please try again."
+          : (err instanceof Error && err.message) || "Something went wrong. Check your API key in Settings.";
+      const msg: Message = { role: "assistant", content, timestamp: new Date() };
+      if (started) setMessages((prev) => [...prev, msg]);
+      else show(msg);
     } finally {
       setLoading(false);
     }
@@ -579,7 +581,7 @@ export default function AIChatPage() {
             </div>
           ))
         )}
-        {loading && (
+        {loading && messages[messages.length - 1]?.role === "user" && (
           <div className="flex justify-start">
             <div
               className="max-w-[75%] px-4 py-3 rounded-lg"
