@@ -119,6 +119,13 @@ export default function AIAnalysisPage() {
   const [modalChatInput, setModalChatInput] = useState("");
   const [modalChatSending, setModalChatSending] = useState(false);
   const modalChatEndRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  // Focus the popup once when it opens (so Escape closes it). An inline
+  // ref={el => el?.focus()} re-ran on every keystroke and stole focus from the chat box.
+  const modalId = modalAnalysis?.id;
+  useEffect(() => {
+    if (modalId) modalRef.current?.focus();
+  }, [modalId]);
 
   // Refs for file inputs
   const htfRef = useRef<HTMLInputElement>(null);
@@ -1428,12 +1435,12 @@ export default function AIAnalysisPage() {
 
         return (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 outline-none"
             style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
             onClick={(e) => { if (e.target === e.currentTarget) closeAnalysisModal(); }}
             onKeyDown={(e) => { if (e.key === "Escape") closeAnalysisModal(); }}
             tabIndex={-1}
-            ref={(el) => el?.focus()}
+            ref={modalRef}
           >
             <div
               className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl"
