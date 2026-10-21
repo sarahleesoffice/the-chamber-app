@@ -4,12 +4,13 @@ import { AIProviderError, generate, pickKey } from "@/lib/ai-providers";
 import { getUserApiKeys } from "@/lib/api-keys";
 import { accessDenied } from "@/lib/access";
 import { ndjsonResponse } from "@/lib/ndjson";
+import { SMC_CONCEPTS, detectConcepts, findLectureExcerpts } from "@/lib/smc-concepts";
 
 const SMC_SYSTEM_PROMPT = `You are the AI mentor inside "The Chamber" — a trading app built on SMC (Smart Money Concepts) methodology, powered by 675+ SMC YouTube lecture transcripts, study cards, and Discord discussions.
 
 RESPONSE FORMAT — You MUST follow this structure for EVERY response:
 
-1. **Answer the question** using the provided transcript excerpts and study materials. Base your answer on the SOURCE MATERIAL provided, not general knowledge.
+1. **Answer the question** from the LECTURE EXCERPTS and study materials provided. Build the answer on what the lectures actually teach: their specific rules, conditions, times and examples. Don't fall back on generic trading advice when the excerpts cover the topic; if they don't cover it, say so briefly and keep general knowledge to a minimum.
 
 2. **📘 Study Cards** — If study cards are provided below, include a section at the end listing ONLY the cards that directly relate to the user's question (skip the rest; if none fit, leave the section out):
    📘 **Related Study Cards:**
@@ -43,24 +44,10 @@ export async function POST(req: NextRequest) {
 
     const { messages, stream } = await req.json();
 
-    // RAG: Search knowledge base for relevant SMC transcript chunks
+    // RAG: lecture transcript excerpts for the question's topics. Started now so it
+    // runs alongside the study-card lookup below; awaited before the model is called.
     const lastUserMessage = [...messages].reverse().find((m: { role: string }) => m.role === "user");
-    let ragContext = "";
-
-    if (lastUserMessage) {
-      // Try full-text search first
-      const { data: chunks } = await supabase.rpc("search_knowledge_text", {
-        search_query: lastUserMessage.content,
-        match_count: 2,
-      });
-
-      if (chunks && chunks.length > 0) {
-        ragContext = "\n\nSOURCES:\n" +
-          chunks.map((c: { content: string; source_video: string }) =>
-            `[${c.source_video || "SMC"}]: ${c.content.slice(0, 300)}`
-          ).join("\n");
-      }
-    }
+    const lecturesPromise = lastUserMessage ? findLectureExcerpts(supabase, lastUserMessage.content) : Promise.resolve([]);
 
     // RAG: Search Gamma cards + Discord
     let studyContext = "";
@@ -76,70 +63,8 @@ export async function POST(req: NextRequest) {
 
       // Also extract multi-word phrases that match common SMC concepts
       const queryLower = lastUserMessage.content.toLowerCase();
-      const SMC_CONCEPTS: Record<string, string[]> = {
-        "order block": ["order", "block"],
-        "fair value gap": ["fair", "value", "gap"],
-        "fvg": ["fair", "value", "gap", "fvg"],
-        "ote": ["optimal", "trade", "entry", "ote"],
-        "optimal trade entry": ["optimal", "trade", "entry"],
-        "breaker block": ["breaker", "block"],
-        "mitigation block": ["mitigation", "block"],
-        "rejection block": ["rejection", "block"],
-        "propulsion block": ["propulsion", "block"],
-        "vacuum block": ["vacuum", "block"],
-        "reclaimed order block": ["reclaimed", "order", "block"],
-        "judas swing": ["judas", "swing"],
-        "kill zone": ["kill", "zone"],
-        "silver bullet": ["silver", "bullet"],
-        "macro": ["macro", "macros"],
-        "liquidity": ["liquidity"],
-        "liquidity void": ["liquidity", "void"],
-        "liquidity pool": ["liquidity", "pool"],
-        "market structure": ["market", "structure"],
-        "market maker": ["market", "maker"],
-        "turtle soup": ["turtle", "soup"],
-        "power of 3": ["power"],
-        "displacement": ["displacement"],
-        "top down analysis": ["top", "down", "analysis"],
-        "bias": ["bias", "higher", "timeframe"],
-        "interest rate": ["interest", "rate"],
-        "sentiment": ["sentiment"],
-        "unicorn": ["unicorn"],
-        "2022 model": ["2022", "model"],
-      };
 
-      // Which SMC concept(s) the user is asking about: whole words plus common shorthand
-      // ("retracement" → OTE, "msb" → structure, "swept" → liquidity). Ordered so entry
-      // and setup models outrank context terms; the first match is the main topic.
-      const CONCEPT_PATTERNS: [string, RegExp][] = [
-        ["silver bullet", /\bsilver bullet\b/],
-        ["unicorn", /\bunicorn\b/],
-        ["judas swing", /\bjudas\b/],
-        ["turtle soup", /\bturtle soup\b/],
-        ["2022 model", /\b2022 (entry )?model\b/],
-        ["ote", /\b(ote|optimal trade entry|retrace(ment|ments|s|d)?|pull ?backs?|fib(onacci)?)\b/],
-        ["fair value gap", /\b(fvgs?|fair value gaps?|imbalances?|inefficienc(y|ies)|consequent encroachment)\b/],
-        ["breaker block", /\bbreakers?( blocks?)?\b/],
-        ["mitigation block", /\bmitigation blocks?\b/],
-        ["rejection block", /\brejection blocks?\b/],
-        ["propulsion block", /\bpropulsion blocks?\b/],
-        ["vacuum block", /\bvacuum blocks?\b/],
-        ["order block", /\b(obs?|order blocks?)\b/],
-        ["kill zone", /\bkill ?zones?\b/],
-        ["macro", /\bmacros?\b/],
-        ["power of 3", /\b(power of (3|three)|amd|po3)\b/],
-        ["displacement", /\bdisplacement\b/],
-        ["top down analysis", /\btop ?down\b/],
-        ["bias", /\b(bias|htf|higher time ?frame)\b/],
-        ["market maker", /\bmarket makers?\b/],
-        ["market structure", /\b(msb|mss|bos|choch|market structure|structure (break|shift))\b/],
-        ["liquidity void", /\bliquidity voids?\b/],
-        ["liquidity pool", /\bliquidity pools?\b/],
-        ["liquidity", /\b(liquidity|sweeps?|swept|raid(s|ed)?|ssl|bsl|sell ?side|buy ?side|stop hunts?|purge)\b/],
-        ["interest rate", /\binterest rates?\b/],
-        ["sentiment", /\bsentiment\b/],
-      ];
-      const matchedConcepts = CONCEPT_PATTERNS.filter(([, re]) => re.test(queryLower)).map(([c]) => c);
+      const matchedConcepts = detectConcepts(queryLower);
 
       if (words.length > 0 || matchedConcepts.length > 0) {
         const conceptTerms = [...new Set(matchedConcepts.flatMap((c) => SMC_CONCEPTS[c] || []))].filter((w) => w.length > 2);
@@ -264,18 +189,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Extract source video names from RAG context
-    if (ragContext) {
-      const videoMatches = ragContext.match(/\[([^\]]+)\]:/g);
-      if (videoMatches) {
-        const names = videoMatches.map(m => m.replace(/[\[\]:]/g, "").trim()).filter(v => v !== "SMC");
-        studyMaterials.sources = names.map(v => ({
-          video: v,
-          url: `https://www.youtube.com/results?search_query=SMC+${encodeURIComponent(v)}`,
-          isSearch: true,
-        }));
-      }
-    }
+    const lectures = await lecturesPromise;
+    const ragContext = lectures.length
+      ? "\n\nLECTURE EXCERPTS (from the SMC lecture transcripts — build your answer on these):\n" +
+        lectures.map((l) => `[${l.video}]: ${l.text}`).join("\n\n")
+      : "";
+
+    // The lecture videos the excerpts came from (one entry per video)
+    const lectureVideos = [...new Map(lectures.map((l) => [l.video, l])).values()];
+    studyMaterials.sources = lectureVideos.map((l) => ({
+      video: l.video,
+      url: l.url || `https://www.youtube.com/results?search_query=SMC+${encodeURIComponent(l.video)}`,
+    }));
 
     // If no sources found from RAG, search for matching videos directly
     if (studyMaterials.sources.length === 0 && lastUserMessage) {

@@ -4,6 +4,7 @@ import { AIProviderError, type ChatImage, generate, pickKey } from "@/lib/ai-pro
 import { getUserApiKeys } from "@/lib/api-keys";
 import { accessDenied } from "@/lib/access";
 import { ndjsonResponse } from "@/lib/ndjson";
+import { findLectureExcerpts } from "@/lib/smc-concepts";
 
 const SMC_ANALYSIS_SYSTEM_PROMPT = `You are an expert SMC (Smart Money Concepts) methodology trade analyst inside "The Chamber" trading app. You have deep knowledge of Smart Money Concepts as taught across institutional trading education.
 
@@ -197,8 +198,17 @@ export async function POST(req: NextRequest) {
     if (denied) return denied;
 
     const body: AnalysisRequest = await req.json();
-    const images = await loadChartImages(supabase, user.id, body.chart_urls);
+    // Charts and lecture excerpts for the topics in the trader's reasoning, in parallel
+    const [images, lectures] = await Promise.all([
+      loadChartImages(supabase, user.id, body.chart_urls),
+      findLectureExcerpts(supabase, [body.reasoning, body.focus].filter(Boolean).join(" ")),
+    ]);
     let userMessage = buildUserMessage(body);
+    if (lectures.length > 0) {
+      userMessage +=
+        "\n\nRelevant SMC lecture excerpts (ground your feedback in what these teach where they apply; don't quote them at length):\n" +
+        lectures.map((l) => `[${l.video}]: ${l.text}`).join("\n\n");
+    }
     if (images.length > 0) {
       userMessage += `\n\nThe ${images.length} chart screenshot${images.length > 1 ? "s are" : " is"} attached as image${images.length > 1 ? "s" : ""}, in the same order as the chart descriptions above. Read them directly: structure, liquidity, PD arrays, entry and exit.`;
     }
