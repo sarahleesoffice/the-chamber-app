@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { uploadChart } from "@/lib/storage";
+import LinkedText from "@/components/LinkedText";
 import type { Analysis } from "@/lib/types";
 import { COMMON_PAIRS } from "@/lib/trade-math";
 import StatCard from "@/components/StatCard";
@@ -1103,7 +1104,7 @@ export default function AIAnalysisPage() {
                   className="text-sm leading-relaxed whitespace-pre-wrap"
                   style={{ color: "#d0d0d0" }}
                 >
-                  {bodyText}
+                  <LinkedText text={bodyText} />
                 </div>
 
               </div>
@@ -1137,7 +1138,7 @@ export default function AIAnalysisPage() {
                       }}
                     >
                       {msg.role === "assistant" && <span className="text-xs text-chamber-orange mr-1">🔥</span>}
-                      {msg.text}
+                      {msg.role === "assistant" ? <LinkedText text={msg.text} /> : msg.text}
                     </div>
                   </div>
                 ))}
@@ -1562,7 +1563,7 @@ export default function AIAnalysisPage() {
                       {modalChat.map((msg, i) => (
                         <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                           <div
-                            className="max-w-[80%] rounded-xl px-4 py-2.5 text-sm"
+                            className="max-w-[80%] rounded-xl px-4 py-2.5 text-sm whitespace-pre-wrap"
                             style={{
                               background: msg.role === "user" ? "rgba(232,101,26,0.15)" : "rgba(255,255,255,0.05)",
                               border: msg.role === "user" ? "1px solid rgba(232,101,26,0.3)" : "1px solid rgba(255,255,255,0.08)",
@@ -1570,7 +1571,7 @@ export default function AIAnalysisPage() {
                             }}
                           >
                             {msg.role === "assistant" && <span className="text-xs text-chamber-orange mr-1">🔥</span>}
-                            {msg.text}
+                            {msg.role === "assistant" ? <LinkedText text={msg.text} /> : msg.text}
                           </div>
                         </div>
                       ))}
