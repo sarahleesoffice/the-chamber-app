@@ -507,8 +507,10 @@ Be concise and decisive. Use SMC terminology only. Every bias must cite evidence
             const res = await fetch("/api/ai-chat", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
+              // Bias is a chart read: Ember's job. Only Ember gets SMC lecture/card context.
               body: JSON.stringify({
                 messages: [{ role: "user", content: biasPrompt }],
+                mentor: "ember",
               }),
             });
             const data = await res.json();

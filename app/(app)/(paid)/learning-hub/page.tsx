@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 
 // ============================================================
 // SMC CURRICULUM DATA
@@ -206,18 +206,70 @@ const CURRICULUM = [
 // ============================================================
 // TYPES & HELPERS
 // ============================================================
-interface KnowledgeChunk {
-  id: string;
-  content: string;
-  source_video: string | null;
-  source_url: string | null;
-  tags: string[] | null;
-  chunk_index: number | null;
-  rank?: number;
-}
+// Lectures that actually teach each topic (verified against the transcripts).
+// Hand-picked, not searched: text search over the transcripts surfaces
+// livestream intros and off-topic tangents, not the lesson.
+const LECTURE_LINKS: Record<string, { title: string; url: string }[]> = {
+  "Market Structure": [
+    { title: "2022 SMC Mentorship Episode 3 \u2014 internal range liquidity & market structure shift", url: "https://www.youtube.com/watch?v=nQfHZ2DEJ8c" },
+  ],
+  "Liquidity": [
+    { title: "2022 SMC Mentorship Episode 3 \u2014 buy-side & sell-side liquidity", url: "https://www.youtube.com/watch?v=nQfHZ2DEJ8c" },
+    { title: "Orderflow & Volume Imbalances", url: "https://www.youtube.com/watch?v=_j_youagfes" },
+  ],
+  "Premium & Discount": [
+    { title: "Core Content Month 07 \u2014 Low Resistance Liquidity Runs Part 1 (premium/discount quadrants)", url: "https://www.youtube.com/watch?v=y0lVKWLsZeM" },
+    { title: "Core Content Month 07 \u2014 Market Maker Manipulation Templates", url: "https://www.youtube.com/watch?v=hbE8S5FSdtQ" },
+  ],
+  "Order Blocks": [
+    { title: "SMC Precision Trading Concepts \u2014 1 (weekly order blocks & order flow)", url: "https://www.youtube.com/watch?v=nHUtxQj5jks" },
+    { title: "Scout Sniper Basic Field Guide Vol. 5 \u2014 range finding with order blocks", url: "https://www.youtube.com/watch?v=J2C9vd4-awI" },
+  ],
+  "Fair Value Gaps": [
+    { title: "2024 Mentorship Lecture #8 \u2014 fair value gaps & the 6 PM opening price", url: "https://www.youtube.com/watch?v=zU7iAqg4sSA" },
+    { title: "Proper Learning & The Importance Of Journaling (choosing your PD array)", url: "https://www.youtube.com/watch?v=FQqwmDJOtxk" },
+  ],
+  "Displacement": [
+    { title: "2022 SMC Mentorship Episode 6 \u2014 market efficiency paradigm & institutional order flow", url: "https://www.youtube.com/watch?v=Bkt8B3kLATQ" },
+  ],
+  "Optimal Trade Entry": [
+    { title: "If I Had To Restart At 20 \u2014 Part 3 (OTE in the NY session)", url: "https://www.youtube.com/watch?v=T6YE1CEWsHk" },
+    { title: "Scout Sniper Basic Field Guide Vol. 5 \u2014 hunting optimal trade entries", url: "https://www.youtube.com/watch?v=J2C9vd4-awI" },
+  ],
+  "Kill Zones": [
+    { title: "Core Content Month 08 \u2014 Defining The Daily Range", url: "https://www.youtube.com/watch?v=_2nUKLAD9ig" },
+    { title: "2026 SMC Lecture Jan 12 \u2014 kill zones vs full sessions", url: "https://www.youtube.com/watch?v=dt9mk4n5g_o" },
+  ],
+  "Power of 3 (AMD)": [
+    { title: "2023 Mentorship \u2014 T.G.I.F. Setup (top-down premium/discount into the weekly)", url: "https://www.youtube.com/watch?v=wTR-vhOdMgo" },
+  ],
+  "Silver Bullet": [
+    { title: "2023 Mentorship \u2014 Silver Bullet Time Based Trading Model", url: "https://www.youtube.com/watch?v=tRq1hyGGtl4" },
+    { title: "2023 Mentorship \u2014 Immediate Rebalance & Institutional Order Flow", url: "https://www.youtube.com/watch?v=ZtLMTXv-Dr0" },
+  ],
+  "SMC Macros": [
+    { title: "2024 Mentorship Lecture #7 \u2014 macro time windows & alarms", url: "https://www.youtube.com/watch?v=-WItxLARGpE" },
+  ],
+  "Breaker Blocks": [
+    { title: "Core Content Month 05 \u2014 Defining HTF PD Arrays (breakers & mitigation)", url: "https://www.youtube.com/watch?v=pwO-E-OOH5k" },
+  ],
+  "Mitigation Blocks": [
+    { title: "Core Content Month 05 \u2014 Defining HTF PD Arrays (breakers & mitigation)", url: "https://www.youtube.com/watch?v=pwO-E-OOH5k" },
+  ],
+  "Institutional Order Flow": [
+    { title: "Core Content Month 03 \u2014 Institutional Order Flow", url: "https://www.youtube.com/watch?v=PQkcFbr61FI" },
+    { title: "2023 Mentorship \u2014 Deep Dive Into Institutional Order Flow", url: "https://www.youtube.com/watch?v=vN2BkfyRWE4" },
+  ],
+  "PD Arrays & Propulsion Blocks": [
+    { title: "Core Content Month 05 \u2014 Defining HTF PD Arrays", url: "https://www.youtube.com/watch?v=pwO-E-OOH5k" },
+    { title: "Core Content Month 04 \u2014 SMC Propulsion Block", url: "https://www.youtube.com/watch?v=glu98jAH8vE" },
+  ],
+  "Risk Management": [
+    { title: "Money Management That Works", url: "https://www.youtube.com/watch?v=RtMRykCZtC4" },
+    { title: "If I Could Go Back & Tell Myself What I Know Now \u2014 Part 4 (when to go live)", url: "https://www.youtube.com/watch?v=aGdx-YmxawQ" },
+  ],
+};
 
-type TopicCache = Record<string, KnowledgeChunk[]>;
-type LoadingState = Record<string, boolean>;
 
 const LEVEL_NAMES = ["All", ...CURRICULUM.map((s) => s.level)];
 const TOTAL_TOPICS = CURRICULUM.reduce((s, c) => s + c.topics.length, 0);
@@ -228,36 +280,6 @@ const TOTAL_TOPICS = CURRICULUM.reduce((s, c) => s + c.topics.length, 0);
 export default function LearningHubPage() {
   const [selectedLevel, setSelectedLevel] = useState("All");
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
-  const [topicLoading, setTopicLoading] = useState<LoadingState>({});
-  const cacheRef = useRef<TopicCache>({});
-
-  const fetchTopicContent = useCallback(async (topicName: string) => {
-    // Already cached
-    if (cacheRef.current[topicName]) return;
-
-    setTopicLoading((prev) => ({ ...prev, [topicName]: true }));
-
-    try {
-      const res = await fetch("/api/knowledge-search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: topicName, limit: 5 }),
-      });
-
-      if (!res.ok) {
-        cacheRef.current[topicName] = [];
-        return;
-      }
-
-      const json = await res.json();
-      cacheRef.current[topicName] = json.results ?? [];
-    } catch {
-      cacheRef.current[topicName] = [];
-    } finally {
-      setTopicLoading((prev) => ({ ...prev, [topicName]: false }));
-    }
-  }, []);
-
   const showSections =
     selectedLevel === "All"
       ? CURRICULUM
@@ -265,15 +287,13 @@ export default function LearningHubPage() {
 
   const visibleTopics = showSections.reduce((s, c) => s + c.topics.length, 0);
 
-  function toggleTopic(key: string, topicName: string) {
+  function toggleTopic(key: string) {
     setExpandedTopics((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
         next.delete(key);
       } else {
         next.add(key);
-        // Trigger fetch when expanding (cache prevents re-fetch)
-        fetchTopicContent(topicName);
       }
       return next;
     });
@@ -289,8 +309,7 @@ export default function LearningHubPage() {
         LEARNING HUB
       </h1>
       <p className="text-chamber-text-dim text-[0.78rem] mb-5">
-        Structured SMC curriculum pulled from 675+ of SMC&apos;s YouTube
-        lectures
+        Structured SMC curriculum, with the lectures each topic comes from
       </p>
 
       {/* ─── Level filter pills ───────────────────────────── */}
@@ -375,7 +394,7 @@ export default function LearningHubPage() {
               >
                 {/* Topic header (clickable) */}
                 <button
-                  onClick={() => toggleTopic(key, topic.name)}
+                  onClick={() => toggleTopic(key)}
                   className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-white/[0.02] transition-colors"
                 >
                   <span className="text-sm font-semibold text-chamber-text">
@@ -437,13 +456,30 @@ export default function LearningHubPage() {
                       </div>
                     )}
 
-                    {/* Transcript snippets from knowledge base (if DB is populated) */}
-                    <LessonSnippets
-                      topicName={topic.name}
-                      loading={!!topicLoading[topic.name]}
-                      chunks={cacheRef.current[topic.name]}
-                      accentColor={section.color}
-                    />
+                    {/* Watch the lectures this topic comes from */}
+                    {(LECTURE_LINKS[topic.name] || []).length > 0 && (
+                      <div className="pt-1">
+                        <p className="text-[0.7rem] tracking-wide uppercase mb-2" style={{ color: `${section.color}99` }}>
+                          Watch the lecture
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {LECTURE_LINKS[topic.name].map((l) => (
+                            <a
+                              key={l.url}
+                              href={l.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-3 rounded-md px-4 py-3 text-[0.82rem] transition-colors hover:bg-white/[0.03]"
+                              style={{ background: "#111", borderLeft: `2px solid ${section.color}55`, color: "#ddd" }}
+                            >
+                              <span className="shrink-0" style={{ color: section.color }}>▶</span>
+                              <span className="flex-1">{l.title}</span>
+                              <span className="shrink-0 text-[0.7rem]" style={{ color: "#666" }}>YouTube ↗</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -462,112 +498,6 @@ export default function LearningHubPage() {
           THIS IS NOT FINANCIAL ADVICE
         </span>
       </div>
-    </div>
-  );
-}
-
-// ============================================================
-// LESSON SNIPPETS COMPONENT
-// ============================================================
-function LessonSnippets({
-  topicName,
-  loading,
-  chunks,
-  accentColor,
-}: {
-  topicName: string;
-  loading: boolean;
-  chunks: KnowledgeChunk[] | undefined;
-  accentColor: string;
-}) {
-  const [expandedChunks, setExpandedChunks] = useState<Set<string>>(new Set());
-
-  // Loading skeleton
-  if (loading) {
-    return (
-      <div className="mt-3 space-y-2">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="rounded-md px-4 py-3 animate-pulse"
-            style={{ background: "#111" }}
-          >
-            <div className="h-3 bg-white/5 rounded w-3/4 mb-2" />
-            <div className="h-3 bg-white/5 rounded w-full mb-1" />
-            <div className="h-3 bg-white/5 rounded w-5/6" />
-          </div>
-        ))}
-        <p className="text-chamber-text-dim text-[0.72rem] text-center pt-1">
-          Searching transcripts for &ldquo;{topicName}&rdquo;...
-        </p>
-      </div>
-    );
-  }
-
-  // No transcript results — silently hide rather than show an error
-  if (!chunks || chunks.length === 0) return null;
-
-  const SNIPPET_LEN = 500;
-
-  function toggleChunkExpand(id: string) {
-    setExpandedChunks((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  return (
-    <div className="mt-3 space-y-2">
-      <p className="text-chamber-text-dim text-[0.7rem] tracking-wide uppercase mb-1">
-        From SMC Transcripts ({chunks.length} snippet{chunks.length !== 1 ? "s" : ""})
-      </p>
-
-      {chunks.map((chunk) => {
-        const isTruncated = chunk.content.length > SNIPPET_LEN;
-        const isExpanded = expandedChunks.has(chunk.id);
-        const displayText = isExpanded
-          ? chunk.content
-          : chunk.content.slice(0, SNIPPET_LEN) +
-            (isTruncated ? "..." : "");
-
-        return (
-          <div
-            key={chunk.id}
-            className="rounded-md px-4 py-3"
-            style={{
-              background: "#111",
-              borderLeft: `2px solid ${accentColor}33`,
-            }}
-          >
-            <p className="text-[#bbb] text-[0.82rem] leading-relaxed whitespace-pre-wrap">
-              {displayText}
-            </p>
-
-            {/* Source citation */}
-            {chunk.source_video && (
-              <p
-                className="mt-2 text-[0.7rem] font-medium"
-                style={{ color: `${accentColor}99` }}
-              >
-                Source: {chunk.source_video}
-              </p>
-            )}
-
-            {/* Read more toggle */}
-            {isTruncated && (
-              <button
-                onClick={() => toggleChunkExpand(chunk.id)}
-                className="mt-1 text-[0.75rem] font-medium hover:underline transition-colors"
-                style={{ color: accentColor }}
-              >
-                {isExpanded ? "Show less" : "Read more"}
-              </button>
-            )}
-          </div>
-        );
-      })}
     </div>
   );
 }
