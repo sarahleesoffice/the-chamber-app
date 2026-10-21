@@ -117,6 +117,7 @@ export async function POST(req: NextRequest) {
         },
       ],
       maxTokens: 1024,
+      effort: "low",
     });
 
     // Parse the AI response

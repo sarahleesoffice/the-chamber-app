@@ -13,7 +13,7 @@ RESPONSE FORMAT — You MUST follow this structure for EVERY response:
 
 2. **📘 Study Cards** — If study cards are provided below, include a section at the end listing ONLY the cards that directly relate to the user's question (skip the rest; if none fit, leave the section out):
    📘 **Related Study Cards:**
-   - [Card Title] — [Category]
+   - [Card Title]
    If a Gamma deck URL is provided, add: [View Study Deck](url)
 
 3. **🎥 SMC Sources** — If transcript excerpts are provided, you MUST cite them:
@@ -177,11 +177,16 @@ export async function POST(req: NextRequest) {
         const scoredCards = Array.from(allCards.values()).filter((card) => /[a-z]/i.test(card.title)).map((card) => {
           const titleLower = card.title.toLowerCase().replace(/-/g, " ");
           let score = 0;
+          // Does the card title cover the main topic (the first matched concept)?
+          const main = matchedConcepts[0];
+          const mainWords = main ? SMC_CONCEPTS[main] || [] : [];
+          const onMainTopic =
+            !!main && (hasWord(titleLower, main) || (mainWords.length > 0 && mainWords.every((w) => hasWord(titleLower, w))));
 
           // Title matches a concept from the query; the main topic (first match) counts most
           matchedConcepts.forEach((concept, i) => {
             const weight = i === 0 ? 1 : 0.5;
-            if (titleLower.includes(concept)) score += 80 * weight;
+            if (hasWord(titleLower, concept)) score += 80 * weight;
             // Also check if the concept keywords all appear in the title
             const cWords = SMC_CONCEPTS[concept] || [];
             const allPresent = cWords.every((w) => hasWord(titleLower, w));
@@ -216,12 +221,13 @@ export async function POST(req: NextRequest) {
           // Has image = higher priority (we want to show visuals)
           if (card.content?.startsWith("IMG:")) score += 8;
 
-          return { ...card, score };
+          return { ...card, score, onMainTopic };
         }).filter((c) => c.score > 12)
-          .sort((a, b) => b.score - a.score)
-          .slice(0, 4);
+          .sort((a, b) => b.score - a.score);
 
-        const rankedCards = scoredCards.length > 0 ? scoredCards : [];
+        // Cards on the main topic only; fall back to the other matches only if none exist
+        const onTopic = scoredCards.filter((c) => c.onMainTopic);
+        const rankedCards = (onTopic.length > 0 ? onTopic : scoredCards).slice(0, 3);
 
         // Discord: one thread, for the main topic. Threads are per study deck, and a deck
         // can hold cards on other topics, so pick by concept first and only fall back to
@@ -248,7 +254,7 @@ export async function POST(req: NextRequest) {
           studyMaterials.cards = rankedCards;
           studyContext += "\nSTUDY CARDS:\n" + rankedCards.map((g) => {
             const slideImg = g.content?.startsWith("IMG:") ? " [HAS SLIDE IMAGE]" : "";
-            return `- ${g.title} (${g.category})${slideImg}`;
+            return `- ${g.title}${slideImg}`;
           }).join("\n");
         }
         if (discord?.length) {
@@ -318,6 +324,7 @@ export async function POST(req: NextRequest) {
         text: m.content,
       })),
       maxTokens: 1024,
+      effort: "low" as const,
     };
 
     // Streaming: the reply shows up word by word instead of after a long wait

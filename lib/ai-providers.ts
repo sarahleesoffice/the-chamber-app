@@ -59,6 +59,11 @@ export interface GenerateOptions {
   maxTokens: number;
   /** OpenRouter only: the model the user picked */
   model?: string | null;
+  /**
+   * How hard newer Claude models think before answering. Lower starts the reply
+   * sooner (and costs less); omitted = the model's default ("high" on Sonnet 5.5).
+   */
+  effort?: "low" | "medium" | "high";
 }
 
 export interface GenerateResult {
@@ -212,6 +217,8 @@ function callAnthropic(o: GenerateOptions, onText?: OnText) {
           max_tokens: model.startsWith("claude-sonnet-5") ? Math.max(o.maxTokens, 16000) : o.maxTokens,
           system: o.system,
           messages,
+          // Effort is only understood by Sonnet 5+; older fallback models would reject it
+          ...(o.effort && model.startsWith("claude-sonnet-5") ? { output_config: { effort: o.effort } } : {}),
           ...(onText ? { stream: true } : {}),
         }),
       }),

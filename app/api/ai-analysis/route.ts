@@ -217,6 +217,7 @@ export async function POST(req: NextRequest) {
       system: SMC_ANALYSIS_SYSTEM_PROMPT,
       messages: [{ role: "user" as const, text: userMessage, images }],
       maxTokens: 2048,
+      effort: "medium" as const,
     };
 
     // Score the finished analysis and save it to the user's history
