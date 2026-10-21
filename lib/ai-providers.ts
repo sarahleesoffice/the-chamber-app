@@ -145,9 +145,22 @@ function callAnthropic(o: GenerateOptions) {
           "x-api-key": o.apiKey,
           "anthropic-version": "2023-06-01",
         },
-        body: JSON.stringify({ model, max_tokens: o.maxTokens, system: o.system, messages }),
+        body: JSON.stringify({
+          model,
+          // Sonnet 5+ thinks by default and that thinking counts toward max_tokens, so give
+          // it room; older models reject large values, so they keep the caller's limit.
+          max_tokens: model.startsWith("claude-sonnet-5") ? Math.max(o.maxTokens, 16000) : o.maxTokens,
+          system: o.system,
+          messages,
+        }),
       }),
-    (data) => (data as { content?: { text?: string }[] }).content?.[0]?.text || ""
+    // Newer models put a (hidden) thinking block first, so join every text block
+    // instead of reading content[0].
+    (data) =>
+      ((data as { content?: { type?: string; text?: string }[] }).content || [])
+        .filter((b) => b.type === "text" && b.text)
+        .map((b) => b.text)
+        .join("\n\n")
   );
 }
 
